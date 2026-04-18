@@ -1,0 +1,126 @@
+name: Validar repositorio
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  validate:
+    name: Compose, secretos, scripts
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # ---------------------------------------------------------------
+      # 1. Detectar .env reales comiteados accidentalmente.
+      #    Solo se permiten .env.example.
+      # ---------------------------------------------------------------
+      - name: Verificar que no hay .env reales en el repo
+        run: |
+          set -euo pipefail
+          # Buscar todo fichero .env (cualquier ubicación) que NO sea .env.example.
+          # Usamos `git ls-files` para ignorar lo que esté en .gitignore.
+          mapfile -t leaks < <(git ls-files | grep -E '(^|/)\.env$|(^|/).+\.env$' | grep -v '\.env\.example$' || true)
+          if (( ${#leaks[@]} > 0 )); then
+            echo "::error::Se han encontrado ficheros .env reales en el repo:"
+            for f in "${leaks[@]}"; do
+              echo "::error::  - $f"
+            done
+            echo "::error::Mover los secretos al NAS y dejar solo .env.example aquí."
+            exit 1
+          fi
+          echo "OK: no hay .env reales versionados."
+
+      # ---------------------------------------------------------------
+      # 2. Cada services/<x>/ debe tener un .env.example.
+      # ---------------------------------------------------------------
+      - name: Verificar que cada servicio tiene .env.example
+        run: |
+          set -euo pipefail
+          missing=0
+          for svc in services/*/; do
+            if [[ ! -f "${svc}.env.example" ]]; then
+              echo "::error::Falta .env.example en ${svc}"
+              missing=$((missing+1))
+            fi
+          done
+          if (( missing > 0 )); then
+            exit 1
+          fi
+          echo "OK: todos los servicios tienen .env.example."
+
+      # ---------------------------------------------------------------
+      # 3. Validar sintaxis de cada docker-compose.yml.
+      #    Usamos un .env vacío con las variables esperadas para que
+      #    `docker compose config` no falle por interpolación.
+      # ---------------------------------------------------------------
+      - name: Validar sintaxis de cada docker-compose.yml
+        run: |
+          set -euo pipefail
+          fail=0
+          for svc in services/*/; do
+            compose="${svc}docker-compose.yml"
+            if [[ ! -f "${compose}" ]]; then
+              continue
+            fi
+            echo "::group::Validando ${compose}"
+
+            # Generar un .env temporal a partir del .env.example, con valores
+            # placeholder para que `docker compose config` no rompa por
+            # variables sin definir.
+            example="${svc}.env.example"
+            tmp_env="${svc}.env"
+            if [[ -f "${example}" ]]; then
+              awk -F= '
+                /^[[:space:]]*#/ || /^[[:space:]]*$/ { next }
+                /=/ {
+                  # Si la línea tiene valor, dejarla tal cual.
+                  if (length($2) > 0) { print; next }
+                  # Si está vacía, ponerle un placeholder.
+                  print $1 "=ci-placeholder"
+                }
+              ' "${example}" > "${tmp_env}"
+            fi
+
+            if ! ( cd "${svc}" && docker compose config -q ); then
+              echo "::error::Compose inválido en ${compose}"
+              fail=$((fail+1))
+            fi
+
+            # Limpiar el .env temporal para que el siguiente paso no lo confunda
+            # con un .env real comiteado.
+            [[ -f "${tmp_env}" ]] && rm -f "${tmp_env}"
+
+            echo "::endgroup::"
+          done
+          if (( fail > 0 )); then
+            exit 1
+          fi
+          echo "OK: todos los compose válidos."
+
+      # ---------------------------------------------------------------
+      # 4. Lint de scripts shell con shellcheck.
+      # ---------------------------------------------------------------
+      - name: Instalar shellcheck
+        run: sudo apt-get update && sudo apt-get install -y shellcheck
+
+      - name: Lint de scripts/*.sh
+        run: |
+          set -euo pipefail
+          fail=0
+          shopt -s nullglob
+          for script in scripts/*.sh; do
+            echo "::group::shellcheck ${script}"
+            if ! shellcheck -x "${script}"; then
+              fail=$((fail+1))
+            fi
+            echo "::endgroup::"
+          done
+          if (( fail > 0 )); then
+            exit 1
+          fi
+          echo "OK: todos los scripts pasan shellcheck."
