@@ -59,7 +59,9 @@ Infraestructura como código (IaC) de los servicios autoalojados en el NAS Synol
 │   ├── 06-portal.md
 │   ├── 07-backups.md
 │   ├── 08-seguridad.md
-│   └── 09-troubleshooting.md
+│   ├── 09-troubleshooting.md
+│   ├── 10-dns-namecheap.md
+│   └── 11-cloudflare-tunnel.md
 ├── services/
 │   ├── paperless/
 │   │   ├── docker-compose.yml

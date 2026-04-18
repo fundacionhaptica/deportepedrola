@@ -58,6 +58,8 @@ operativa y los scripts de despliegue automatizado en el NAS Synology.
 
 - **Primera instalación** del NAS desde cero → [`docs/01-setup-inicial.md`](docs/01-setup-inicial.md).
 - **Cómo funciona el auto-deploy** y cómo añadir un servicio nuevo → [`docs/02-deploy.md`](docs/02-deploy.md).
+- **DNS: Namecheap → Cloudflare** → [`docs/10-dns-namecheap.md`](docs/10-dns-namecheap.md).
+- **Cloudflare Tunnel y Access** → [`docs/11-cloudflare-tunnel.md`](docs/11-cloudflare-tunnel.md).
 - **Diagnóstico de problemas** comunes → [`docs/09-troubleshooting.md`](docs/09-troubleshooting.md).
 - **Arquitectura global** del sistema → [`docs/00-arquitectura.md`](docs/00-arquitectura.md).
 - **Backups y recuperación** → [`docs/07-backups.md`](docs/07-backups.md).

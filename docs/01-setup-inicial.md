@@ -12,6 +12,8 @@ reinstalación completa del NAS.
 - Cuenta de administrador del NAS.
 - Cloudflare Tunnel ya operativo en el NAS (lo gestiona el otro ERP, ver
   [`docs/00-arquitectura.md`](00-arquitectura.md)).
+- Dominio `deportepedrola.com` apuntando a Cloudflare como autoridad DNS
+  (ver [`docs/10-dns-namecheap.md`](10-dns-namecheap.md) si aún no está hecho).
 - Acceso de lectura a este repositorio (PAT de GitHub o clave SSH de despliegue).
 
 ## 1. Acceder por SSH al NAS
@@ -95,7 +97,8 @@ Sigue paso a paso [`docs/03-paperless.md`](03-paperless.md), sección
 3. Rellenar `USERMAP_UID` / `USERMAP_GID` con los valores del paso 1.
 4. Levantar contenedores: `docker compose up -d`.
 5. Crear superusuario.
-6. Añadir el hostname `contabilidad.deportepedrola.com` al Cloudflare Tunnel.
+6. Añadir el hostname `contabilidad.deportepedrola.com` al Cloudflare Tunnel
+   (pasos detallados en [`docs/11-cloudflare-tunnel.md`](11-cloudflare-tunnel.md)).
 
 ## 5. Activar el cron de auto-deploy
 
