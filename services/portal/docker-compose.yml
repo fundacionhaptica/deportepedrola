@@ -1,0 +1,22 @@
+name: club-portal
+
+services:
+  web:
+    image: nginx:alpine
+    container_name: club-portal
+    restart: unless-stopped
+    ports:
+      - "8020:80"
+    volumes:
+      - ./html:/usr/share/nginx/html:ro
+    networks:
+      - club-network
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+networks:
+  club-network:
+    external: true

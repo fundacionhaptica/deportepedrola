@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="robots" content="noindex, nofollow">
+  <title>Portal · CDE Deporte Pedrola</title>
+  <style>
+    :root {
+      --amarillo: #FFD400;
+      --negro: #111111;
+      --verde: #2E7D32;
+      --gris: #f4f4f4;
+      --gris-borde: #e0e0e0;
+    }
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      background: var(--gris);
+      color: var(--negro);
+      line-height: 1.5;
+    }
+    header {
+      background: var(--negro);
+      color: var(--amarillo);
+      padding: 1.5rem 1rem;
+      border-bottom: 6px solid var(--amarillo);
+    }
+    header .wrap {
+      max-width: 960px;
+      margin: 0 auto;
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      flex-wrap: wrap;
+    }
+    header h1 {
+      margin: 0;
+      font-size: 1.4rem;
+      letter-spacing: 0.5px;
+    }
+    header h1 small {
+      display: block;
+      color: #fff;
+      font-weight: 400;
+      font-size: 0.85rem;
+      margin-top: 0.2rem;
+      opacity: 0.85;
+    }
+    .escudo {
+      width: 56px;
+      height: 56px;
+      flex: 0 0 56px;
+      border-radius: 50%;
+      background: var(--amarillo);
+      border: 3px solid var(--verde);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--negro);
+      font-weight: 700;
+      font-size: 1.1rem;
+    }
+    main {
+      max-width: 960px;
+      margin: 2rem auto;
+      padding: 0 1rem;
+    }
+    main h2 {
+      font-size: 1.1rem;
+      font-weight: 600;
+      color: #444;
+      margin: 0 0 1rem 0;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+      gap: 1rem;
+    }
+    .card {
+      display: block;
+      background: #fff;
+      border: 1px solid var(--gris-borde);
+      border-left: 6px solid var(--amarillo);
+      border-radius: 6px;
+      padding: 1.2rem;
+      text-decoration: none;
+      color: var(--negro);
+      transition: transform 0.12s ease, box-shadow 0.12s ease, border-color 0.12s ease;
+    }
+    .card:hover, .card:focus {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+      border-left-color: var(--verde);
+      outline: none;
+    }
+    .card .icon {
+      font-size: 1.8rem;
+      margin-bottom: 0.4rem;
+    }
+    .card h3 {
+      margin: 0 0 0.3rem 0;
+      font-size: 1.05rem;
+    }
+    .card p {
+      margin: 0;
+      font-size: 0.9rem;
+      color: #555;
+    }
+    .card.disabled {
+      opacity: 0.55;
+      cursor: not-allowed;
+      border-left-color: #999;
+    }
+    .card.disabled:hover {
+      transform: none;
+      box-shadow: none;
+      border-left-color: #999;
+    }
+    .badge {
+      display: inline-block;
+      margin-top: 0.5rem;
+      font-size: 0.7rem;
+      font-weight: 600;
+      letter-spacing: 0.5px;
+      padding: 2px 6px;
+      border-radius: 3px;
+      background: #f0f0f0;
+      color: #666;
+      text-transform: uppercase;
+    }
+    footer {
+      max-width: 960px;
+      margin: 2rem auto;
+      padding: 1rem;
+      font-size: 0.8rem;
+      color: #777;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="wrap">
+      <div class="escudo" aria-hidden="true">CDE</div>
+      <h1>
+        Portal interno
+        <small>Club Deportivo Elemental Deporte Pedrola</small>
+      </h1>
+    </div>
+  </header>
+
+  <main>
+    <h2>Servicios</h2>
+    <div class="grid">
+
+      <a class="card" href="https://contabilidad.deportepedrola.com">
+        <div class="icon" aria-hidden="true">📄</div>
+        <h3>Contabilidad</h3>
+        <p>Archivo documental con OCR: facturas, justificantes y convenios.</p>
+      </a>
+
+      <a class="card" href="https://socios.deportepedrola.com">
+        <div class="icon" aria-hidden="true">👥</div>
+        <h3>Socios y cuotas</h3>
+        <p>Base de datos de socios, secciones, cuotas, gastos y subvenciones.</p>
+      </a>
+
+      <a class="card" href="https://stats.deportepedrola.com">
+        <div class="icon" aria-hidden="true">📊</div>
+        <h3>Gráficas</h3>
+        <p>Dashboards de junta y asamblea con la actividad del club.</p>
+      </a>
+
+      <!-- pendiente: rellenar href con la URL del n8n del club -->
+      <a class="card disabled" href="#" aria-disabled="true">
+        <div class="icon" aria-hidden="true">🔄</div>
+        <h3>Automatizaciones</h3>
+        <p>Flujos n8n: cobros, recordatorios, integración Stripe.</p>
+        <span class="badge">Pendiente</span>
+      </a>
+
+      <!-- pendiente: rellenar href con la URL del SaaS Verifactu elegido -->
+      <a class="card disabled" href="#" aria-disabled="true">
+        <div class="icon" aria-hidden="true">💶</div>
+        <h3>Facturación Verifactu</h3>
+        <p>Emisión de facturas con IVA conforme al RD 1007/2023.</p>
+        <span class="badge">Pendiente</span>
+      </a>
+
+    </div>
+  </main>
+
+  <footer>
+    Acceso restringido a miembros autorizados del club ·
+    <a href="mailto:sdmpedrola@dpz.es" style="color: var(--negro);">sdmpedrola@dpz.es</a>
+  </footer>
+</body>
+</html>
