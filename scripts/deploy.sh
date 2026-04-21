@@ -94,8 +94,8 @@ for svc_dir in "${REPO_DIR}/services"/*/; do
     continue
   fi
 
-  if ! docker compose up -d 2>&1 | sed 's/^/      /'; then
-    log "    ${svc_name}: docker compose up -d FALLÓ."
+  if ! docker compose up -d --remove-orphans 2>&1 | sed 's/^/      /'; then
+    log "    ${svc_name}: docker compose up -d --remove-orphans FALLÓ."
     failed+=1
     popd >/dev/null
     continue

@@ -103,12 +103,56 @@ jobs:
           echo "OK: todos los compose válidos."
 
       # ---------------------------------------------------------------
-      # 4. Lint de scripts shell con shellcheck.
+      # 4. Detectar secrets hardcodeados con valor literal.
+      #    Busca patrones como password=abc123 o secret_key="literal".
+      #    Excluye: archivos .example, líneas con ${, getenv, process.env,
+      #    environ, y valores placeholder conocidos (changeme, ci-placeholder).
+      # ---------------------------------------------------------------
+      - name: Buscar secrets hardcodeados con valor literal
+        run: |
+          set -euo pipefail
+          # Archivos a escanear: yml, sh, py, js, json (rastreados por git, excluye .example)
+          mapfile -t files < <(
+            git ls-files \
+              -- '*.yml' '*.yaml' '*.sh' '*.py' '*.js' '*.json' \
+              | grep -v '\.example$' || true
+          )
+          if (( ${#files[@]} == 0 )); then
+            echo "OK: no hay ficheros a escanear."
+            exit 0
+          fi
+
+          # Patrón: clave sensible seguida de = y un valor literal no vacío.
+          # Excluimos interpolaciones (${}), referencias a env, y placeholders.
+          leaks=()
+          while IFS= read -r match; do
+            leaks+=("${match}")
+          done < <(
+            grep -n \
+              -E "(password|secret|token|api_key|apikey|private_key)\s*[=:]\s*['\"]?[A-Za-z0-9+/=_\-]{8,}['\"]?" \
+              "${files[@]}" \
+              | grep -v '\${\|getenv\|process\.env\|environ\[' \
+              | grep -vi 'changeme\|ci-placeholder\|example\|your-\|placeholder\|<[A-Z_]\+>' \
+              || true
+          )
+
+          if (( ${#leaks[@]} > 0 )); then
+            echo "::error::Posibles secrets hardcodeados encontrados:"
+            for l in "${leaks[@]}"; do
+              echo "::error::  ${l}"
+            done
+            echo "::error::Mover los valores al .env real del NAS."
+            exit 1
+          fi
+          echo "OK: no se detectaron secrets literales."
+
+      # ---------------------------------------------------------------
+      # 5. Lint de scripts shell con shellcheck.
       # ---------------------------------------------------------------
       - name: Instalar shellcheck
         run: sudo apt-get update && sudo apt-get install -y shellcheck
 
-      - name: Lint de scripts/*.sh
+      - name: Lint de scripts/*.sh (shellcheck)
         run: |
           set -euo pipefail
           fail=0
