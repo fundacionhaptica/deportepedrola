@@ -96,14 +96,15 @@ jobs:
       # ---------------------------------------------------------------
       # 4. Buscar secretos hardcodeados.
       #    Detecta password=/secret=/token= con valor literal.
-      #    Excluye: .env.example, referencias a variables ($VAR, ${VAR}),
-      #    y acceso a entorno en código (os.environ, process.env, getenv).
+      #    Excluye: .env.example, .md (documentación con ejemplos de variables),
+      #    referencias a variables ($VAR, ${VAR}), y acceso a entorno en código
+      #    (os.environ, process.env, getenv).
       # ---------------------------------------------------------------
       - name: Buscar secretos hardcodeados
         run: |
           set -euo pipefail
 
-          mapfile -t files < <(git ls-files | grep -vE '(^|/)\.env\.example$')
+          mapfile -t files < <(git ls-files | grep -vE '(^|/)\.env\.example$|(^|/)[^/]+\.md$')
 
           fails=0
           for f in "${files[@]}"; do
