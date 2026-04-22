@@ -22,8 +22,6 @@ jobs:
       - name: Verificar que no hay .env reales en el repo
         run: |
           set -euo pipefail
-          # Buscar todo fichero .env (cualquier ubicación) que NO sea .env.example.
-          # Usamos `git ls-files` para ignorar lo que esté en .gitignore.
           mapfile -t leaks < <(git ls-files | grep -E '(^|/)\.env$|(^|/).+\.env$' | grep -v '\.env\.example$' || true)
           if (( ${#leaks[@]} > 0 )); then
             echo "::error::Se han encontrado ficheros .env reales en el repo:"
@@ -55,7 +53,7 @@ jobs:
 
       # ---------------------------------------------------------------
       # 3. Validar sintaxis de cada docker-compose.yml.
-      #    Usamos un .env vacío con las variables esperadas para que
+      #    Usamos un .env temporal con placeholders para que
       #    `docker compose config` no falle por interpolación.
       # ---------------------------------------------------------------
       - name: Validar sintaxis de cada docker-compose.yml
@@ -68,33 +66,22 @@ jobs:
               continue
             fi
             echo "::group::Validando ${compose}"
-
-            # Generar un .env temporal a partir del .env.example, con valores
-            # placeholder para que `docker compose config` no rompa por
-            # variables sin definir.
             example="${svc}.env.example"
             tmp_env="${svc}.env"
             if [[ -f "${example}" ]]; then
               awk -F= '
                 /^[[:space:]]*#/ || /^[[:space:]]*$/ { next }
                 /=/ {
-                  # Si la línea tiene valor, dejarla tal cual.
                   if (length($2) > 0) { print; next }
-                  # Si está vacía, ponerle un placeholder.
                   print $1 "=ci-placeholder"
                 }
               ' "${example}" > "${tmp_env}"
             fi
-
             if ! ( cd "${svc}" && docker compose config -q ); then
               echo "::error::Compose inválido en ${compose}"
               fail=$((fail+1))
             fi
-
-            # Limpiar el .env temporal para que el siguiente paso no lo confunda
-            # con un .env real comiteado.
             [[ -f "${tmp_env}" ]] && rm -f "${tmp_env}"
-
             echo "::endgroup::"
           done
           if (( fail > 0 )); then
@@ -103,10 +90,50 @@ jobs:
           echo "OK: todos los compose válidos."
 
       # ---------------------------------------------------------------
-      # 4. Lint de scripts shell con shellcheck.
+      # 4. Buscar secretos hardcodeados.
+      #    Detecta password=/secret=/token= con valor literal en
+      #    archivos versionados. Excluye: .env.example, líneas
+      #    comentadas, referencias a variables ($VAR, ${VAR},
+      #    process.env.X, environ[...]).
+      # ---------------------------------------------------------------
+      - name: Buscar secretos hardcodeados
+        run: |
+          set -euo pipefail
+          mapfile -t files < <(
+            git ls-files \
+              -- '*.yml' '*.yaml' '*.json' '*.py' '*.js' '*.sh' \
+              ':!*.env.example' \
+            2>/dev/null || true
+          )
+          if (( ${#files[@]} == 0 )); then
+            echo "OK: sin archivos relevantes que analizar."
+            exit 0
+          fi
+          found=0
+          while IFS= read -r match; do
+            echo "::error::Posible secreto hardcodeado: ${match}"
+            found=$(( found + 1 ))
+          done < <(
+            printf '%s\n' "${files[@]}" \
+            | xargs grep -inHE \
+                '(password|secret|token|api_key|passwd)[[:space:]]*[=:][[:space:]]*[^[:space:]]' \
+              2>/dev/null \
+            | grep -vE ':[0-9]+:[[:space:]]*#' \
+            | grep -vE '\$[{(]' \
+            | grep -vE 'process[.]env[.]' \
+            | grep -vE 'environ\[' \
+            || true
+          )
+          if (( found > 0 )); then
+            exit 1
+          fi
+          echo "OK: no se detectaron secretos hardcodeados."
+
+      # ---------------------------------------------------------------
+      # 5. Lint de scripts shell con shellcheck.
       # ---------------------------------------------------------------
       - name: Instalar shellcheck
-        run: sudo apt-get update && sudo apt-get install -y shellcheck
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq shellcheck
 
       - name: Lint de scripts/*.sh
         run: |
@@ -124,3 +151,51 @@ jobs:
             exit 1
           fi
           echo "OK: todos los scripts pasan shellcheck."
+
+      # ---------------------------------------------------------------
+      # 6. Compilación sintáctica Python (si hay archivos .py).
+      #    python3 está preinstalado en ubuntu-latest; sin deps extra.
+      # ---------------------------------------------------------------
+      - name: Verificar sintaxis Python
+        run: |
+          set -euo pipefail
+          mapfile -t py_files < <(git ls-files -- '*.py' 2>/dev/null || true)
+          if (( ${#py_files[@]} == 0 )); then
+            echo "Sin archivos .py, paso omitido."
+            exit 0
+          fi
+          fail=0
+          for f in "${py_files[@]}"; do
+            if ! python3 -m py_compile "${f}"; then
+              echo "::error::Error de sintaxis en ${f}"
+              fail=$(( fail + 1 ))
+            fi
+          done
+          if (( fail > 0 )); then
+            exit 1
+          fi
+          echo "OK: todos los archivos .py son sintácticamente válidos."
+
+      # ---------------------------------------------------------------
+      # 7. Verificación sintáctica JavaScript (si hay .js no minificados).
+      #    node está preinstalado en ubuntu-latest; sin deps extra.
+      # ---------------------------------------------------------------
+      - name: Verificar sintaxis JavaScript
+        run: |
+          set -euo pipefail
+          mapfile -t js_files < <(git ls-files -- '*.js' ':!*.min.js' 2>/dev/null || true)
+          if (( ${#js_files[@]} == 0 )); then
+            echo "Sin archivos .js (o solo .min.js), paso omitido."
+            exit 0
+          fi
+          fail=0
+          for f in "${js_files[@]}"; do
+            if ! node --check "${f}"; then
+              echo "::error::Error de sintaxis en ${f}"
+              fail=$(( fail + 1 ))
+            fi
+          done
+          if (( fail > 0 )); then
+            exit 1
+          fi
+          echo "OK: todos los archivos .js son sintácticamente válidos."
