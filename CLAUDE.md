@@ -14,6 +14,27 @@ Mantenedor único: **Jaime** (presidente del club).
 
 **Todas las comunicaciones, commits, documentación y comentarios en español.** Solo los nombres técnicos (variables, clases, tags de Docker) en inglés por convención.
 
+## Reglas críticas (leer antes de actuar)
+
+Estas reglas tienen prioridad sobre cualquier otra consideración:
+
+1. **Nunca borrar ni mover archivos del NAS sin confirmación de Jaime.**
+   Esto incluye cualquier ruta bajo `/volume1/docker/club/`, volúmenes de contenedores,
+   backups y logs. En caso de duda, preguntar primero.
+
+2. **Nunca hardcodear secretos.** Ninguna contraseña, token, API key ni clave secreta
+   puede aparecer en ningún archivo versionado. Todo va en `.env` (solo en el NAS).
+
+3. **`.env` nunca se commitea.** Solo `.env.example` es público. Si detectas un `.env`
+   real en el working tree, abortar inmediatamente y avisar.
+
+4. **Webhooks futuros deben validar HMAC.** Si algún servicio del stack expone un
+   endpoint de webhook (n8n, GitHub Actions, etc.), debe verificar la firma HMAC
+   antes de procesar la petición. Sin validación → rechazar la petición.
+
+5. **SSH: usar ed25519 para claves nuevas.**
+   `ssh-keygen -t ed25519 -C "nas-club"` — nunca RSA-1024 ni DSA.
+
 ## Objetivo del repositorio
 
 Infraestructura como código (IaC) de los servicios autoalojados en el NAS Synology del club, desplegados con Docker Compose.
@@ -37,6 +58,29 @@ Infraestructura como código (IaC) de los servicios autoalojados en el NAS Synol
 - **DNS**: Cloudflare (dominio `deportepedrola.com`).
 - **Registrar**: Namecheap.
 - **CI/CD**: GitHub Actions valida PRs; el NAS hace `git pull` cada 5 min (cron).
+
+## Mecanismo de deploy
+
+**Solo cron pull — no hay webhook de deploy** (Decisión #6).
+
+El NAS ejecuta `deploy.sh` cada 5 minutos vía crontab:
+
+```
+*/5 * * * * /ruta/al/repo/scripts/deploy.sh >> /volume1/docker/club/logs/deploy.log 2>&1
+```
+
+Flujo interno de `deploy.sh`:
+
+1. Comprueba que el working tree está limpio → aborta ruidosamente si hay cambios locales.
+2. `git fetch --quiet origin main`
+3. Si `HEAD == origin/main` → sale silenciosamente (sin loguear, sin spam).
+4. Si hay cambios: `git pull --ff-only origin main` — **FAIL-HARD** (sin `|| true`).
+5. Para cada `services/*/` que tenga `docker-compose.yml` **y** `.env`:
+   `docker compose pull && docker compose up -d`
+6. Servicios sin `.env` → aviso en log, se saltan (no rompen el deploy global).
+
+`bootstrap-nas.sh` se ejecuta **una sola vez** (con `sudo`) al instalar el stack por
+primera vez. Es idempotente pero no es el deploy habitual.
 
 ## Estructura del repositorio
 
@@ -130,6 +174,7 @@ Español, imperativo, descriptivo:
 - ❌ **No asumir rutas, UIDs o configuración del NAS sin confirmar.** Preguntar si no está en este repo.
 - ❌ **No usar herramientas de pago** salvo que expresamente se decida (el club es sin ánimo de lucro).
 - ❌ **No generar contenido legal, fiscal o jurídico vinculante.** Sugerir consultar al asesor fiscal cuando aplique.
+- ❌ **No borrar ni mover carpetas del NAS** (`/volume1/docker/club/`). Contienen datos de producción. Siempre confirmar con Jaime antes.
 
 ## Qué hacer cuando tengas dudas
 
