@@ -86,11 +86,31 @@ def _deploy(repo: str) -> bool:
 # Rutas
 # ---------------------------------------------------------------------------
 
-@app.post("/webhook")
-def webhook():
+@app.post("/hooks/<repo>")
+def hooks(repo: str):
     payload = request.get_data()
     if not _verify_hmac(payload, request.headers.get("X-Hub-Signature-256", "")):
         abort(403)
+    if request.headers.get("X-GitHub-Event") == "ping":
+        return jsonify(ok=True, msg="pong"), 200
+    if repo not in REPO_MAP:
+        return jsonify(ok=True, skipped="repo desconocido"), 200
+    data = request.get_json(force=True, silent=True) or {}
+    ref  = data.get("ref", "")
+    if ref and ref != "refs/heads/main":
+        return jsonify(ok=True, skipped="no es main"), 200
+    ok = _deploy(repo)
+    return jsonify(ok=ok), (200 if ok else 500)
+
+
+@app.post("/webhook")
+def webhook():
+    """Endpoint legacy — usar /hooks/<repo> para nuevos webhooks."""
+    payload = request.get_data()
+    if not _verify_hmac(payload, request.headers.get("X-Hub-Signature-256", "")):
+        abort(403)
+    if request.headers.get("X-GitHub-Event") == "ping":
+        return jsonify(ok=True, msg="pong"), 200
     data = request.get_json(force=True, silent=True) or {}
     repo = (data.get("repository") or {}).get("name", "")
     ref  = data.get("ref", "")

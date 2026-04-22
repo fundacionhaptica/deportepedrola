@@ -1,35 +1,93 @@
-# 02 — Deploy automático (pull desde el NAS)
+# 02 — Deploy automático
 
-## Flujo completo
+## Mecanismo principal: webhook → deploy-panel → SSH
+
+El deploy se dispara en segundos tras el merge a `main`. El cron actúa como
+fallback de 5 minutos si el webhook falla.
 
 ```
-   Desarrollador                      GitHub                         NAS
-        │                               │                             │
-        │ 1. push a rama feat/xxx       │                             │
-        ├──────────────────────────────►│                             │
-        │                               │ 2. GitHub Actions valida    │
-        │                               │    (compose + secretos +    │
-        │                               │     shellcheck)             │
-        │ 3. PR a main                  │                             │
-        ├──────────────────────────────►│                             │
-        │                               │ 4. Validate.yml verde       │
-        │ 5. Merge a main               │                             │
-        ├──────────────────────────────►│                             │
-        │                               │                             │
-        │                               │  ◄──────────────────────────┤ 6. cron */5 lanza
-        │                               │      git fetch              │    scripts/deploy.sh
-        │                               │                             │
-        │                               │  ──────────────────────────►│ 7. ¿hay cambios?
-        │                               │      hash diferente            sí → git pull
-        │                               │                                no → salir
-        │                               │                             │
-        │                               │                             │ 8. para cada
-        │                               │                             │    services/<x>:
-        │                               │                             │      docker compose
-        │                               │                             │      pull && up -d
-        │                               │                             │
-        │                               │                             │ 9. log con timestamp
+   Desarrollador        GitHub            deploy-panel        NAS
+        │                 │                    │               │
+        │ 1. push feat/   │                    │               │
+        ├────────────────►│                    │               │
+        │                 │ 2. Actions valida  │               │
+        │ 3. PR → main    │                    │               │
+        ├────────────────►│                    │               │
+        │                 │ 4. Merge a main    │               │
+        ├────────────────►│                    │               │
+        │                 │                    │               │
+        │                 │ 5. webhook POST    │               │
+        │                 │  /hooks/<repo>     │               │
+        │                 ├───────────────────►│               │
+        │                 │                    │ 6. valida HMAC│
+        │                 │                    │ 7. SSH →      │
+        │                 │                    │  deploy.sh    │
+        │                 │                    ├──────────────►│
+        │                 │                    │               │ 8. git pull
+        │                 │                    │               │ 9. compose
+        │                 │                    │               │    pull && up -d
+        │                 │                    │               │10. log timestamp
 ```
+
+### Fallback: cron en el NAS (cada 5 min)
+
+Si el webhook no llega (red, reinicio del panel), el NAS recoge el cambio:
+
+```
+   NAS cron */5 * * * *
+        │ lanza scripts/deploy.sh
+        │ git fetch → ¿hay cambios? → git pull → compose up -d
+        │ sin cambios → exit 0 silencioso
+```
+
+## Configurar webhooks en GitHub (una vez por repo)
+
+Para cada repositorio: **Settings → Webhooks → Add webhook**
+
+| Campo          | Valor                                              |
+| -------------- | -------------------------------------------------- |
+| Payload URL    | `https://deploy.ruizespana.com/hooks/<repo>`       |
+| Content type   | `application/json`                                 |
+| Secret         | valor de `WEBHOOK_SECRET` del `.env` del panel     |
+| Events         | **Just the push event**                            |
+
+`<repo>` debe coincidir exactamente con las claves del `REPO_MAP` en
+`services/deploy-panel/app/main.py`:
+
+| Repo GitHub       | URL webhook                                           |
+| ----------------- | ----------------------------------------------------- |
+| `club`            | `https://deploy.ruizespana.com/hooks/club`            |
+| `ruizespana`      | `https://deploy.ruizespana.com/hooks/ruizespana`      |
+| `ERP-haptica`     | `https://deploy.ruizespana.com/hooks/ERP-haptica`     |
+
+Al guardar, GitHub envía un `ping` (evento especial). El panel responde `pong`
+con HTTP 200 — bola verde en la UI de GitHub.
+
+**Verificar**: tras un push a `main`, hacer **Redeliver** en la UI de GitHub y
+comprobar la respuesta + el log del panel:
+
+```bash
+# En el NAS:
+tail -20 /volume1/docker/club/logs/deploy-panel.log
+```
+
+## Configurar el fallback en DSM Task Scheduler (una vez por repo)
+
+**Panel de control → Programador de tareas → Crear → Tarea programada → Script definido por el usuario**
+
+| Campo        | Valor                        |
+| ------------ | ---------------------------- |
+| Usuario      | `root`                       |
+| Programación | cada 5 min                   |
+| Script       | ver abajo                    |
+
+Script para el repo `club`:
+
+```bash
+bash /volume1/docker/club/repo/scripts/deploy.sh >> /volume1/docker/club/logs/deploy.log 2>&1
+```
+
+Repetir para cada repo con su ruta correspondiente.
 
 ## Validación previa en GitHub Actions
 
@@ -43,17 +101,16 @@
 
 Sin verde de Actions, no se mergea a `main`.
 
-## Configurar el cron
+## Script deploy.sh (cron fallback)
 
-Una sola línea en el `crontab` del usuario operador del NAS:
+El script `scripts/deploy.sh` es **idempotente y silencioso si no hay cambios**:
+si el hash del remoto coincide con el local, sale con código 0 sin loguear ruido.
+
+Alternativa al Task Scheduler de DSM — añadir al crontab del operador en el NAS:
 
 ```cron
 */5 * * * * /volume1/docker/club/repo/scripts/deploy.sh >> /volume1/docker/club/logs/deploy.log 2>&1
 ```
-
-El script es **idempotente y silencioso si no hay cambios**: si el hash del
-remoto coincide con el local, sale con código 0 sin tocar nada y sin loguear
-ruido.
 
 ## Rollback manual
 
