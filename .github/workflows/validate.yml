@@ -22,8 +22,6 @@ jobs:
       - name: Verificar que no hay .env reales en el repo
         run: |
           set -euo pipefail
-          # Buscar todo fichero .env (cualquier ubicación) que NO sea .env.example.
-          # Usamos `git ls-files` para ignorar lo que esté en .gitignore.
           mapfile -t leaks < <(git ls-files | grep -E '(^|/)\.env$|(^|/).+\.env$' | grep -v '\.env\.example$' || true)
           if (( ${#leaks[@]} > 0 )); then
             echo "::error::Se han encontrado ficheros .env reales en el repo:"
@@ -69,18 +67,13 @@ jobs:
             fi
             echo "::group::Validando ${compose}"
 
-            # Generar un .env temporal a partir del .env.example, con valores
-            # placeholder para que `docker compose config` no rompa por
-            # variables sin definir.
             example="${svc}.env.example"
             tmp_env="${svc}.env"
             if [[ -f "${example}" ]]; then
               awk -F= '
                 /^[[:space:]]*#/ || /^[[:space:]]*$/ { next }
                 /=/ {
-                  # Si la línea tiene valor, dejarla tal cual.
                   if (length($2) > 0) { print; next }
-                  # Si está vacía, ponerle un placeholder.
                   print $1 "=ci-placeholder"
                 }
               ' "${example}" > "${tmp_env}"
@@ -91,8 +84,6 @@ jobs:
               fail=$((fail+1))
             fi
 
-            # Limpiar el .env temporal para que el siguiente paso no lo confunda
-            # con un .env real comiteado.
             [[ -f "${tmp_env}" ]] && rm -f "${tmp_env}"
 
             echo "::endgroup::"
@@ -103,10 +94,51 @@ jobs:
           echo "OK: todos los compose válidos."
 
       # ---------------------------------------------------------------
-      # 4. Lint de scripts shell con shellcheck.
+      # 4. Buscar secretos hardcodeados.
+      #    Detecta password=/secret=/token= con valor literal.
+      #    Excluye: .env.example, referencias a variables ($VAR, ${VAR}),
+      #    y acceso a entorno en código (os.environ, process.env, getenv).
+      # ---------------------------------------------------------------
+      - name: Buscar secretos hardcodeados
+        run: |
+          set -euo pipefail
+
+          mapfile -t files < <(git ls-files | grep -vE '(^|/)\.env\.example$')
+
+          fails=0
+          for f in "${files[@]}"; do
+            [[ -f "${f}" ]] || continue
+            # Saltar binarios conocidos
+            [[ "${f}" =~ \.(png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot|pdf|zip|tar|gz|lock)$ ]] && continue
+
+            while IFS= read -r match; do
+              # Saltar referencias a variables del shell/compose: ${VAR}, $VAR, $(cmd)
+              [[ "${match}" =~ \$[\{\(] ]] && continue
+              [[ "${match}" =~ \$[A-Za-z_] ]] && continue
+              # Saltar acceso a entorno en lenguajes: os.environ, process.env, getenv, env[
+              [[ "${match}" =~ [Ee]nviron|process\.env|getenv|env\[ ]] && continue
+              # Saltar líneas de comentario (#, //, --)
+              [[ "${match}" =~ ^[0-9]+:[[:space:]]*(#|//|--) ]] && continue
+              # Saltar valores vacíos o solo espacios tras = o :
+              [[ "${match}" =~ [=:][[:space:]]*$ ]] && continue
+              # Saltar placeholders del CI generados en el paso anterior
+              [[ "${match}" =~ ci-placeholder ]] && continue
+
+              echo "::error::Posible secreto hardcodeado en ${f}: ${match}"
+              fails=$((fails + 1))
+            done < <(grep -niE '(password|secret|token)[[:space:]]*[=:][[:space:]]*\S' "${f}" 2>/dev/null || true)
+          done
+
+          if (( fails > 0 )); then
+            exit 1
+          fi
+          echo "OK: no se detectaron secretos hardcodeados."
+
+      # ---------------------------------------------------------------
+      # 5. Lint de scripts shell con shellcheck.
       # ---------------------------------------------------------------
       - name: Instalar shellcheck
-        run: sudo apt-get update && sudo apt-get install -y shellcheck
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq shellcheck
 
       - name: Lint de scripts/*.sh
         run: |
@@ -124,3 +156,53 @@ jobs:
             exit 1
           fi
           echo "OK: todos los scripts pasan shellcheck."
+
+      # ---------------------------------------------------------------
+      # 6. Validar sintaxis Python (si hay .py en el repo).
+      # ---------------------------------------------------------------
+      - name: Validar sintaxis Python
+        run: |
+          set -euo pipefail
+          mapfile -t pyfiles < <(git ls-files '*.py' || true)
+          if (( ${#pyfiles[@]} == 0 )); then
+            echo "Sin ficheros .py, saltando."
+            exit 0
+          fi
+          fail=0
+          for f in "${pyfiles[@]}"; do
+            echo "::group::py_compile ${f}"
+            if ! python3 -m py_compile "${f}"; then
+              echo "::error::Sintaxis Python inválida en ${f}"
+              fail=$((fail+1))
+            fi
+            echo "::endgroup::"
+          done
+          if (( fail > 0 )); then
+            exit 1
+          fi
+          echo "OK: ${#pyfiles[@]} fichero(s) Python válidos."
+
+      # ---------------------------------------------------------------
+      # 7. Validar sintaxis JavaScript (si hay .js, excluir .min.js).
+      # ---------------------------------------------------------------
+      - name: Validar sintaxis JavaScript
+        run: |
+          set -euo pipefail
+          mapfile -t jsfiles < <(git ls-files '*.js' | grep -v '\.min\.js$' || true)
+          if (( ${#jsfiles[@]} == 0 )); then
+            echo "Sin ficheros .js (no minificados), saltando."
+            exit 0
+          fi
+          fail=0
+          for f in "${jsfiles[@]}"; do
+            echo "::group::node --check ${f}"
+            if ! node --check "${f}"; then
+              echo "::error::Sintaxis JavaScript inválida en ${f}"
+              fail=$((fail+1))
+            fi
+            echo "::endgroup::"
+          done
+          if (( fail > 0 )); then
+            exit 1
+          fi
+          echo "OK: ${#jsfiles[@]} fichero(s) JS válidos."
