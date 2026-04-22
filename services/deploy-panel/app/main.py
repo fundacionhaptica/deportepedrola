@@ -13,9 +13,9 @@ from flask import Flask, abort, jsonify, render_template_string, request
 # REPO_MAP: nombre exacto del repo en GitHub → script de deploy en el NAS
 # ---------------------------------------------------------------------------
 REPO_MAP: dict[str, str] = {
-    "club":        "/volume1/docker/club/scripts/deploy.sh",
-    "ruizespana":  "/volume1/docker/ruizespana/scripts/deploy.sh",
-    "ERP-haptica": "/volume1/docker/ERP-haptica/scripts/deploy.sh",
+    "club":        "/volume1/@appdata/ContainerManager/all_shares/docker/club/repo/scripts/deploy.sh",
+    "ruizespana":  "/volume1/@appdata/ContainerManager/all_shares/docker/ruizespana/pisos-app/deploy.sh",
+    "ERP-haptica": "/volume1/@appdata/ContainerManager/all_shares/docker/ERP-haptica/scripts/deploy.sh",
 }
 
 WEBHOOK_SECRET       = os.environ["WEBHOOK_SECRET"].encode()
