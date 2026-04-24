@@ -61,6 +61,8 @@ services:
       PAPERLESS_OCR_LANGUAGES: spa
       PAPERLESS_OCR_LANGUAGE: spa
       PAPERLESS_ADMIN_USER: ${PAPERLESS_ADMIN_USER:-}
+      PAPERLESS_ADMIN_PASSWORD: ${PAPERLESS_ADMIN_PASSWORD:-}
+      PAPERLESS_ADMIN_MAIL: ${PAPERLESS_ADMIN_MAIL:-}
       PAPERLESS_URL: https://contabilidad.deportepedrola.com
       PAPERLESS_ALLOWED_HOSTS: contabilidad.deportepedrola.com,localhost
       PAPERLESS_CORS_ALLOWED_HOSTS: https://contabilidad.deportepedrola.com

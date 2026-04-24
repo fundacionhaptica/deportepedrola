@@ -35,9 +35,15 @@ docker compose logs -f web
 # Recrear el web tras cambiar el .env
 docker compose up -d --force-recreate web
 
-# Crear superusuario
-docker compose exec web python3 manage.py createsuperuser
+# Cambiar la contraseña de un usuario (admin, junta u oficina)
+docker compose exec web python3 manage.py changepassword <usuario>
 
 # Reindexar búsqueda
 docker compose exec web python3 manage.py document_index reindex
 ```
+
+> El superusuario `admin` se auto-crea en el primer arranque leyendo
+> `PAPERLESS_ADMIN_USER` / `PAPERLESS_ADMIN_PASSWORD` / `PAPERLESS_ADMIN_MAIL`
+> del `.env`. Los usuarios `junta` y `oficina` se crean una sola vez desde
+> *Settings → Users & Groups* en la UI (ver
+> [`docs/03-paperless.md`](../../docs/03-paperless.md) § 5).

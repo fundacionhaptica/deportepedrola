@@ -65,53 +65,117 @@ sección).
   Cifrado client-side garantiza que el proveedor no puede leer los datos
   aunque acceda al fichero.
 
-## Cloudflare Access
+## Modelo de autenticación
 
-Cloudflare Access es un proxy de autenticación gratuito que se sienta
-**delante de un subdominio** y exige que el visitante demuestre identidad
-(email + código, Google login, etc.) antes de que la petición llegue al
-NAS. Se configura en Cloudflare Zero Trust → Access → Applications.
+El stack del club usa **una única capa de autenticación: el login propio
+de cada servicio** (Paperless, NocoDB, Metabase). No hay Cloudflare Access
+delante ni SSO autohospedado. La decisión es explícita: el club es pequeño,
+la junta es pequeña, y añadir capas adicionales cuesta mantenimiento sin
+aportar seguridad real en este contexto.
 
-### Subdominios protegidos por Access
+Lo que **sí protege** el stack:
 
-- `socios.deportepedrola.com` → solo miembros de la junta directiva.
-- `stats.deportepedrola.com` → solo miembros de la junta directiva.
-- `contabilidad.deportepedrola.com` → solo el responsable contable + presidencia.
+- El NAS no expone puertos al router. Todo el tráfico externo entra por el
+  Cloudflare Tunnel (ver [`docs/00-arquitectura.md`](00-arquitectura.md)).
+- Cada servicio tiene su propia BBDD Postgres con contraseñas hasheadas
+  (bcrypt) por el propio servicio. Las contraseñas en claro **nunca** viven
+  en la BBDD ni en logs.
+- Los secretos de infraestructura (passwords de Postgres, Django secret
+  keys, etc.) viven en `.env` **solo en el NAS**, con `chmod 600`.
+- El subdominio público `erp.deportepedrola.com` (portal índice) es HTML
+  estático sin backend ni datos — aunque se liste el resto de subdominios,
+  la protección real está en el login de cada servicio.
 
-### Subdominio público (sin Access)
+### Modelo de roles
 
-- `erp.deportepedrola.com` → portal índice. Es público pero no expone datos
-  sensibles, solo enlaces. La protección real está en cada servicio destino.
+Cada servicio del club tiene **tres usuarios de rol** (cuatro en NocoDB
+cuando toque). Son cuentas compartidas dentro del club; las credenciales
+se distribuyen vía el gestor de contraseñas del club.
 
-### Cómo configurar una nueva Access Application
+| Rol       | Quién entra                              | Permisos típicos |
+|-----------|------------------------------------------|-------------------|
+| `admin`   | Presidencia (mantenedor único)           | Todo, incluida gestión de usuarios. |
+| `junta`   | Junta directiva (vocales, tesorería)     | Lectura/escritura completa salvo gestión de usuarios. |
+| `oficina` | Personal administrativo que archiva      | Ver, subir y etiquetar documentos. SIN borrar ni editar corresponsales/tipos. |
+| `socio`   | *(Solo NocoDB, en el futuro)*            | Vista limitada a su propia fila. No aplica en Paperless ni Metabase. |
 
-1. Cloudflare Zero Trust → Access → Applications → Add an application →
-   Self-hosted.
-2. **Application name**: `Club <servicio>`.
-3. **Session duration**: 24 hours (ajustar según uso).
-4. **Application domain**: el subdominio completo
-   (`socios.deportepedrola.com`).
-5. **Identity providers**: One-time PIN (email) basta para empezar.
-6. **Policy**: Allow → Selector "Emails" → lista explícita de emails
-   autorizados. **No usar dominios enteros** salvo que se quiera autorizar
-   a cualquiera de ese dominio.
+El rol `admin` se **auto-crea en el primer arranque** leyendo
+`PAPERLESS_ADMIN_USER` / `PAPERLESS_ADMIN_PASSWORD` / `PAPERLESS_ADMIN_MAIL`
+del `.env`. Los roles `junta` y `oficina` se **crean una sola vez desde la
+UI** (`Settings → Users & Groups`) al montar el servicio, usando las
+contraseñas `CLUB_USER_JUNTA_PASSWORD` y `CLUB_USER_OFICINA_PASSWORD` que
+viven en el mismo `.env` como referencia (Paperless no las lee).
 
-> Si el servicio destino tiene su propio sistema de autenticación
-> (Paperless, NocoDB, Metabase), Cloudflare Access funciona como una capa
-> extra: hay que pasar Access **y** loguearse en el servicio. Es lo deseado.
+Procedimiento detallado: [`docs/03-paperless.md`](03-paperless.md) § 5.
+
+### Ventajas y contraprestaciones del modelo de roles
+
+**Ventajas**:
+
+- Simplísimo de operar: ~3 usuarios por servicio, no ~15.
+- No hay que dar de alta/baja cada vez que rota un vocal.
+- Las contraseñas están todas en un único sitio (gestor del club).
+
+**Contraprestaciones asumidas conscientemente**:
+
+- **Trazabilidad reducida**: si dos personas entran con el usuario `junta`,
+  Paperless solo sabe que "entró junta". No es auditable individualmente.
+- **Rotación por salida**: cuando alguien con acceso a la contraseña
+  `junta` deja el club, **hay que rotar esa contraseña** y redistribuirla
+  a los demás miembros. Lo mismo con `oficina`.
+- **No hay MFA**: los servicios aceptan solo usuario+contraseña. Mitigación:
+  contraseñas largas (`openssl rand -base64 24`), gestor de contraseñas
+  obligatorio, y el gestor **sí** con MFA.
+
+Si en el futuro el club crece o alguno de estos contras empieza a doler,
+la migración natural es a cuentas individuales (una por persona de la
+junta). El cambio se hace desde la misma UI de cada servicio sin tocar
+infraestructura.
 
 ## Gestión de secretos
 
+El `.env` de cada servicio mezcla dos tipos de secretos conceptualmente
+distintos. Conviene tenerlos separados mentalmente:
+
+### Tipo 1 — Secretos de infraestructura
+
+- Ejemplos: `POSTGRES_PASSWORD`, `PAPERLESS_SECRET_KEY`.
+- Los lee el contenedor al arrancar. Nadie humano los teclea nunca.
+- Se generan una sola vez con `openssl rand -base64 32` (o `60` para
+  la secret key de Django) y se olvidan.
+- No hacen falta en el gestor de contraseñas del club: si se pierden,
+  se rotan y se levanta el servicio otra vez. Los datos (documentos
+  de Paperless, filas de NocoDB) no dependen de estos secretos, solo
+  el acceso a la BBDD interna.
+
+### Tipo 2 — Contraseñas de roles humanos
+
+- Ejemplos: `PAPERLESS_ADMIN_PASSWORD`, `CLUB_USER_JUNTA_PASSWORD`,
+  `CLUB_USER_OFICINA_PASSWORD`.
+- **Las teclea la junta cada vez que entra a un servicio**.
+- Se generan una vez con `openssl rand -base64 24` y **se copian al
+  gestor de contraseñas del club antes de cerrar el fichero**. Esto es
+  obligatorio: si se pierden sin copia, hay que resetearlas desde la UI
+  (como admin) o desde `docker compose exec web python3 manage.py
+  changepassword`.
+
+### Reglas comunes
+
 - **Cada servicio** tiene su `.env.example` (público, sin valores) y su
-  `.env` (privado, solo en el NAS, en `.gitignore`).
-- **Generación**: `openssl rand -base64 32` para passwords; ver
-  [`docs/03-paperless.md`](03-paperless.md) sección "Generar secretos".
-- **Almacenamiento off-NAS**: una copia de los secretos críticos en el
-  gestor de contraseñas del club (Bitwarden, 1Password o equivalente),
-  no en post-its ni en emails.
+  `.env` (privado, solo en el NAS, en `.gitignore`, con `chmod 600`).
+- **Gestor de contraseñas del club**: opción recomendada **KeePassXC**
+  con el archivo `club.kdbx` guardado en una carpeta compartida del
+  Synology (accesible solo a la junta). Master key memorizada por el
+  presidente + copia en sobre sellado físico en la secretaría del club.
+  Alternativa si la junta crece: Vaultwarden autohospedado (importa
+  directamente el `.kdbx`).
 - **Rotación**: si un secreto se filtra (commit accidental, log
   publicado, etc.), se considera **quemado para siempre**. Hay que rotarlo
   inmediatamente, aunque luego se borre del histórico de git.
+- **Rotación programada**: las contraseñas de los roles humanos
+  (`admin`, `junta`, `oficina`) se rotan **obligatoriamente** cuando
+  alguien con acceso deja el club, y **recomendablemente** una vez al
+  año en la asamblea.
 
 ### Editar `.env` en el NAS
 
