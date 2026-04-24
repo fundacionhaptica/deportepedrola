@@ -76,8 +76,10 @@ El NAS tiene IP fija pero **no se abren los puertos 80/443 en el router**.
 El túnel saliente de Cloudflare ya está montado para otros servicios; añadir
 un servicio del club consiste en sumar un hostname a la configuración del
 túnel existente. Beneficios: sin exposición directa a Internet, WAF
-gratuito, certificados gestionados, posibilidad de poner Cloudflare Access
-delante de subdominios sensibles.
+gratuito, certificados gestionados. La autenticación de los subdominios
+del club se resuelve con el login propio de cada servicio (no se usa
+Cloudflare Access — ver [`docs/08-seguridad.md`](08-seguridad.md) §
+"Modelo de autenticación").
 
 ### Subdominios separados, no subrutas
 

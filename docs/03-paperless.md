@@ -47,14 +47,24 @@ openssl rand -base64 60 | tr -d '\n'
 cd /volume1/docker/club/repo/services/paperless
 cp .env.example .env
 nano .env
+sudo chmod 600 .env
 ```
 
 Rellena:
 
-- `POSTGRES_PASSWORD=` con el primer secreto.
-- `PAPERLESS_SECRET_KEY=` con el segundo.
 - `USERMAP_UID=` con tu UID (`id -u`).
 - `USERMAP_GID=` con tu GID (`id -g`).
+- `POSTGRES_PASSWORD=` con el primer secreto.
+- `PAPERLESS_SECRET_KEY=` con el segundo.
+- `PAPERLESS_ADMIN_USER=admin` (nombre del superusuario — se deja así).
+- `PAPERLESS_ADMIN_PASSWORD=` con `openssl rand -base64 24`.
+- `PAPERLESS_ADMIN_MAIL=sdmpedrola@dpz.es`.
+- `CLUB_USER_JUNTA_PASSWORD=` con otra `openssl rand -base64 24` (referencia,
+  Paperless no la lee — la usarás tú al crear el usuario desde la UI).
+- `CLUB_USER_OFICINA_PASSWORD=` con otra `openssl rand -base64 24` (igual).
+
+Apunta las tres contraseñas de usuario (admin, junta, oficina) en el gestor
+de contraseñas del club **antes** de cerrar el fichero.
 
 > ⚠️ El UID/GID deben coincidir con el propietario de
 > `/volume1/docker/club/paperless/`. Si no, los contenedores no podrán
@@ -68,18 +78,39 @@ docker compose ps
 # Los tres deben estar Up. paperless-web tarda ~30s en pasar el healthcheck.
 ```
 
-### 4. Crear superusuario
+Al arrancar por primera vez, Paperless lee `PAPERLESS_ADMIN_USER` /
+`PAPERLESS_ADMIN_PASSWORD` / `PAPERLESS_ADMIN_MAIL` y crea el superusuario
+`admin` automáticamente. **No hace falta `createsuperuser`**.
 
-```bash
-docker compose exec web python3 manage.py createsuperuser
-# Username: jaime
-# Email:    sdmpedrola@dpz.es
-# Password: <usar gestor de contraseñas>
-```
+### 4. Verificar acceso local
 
-### 5. Verificar acceso local
+Abre `http://<ip-del-nas>:8010` desde la red del club y entra con:
 
-Abre `http://<ip-del-nas>:8010` desde la red del club. Debes ver el login.
+- Usuario: `admin`
+- Contraseña: la que pusiste en `PAPERLESS_ADMIN_PASSWORD`.
+
+### 5. Crear los usuarios de rol `junta` y `oficina`
+
+Desde la UI, logueado como `admin`:
+
+1. **Settings → Users & Groups → Groups → Add**:
+   - Grupo `Junta`: marcar todos los permisos *except* los que empiezan por
+     `User`, `Group` y `Permission` (gestión de usuarios reservada a admin).
+   - Grupo `Oficina`: marcar permisos `view_document`, `add_document`,
+     `change_document`, y los de tags (`view_tag`, `add_tag`,
+     `change_tag`). Dejar SIN marcar `delete_document`,
+     `*_correspondent` y `*_documenttype` (no puede borrar documentos ni
+     editar corresponsales/tipos).
+2. **Settings → Users & Groups → Users → Add**:
+   - Usuario `junta`, grupo `Junta`, contraseña = `CLUB_USER_JUNTA_PASSWORD`
+     del `.env`.
+   - Usuario `oficina`, grupo `Oficina`, contraseña =
+     `CLUB_USER_OFICINA_PASSWORD` del `.env`.
+
+A partir de aquí los tres roles pueden entrar a
+`https://contabilidad.deportepedrola.com` con sus credenciales. Se comparten
+dentro del club vía el gestor de contraseñas (ver
+[`docs/08-seguridad.md`](08-seguridad.md)).
 
 ### 6. Exponer por Cloudflare Tunnel
 

@@ -31,12 +31,25 @@ viven en `club-network`, conexión interna sin pasar por Internet.
 - **Tesorería**: saldo proyectado, próximos vencimientos, ingresos vs gastos
   por trimestre.
 
+## Autenticación
+
+Se aplicará el mismo modelo de roles que en Paperless (ver
+[`docs/08-seguridad.md`](08-seguridad.md) § "Modelo de roles"):
+
+- `admin` (presidencia): configuración completa y alta de dashboards.
+- `junta` (vocales): acceso a todos los dashboards en lectura.
+- El rol `oficina` **no aplica** en Metabase.
+- El rol `socio` **no aplica** en Metabase (los dashboards son internos).
+
+Metabase community **no auto-crea admin desde variables de entorno**: la
+cuenta admin se crea en el wizard del primer arranque. Los usuarios
+adicionales se crean desde la UI (*Admin → People*), usando las
+contraseñas guardadas en el `.env` como referencia.
+
 ## Pendientes
 
 - Que NocoDB esté operativo con datos reales.
 - Definir los dashboards concretos con la junta.
-- Configurar Cloudflare Access para restringir el acceso a los miembros de
-  la junta (no es información que deba ser pública aunque la URL se filtre).
 
 Cuando se configure, esta documentación se sustituirá por la guía operativa
 completa siguiendo el patrón de [`03-paperless.md`](03-paperless.md).

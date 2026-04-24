@@ -124,9 +124,12 @@ Gateway o 504 Gateway Timeout en el navegador.
      || sudo systemctl status cloudflared
    ```
 
-5. **¿Hay Cloudflare Access bloqueando?** Si la cabecera de respuesta
-   tiene `Cf-Access-*`, Access está interceptando. Verificar la policy
-   de la Application en Cloudflare Zero Trust.
+5. **¿Alguien ha metido Cloudflare Access delante?** El stack del club
+   **no usa** Access (ver [`docs/08-seguridad.md`](08-seguridad.md)).
+   Si la cabecera de respuesta tiene `Cf-Access-*`, alguien ha añadido
+   una Access Application en Cloudflare Zero Trust sin documentarlo;
+   quitarla o, si la decisión se revisó con Jaime, actualizar
+   `docs/08-seguridad.md`.
 
 ## Login en Paperless da error de CSRF / cierra sesión al instante
 

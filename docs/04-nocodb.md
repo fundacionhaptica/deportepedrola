@@ -35,12 +35,31 @@ URL prevista: **`https://socios.deportepedrola.com`**
 - **Paperless** no se integra técnicamente: el enlace es manual, se copia el
   ASN del documento en la fila correspondiente de NocoDB.
 
+## Autenticación
+
+Se aplicará el mismo modelo de roles que en Paperless (ver
+[`docs/08-seguridad.md`](08-seguridad.md) § "Modelo de roles"):
+
+- `admin` (presidencia): superadmin, gestión de esquema y usuarios.
+- `junta` (vocales): lectura/escritura completa sobre todas las tablas.
+- `oficina` (administrativo): lectura/escritura limitada a tablas
+  operativas (`socios`, `inscripciones`, `cuotas`, `pagos`), sin acceso
+  a `gastos` ni `subvenciones`.
+- `socio` (futuro): vista limitada a su propia fila en `socios`,
+  `inscripciones` y `cuotas`. Solo se habilitará si se decide exponer
+  autoconsulta a los socios; inicialmente **no se activa**.
+
+Bootstrap: NocoDB crea el admin en el primer arranque leyendo
+`NC_ADMIN_EMAIL` + `NC_ADMIN_PASSWORD` del `.env`. Los roles `junta`,
+`oficina` (y opcionalmente `socio`) se crean una sola vez desde la UI
+(*Team & Settings → Users*), usando las contraseñas guardadas en el
+`.env` como referencia.
+
 ## Pendientes
 
 - Decidir esquema final de tablas con la junta.
 - Importar el listado actual de socios (CSV exportado del sistema previo).
-- Configurar permisos por rol (junta directiva ve todo, responsables de sección
-  solo su sección).
+- Afinar permisos concretos por rol en cada tabla/vista de NocoDB.
 - Documentar el flujo de renovación anual de junio.
 
 Cuando se configure, esta documentación se sustituirá por la guía operativa
