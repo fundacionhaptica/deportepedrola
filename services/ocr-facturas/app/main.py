@@ -24,6 +24,11 @@ async def startup():
     await db.init_db()
 
 
+@app.get("/health", include_in_schema=False)
+async def health():
+    return {"status": "ok"}
+
+
 # ── Servir frontend ──────────────────────────────────────────────────────────
 
 app.mount("/static", StaticFiles(directory="static"), name="static")
