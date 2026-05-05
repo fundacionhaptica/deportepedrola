@@ -1,0 +1,61 @@
+services:
+  erp-db:
+    image: postgres:16-alpine
+    container_name: club-erp-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - /volume1/docker/club/erp/db:/var/lib/postgresql/data
+    networks:
+      - club-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  erp:
+    image: dolibarr/dolibarr:21
+    container_name: club-erp-web
+    restart: unless-stopped
+    depends_on:
+      erp-db:
+        condition: service_healthy
+    environment:
+      DOLI_DB_TYPE: pgsql
+      DOLI_DB_HOST: erp-db
+      DOLI_DB_PORT: "5432"
+      DOLI_DB_NAME: ${POSTGRES_DB}
+      DOLI_DB_USER: ${POSTGRES_USER}
+      DOLI_DB_PASSWORD: ${POSTGRES_PASSWORD}
+      DOLI_ADMIN_LOGIN: ${DOLI_ADMIN_LOGIN}
+      DOLI_ADMIN_PASSWORD: ${DOLI_ADMIN_PASSWORD}
+      DOLI_URL_ROOT: https://erp.deportepedrola.com
+      DOLI_COMPANY_NAME: "Club Deportivo Elemental Deporte Pedrola"
+      DOLI_COMPANY_COUNTRYCODE: ES
+      DOLI_MODULES: >-
+        modAccounting,
+        modFournisseur,
+        modFacture,
+        modBanque,
+        modAdherent,
+        modDon,
+        modExpenseReport,
+        modCategorie,
+        modExport,
+        modImport
+      PHP_INI_DATE_TIMEZONE: Europe/Madrid
+    volumes:
+      - /volume1/docker/club/erp/html/custom:/var/www/html/custom
+      - /volume1/docker/club/erp/documents:/var/www/documents
+    networks:
+      - club-network
+    ports:
+      - "127.0.0.1:8085:80"
+
+networks:
+  club-network:
+    external: true

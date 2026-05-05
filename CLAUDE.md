@@ -41,13 +41,17 @@ Infraestructura como código (IaC) de los servicios autoalojados en el NAS Synol
 
 ## Estado actual de los servicios
 
-| Servicio  | Propósito                      | Subdominio                        | Estado        |
-| --------- | ------------------------------ | --------------------------------- | ------------- |
-| Portal    | Índice de acceso a servicios   | `erp.deportepedrola.com`          | 📝 Planificado |
-| Paperless | Archivo documental + OCR       | `contabilidad.deportepedrola.com` | 🚧 En progreso |
-| NocoDB    | BBDD de socios, cuotas, gastos | `socios.deportepedrola.com`       | 📝 Planificado |
-| Metabase  | Dashboards junta/asamblea      | `stats.deportepedrola.com`        | 📝 Planificado |
-| n8n       | Automatizaciones Stripe/email  | (ya existente, fuera del repo)    | ✅ Operativo   |
+| Servicio  | Propósito                                                  | Subdominio                        | Estado            |
+| --------- | ---------------------------------------------------------- | --------------------------------- | ----------------- |
+| Portal    | Índice de acceso + tracker de fases                        | `portal.deportepedrola.com`       | ✅ Desplegado      |
+| Dolibarr  | ERP: contabilidad, socios, facturación, donaciones         | `erp.deportepedrola.com`          | 🚧 En instalación  |
+| Paperless | Archivo documental + OCR (contratos, actas, convenios)     | `contabilidad.deportepedrola.com` | 📝 Planificado     |
+| n8n       | Automatizaciones Stripe/email                              | (ya existente, fuera del repo)    | ✅ Operativo       |
+
+**Decisión #9 — Dolibarr sustituye a NocoDB + Metabase** (2026-05-05):
+NocoDB y Metabase se descartan. Dolibarr cubre todo en un único servicio: módulo de
+adherentes (socios), contabilidad, facturación, donaciones e informes exportables.
+Un solo contenedor a mantener, soporte nativo en español, imagen Docker oficial.
 
 ## Stack técnico
 
@@ -123,7 +127,7 @@ primera vez. Es idempotente pero no es el deploy habitual.
 
 ## Decisiones de diseño ya tomadas (NO revisitar sin motivo)
 
-1. **Subdominios separados, no subrutas.** Paperless, NocoDB y Metabase tienen bugs conocidos con subrutas. Un subdominio por servicio + un portal índice en `erp.deportepedrola.com`.
+1. **Subdominios separados, no subrutas.** Un subdominio por servicio. Portal índice en `portal.deportepedrola.com`; ERP (Dolibarr) en `erp.deportepedrola.com`.
 2. **Cloudflare Tunnel, no port forwarding.** Aunque el NAS tiene IP fija, los puertos 80/443 no se abren en el router. El túnel ya existe en el NAS para otros servicios; se añaden hostnames nuevos al túnel existente.
 3. **Aislamiento del otro ERP.** El NAS aloja otro ERP de una empresa distinta (otra persona jurídica). Por RGPD:
    - Red Docker separada (`club-network`).
@@ -148,7 +152,7 @@ primera vez. Es idempotente pero no es el deploy habitual.
 
 ### Subdominios
 
-Descriptivos en español, no nombres de producto: `contabilidad` (no `paperless`), `socios` (no `nocodb`), `stats` (no `metabase`). Permite cambiar la herramienta sin cambiar la URL.
+Descriptivos en español, no nombres de producto: `contabilidad` (no `paperless`), `erp` (no `dolibarr`), `portal` (índice de servicios). Permite cambiar la herramienta sin cambiar la URL.
 
 ### Commits
 
