@@ -1,0 +1,31 @@
+name: club-ocr-facturas
+
+services:
+  ocr-facturas:
+    build: .
+    container_name: club-ocr-facturas
+    restart: unless-stopped
+    env_file: .env
+    volumes:
+      - /volume1/docker/club/ocr-facturas/db:/app/data
+      - /volume1/docker/club/ocr-facturas/uploads:/app/uploads
+    ports:
+      - "127.0.0.1:8086:8000"
+    networks:
+      - club-network
+      - ia-net
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 30s
+      timeout: 5s
+      start_period: 15s
+      retries: 3
+    depends_on:
+      vision-router:
+        condition: service_healthy
+
+networks:
+  club-network:
+    external: true
+  ia-net:
+    external: true
