@@ -10,6 +10,8 @@
       --amarillo: #FFD400;
       --negro: #111111;
       --verde: #2E7D32;
+      --rojo: #c0392b;
+      --azul: #1565c0;
       --gris: #f4f4f4;
       --gris-borde: #e0e0e0;
     }
@@ -72,10 +74,13 @@
       font-size: 1.1rem;
       font-weight: 600;
       color: #444;
-      margin: 0 0 1rem 0;
+      margin: 2rem 0 1rem 0;
       text-transform: uppercase;
       letter-spacing: 1px;
     }
+    main h2:first-child { margin-top: 0; }
+
+    /* ── Tarjetas de servicios ── */
     .grid {
       display: grid;
       grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
@@ -133,6 +138,134 @@
       color: #666;
       text-transform: uppercase;
     }
+
+    /* ── Tracker de fases ── */
+    .phases {
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+      border: 1px solid var(--gris-borde);
+      border-radius: 8px;
+      overflow: hidden;
+      background: #fff;
+    }
+    .phase {
+      display: flex;
+      align-items: flex-start;
+      gap: 1rem;
+      padding: 1rem 1.2rem;
+      border-bottom: 1px solid var(--gris-borde);
+      position: relative;
+    }
+    .phase:last-child { border-bottom: none; }
+    .phase-indicator {
+      flex: 0 0 32px;
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1rem;
+      font-weight: 700;
+      margin-top: 2px;
+    }
+    .phase[data-status="done"] .phase-indicator {
+      background: #e8f5e9;
+      color: var(--verde);
+      border: 2px solid var(--verde);
+    }
+    .phase[data-status="progress"] .phase-indicator {
+      background: #fff8e1;
+      color: #f57f17;
+      border: 2px solid #f9a825;
+    }
+    .phase[data-status="planned"] .phase-indicator {
+      background: #f5f5f5;
+      color: #9e9e9e;
+      border: 2px solid #bdbdbd;
+    }
+    .phase[data-status="blocked"] .phase-indicator {
+      background: #ffebee;
+      color: var(--rojo);
+      border: 2px solid var(--rojo);
+    }
+    .phase-body { flex: 1; }
+    .phase-header {
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      flex-wrap: wrap;
+    }
+    .phase-title {
+      font-weight: 600;
+      font-size: 0.95rem;
+    }
+    .phase-status {
+      font-size: 0.7rem;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      padding: 2px 7px;
+      border-radius: 20px;
+      text-transform: uppercase;
+    }
+    .phase[data-status="done"] .phase-status {
+      background: #e8f5e9; color: var(--verde);
+    }
+    .phase[data-status="progress"] .phase-status {
+      background: #fff8e1; color: #f57f17;
+    }
+    .phase[data-status="planned"] .phase-status {
+      background: #f5f5f5; color: #757575;
+    }
+    .phase[data-status="blocked"] .phase-status {
+      background: #ffebee; color: var(--rojo);
+    }
+    .phase-tasks {
+      margin: 0.4rem 0 0 0;
+      padding: 0;
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 0.15rem;
+    }
+    .phase-tasks li {
+      font-size: 0.85rem;
+      color: #555;
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+    }
+    .phase-tasks li::before { content: "·"; color: #bbb; }
+    .phase-tasks li.done { color: #888; text-decoration: line-through; }
+    .phase-tasks li.done::before { content: "✓"; color: var(--verde); text-decoration: none; }
+    .phase-tasks li.wip::before { content: "→"; color: #f9a825; }
+
+    .progress-bar-wrap {
+      display: flex;
+      align-items: center;
+      gap: 0.7rem;
+      margin-bottom: 1rem;
+    }
+    .progress-bar-wrap span {
+      font-size: 0.8rem;
+      color: #666;
+      white-space: nowrap;
+    }
+    .progress-bar {
+      flex: 1;
+      height: 8px;
+      background: #e0e0e0;
+      border-radius: 4px;
+      overflow: hidden;
+    }
+    .progress-bar-fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--verde), var(--amarillo));
+      border-radius: 4px;
+      transition: width 0.4s ease;
+    }
+
     footer {
       max-width: 960px;
       margin: 2rem auto;
@@ -155,28 +288,27 @@
   </header>
 
   <main>
+
+    <!-- ══════════════════════════════════════════
+         SECCIÓN: Servicios activos
+    ═══════════════════════════════════════════ -->
     <h2>Servicios</h2>
     <div class="grid">
 
-      <a class="card" href="https://contabilidad.deportepedrola.com">
+      <a class="card disabled" href="#" aria-disabled="true">
+        <div class="icon" aria-hidden="true">🏛️</div>
+        <h3>ERP del club</h3>
+        <p>Contabilidad, socios, cuotas, facturación y subvenciones.</p>
+        <span class="badge">En instalación</span>
+      </a>
+
+      <a class="card disabled" href="#" aria-disabled="true">
         <div class="icon" aria-hidden="true">📄</div>
-        <h3>Contabilidad</h3>
-        <p>Archivo documental con OCR: facturas, justificantes y convenios.</p>
+        <h3>Archivo documental</h3>
+        <p>Archivo con OCR: contratos, actas, convenios y documentos del club.</p>
+        <span class="badge">Pendiente</span>
       </a>
 
-      <a class="card" href="https://socios.deportepedrola.com">
-        <div class="icon" aria-hidden="true">👥</div>
-        <h3>Socios y cuotas</h3>
-        <p>Base de datos de socios, secciones, cuotas, gastos y subvenciones.</p>
-      </a>
-
-      <a class="card" href="https://stats.deportepedrola.com">
-        <div class="icon" aria-hidden="true">📊</div>
-        <h3>Gráficas</h3>
-        <p>Dashboards de junta y asamblea con la actividad del club.</p>
-      </a>
-
-      <!-- pendiente: rellenar href con la URL del n8n del club -->
       <a class="card disabled" href="#" aria-disabled="true">
         <div class="icon" aria-hidden="true">🔄</div>
         <h3>Automatizaciones</h3>
@@ -184,15 +316,135 @@
         <span class="badge">Pendiente</span>
       </a>
 
-      <!-- pendiente: rellenar href con la URL del SaaS Verifactu elegido -->
       <a class="card disabled" href="#" aria-disabled="true">
         <div class="icon" aria-hidden="true">💶</div>
         <h3>Facturación Verifactu</h3>
         <p>Emisión de facturas con IVA conforme al RD 1007/2023.</p>
-        <span class="badge">Pendiente</span>
+        <span class="badge">SaaS externo</span>
       </a>
 
     </div>
+
+    <!-- ══════════════════════════════════════════
+         SECCIÓN: Fases de despliegue
+    ═══════════════════════════════════════════ -->
+    <h2>Fases de despliegue</h2>
+
+    <div class="progress-bar-wrap">
+      <span>Progreso global</span>
+      <div class="progress-bar">
+        <div class="progress-bar-fill" style="width: 20%"></div>
+      </div>
+      <span>20%</span>
+    </div>
+
+    <div class="phases">
+
+      <!-- FASE 0 -->
+      <div class="phase" data-status="done">
+        <div class="phase-indicator">0</div>
+        <div class="phase-body">
+          <div class="phase-header">
+            <span class="phase-title">Infraestructura base</span>
+            <span class="phase-status">Completado</span>
+          </div>
+          <ul class="phase-tasks">
+            <li class="done">Red Docker <code>club-network</code> creada</li>
+            <li class="done">Scripts <code>bootstrap-nas.sh</code> y <code>deploy.sh</code></li>
+            <li class="done">CI/CD con GitHub Actions (validación de compose y secretos)</li>
+            <li class="done">Portal índice estático desplegado</li>
+            <li class="done">Panel de deploy multi-repo</li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- FASE 1 -->
+      <div class="phase" data-status="progress">
+        <div class="phase-indicator">1</div>
+        <div class="phase-body">
+          <div class="phase-header">
+            <span class="phase-title">ERP del club — Dolibarr</span>
+            <span class="phase-status">En progreso</span>
+          </div>
+          <ul class="phase-tasks">
+            <li class="wip">Docker Compose de Dolibarr en <code>services/erp/</code></li>
+            <li>Configurar subdominio <code>erp.deportepedrola.com</code> en Cloudflare Tunnel</li>
+            <li>Activar módulos: contabilidad, socios, facturación, donaciones</li>
+            <li>Configurar plan de cuentas para asociaciones (PGC simplificado)</li>
+            <li>Crear tipos de cuota por sección deportiva</li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- FASE 2 -->
+      <div class="phase" data-status="planned">
+        <div class="phase-indicator">2</div>
+        <div class="phase-body">
+          <div class="phase-header">
+            <span class="phase-title">Carga inicial de datos</span>
+            <span class="phase-status">Planificado</span>
+          </div>
+          <ul class="phase-tasks">
+            <li>Importar listado de socios desde Google Drive (CSV → Dolibarr)</li>
+            <li>Cargar histórico de cuotas y pagos</li>
+            <li>Importar facturas recibidas históricas</li>
+            <li>Verificar integridad de datos importados</li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- FASE 3 -->
+      <div class="phase" data-status="planned">
+        <div class="phase-indicator">3</div>
+        <div class="phase-body">
+          <div class="phase-header">
+            <span class="phase-title">Integración Stripe ↔ n8n ↔ Dolibarr</span>
+            <span class="phase-status">Planificado</span>
+          </div>
+          <ul class="phase-tasks">
+            <li>Flujo n8n: pago Stripe → alta/renovación socio en Dolibarr</li>
+            <li>Flujo n8n: baja automática por impago</li>
+            <li>Envío automático de recibo de pago por email</li>
+            <li>Sincronización de cuotas entre Stripe y Dolibarr</li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- FASE 4 -->
+      <div class="phase" data-status="planned">
+        <div class="phase-indicator">4</div>
+        <div class="phase-body">
+          <div class="phase-header">
+            <span class="phase-title">Archivo documental — Paperless</span>
+            <span class="phase-status">Planificado</span>
+          </div>
+          <ul class="phase-tasks">
+            <li>Desplegar Paperless-NGX en <code>contabilidad.deportepedrola.com</code></li>
+            <li>OCR de facturas, contratos y convenios</li>
+            <li>Vincular documentos digitalizados con registros de Dolibarr</li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- FASE 5 -->
+      <div class="phase" data-status="planned">
+        <div class="phase-indicator">5</div>
+        <div class="phase-body">
+          <div class="phase-header">
+            <span class="phase-title">Informes y dashboards para junta/asamblea</span>
+            <span class="phase-status">Planificado</span>
+          </div>
+          <ul class="phase-tasks">
+            <li>Plantillas de informe de gastos por sección</li>
+            <li>Informe anual de ingresos/gastos para asamblea</li>
+            <li>Exportación de justificaciones de subvenciones</li>
+            <li>Plantilla de informe de donación (Ley 49/2002)</li>
+          </ul>
+        </div>
+      </div>
+
+    </div><!-- /.phases -->
+
   </main>
 
   <footer>
