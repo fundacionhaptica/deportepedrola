@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>OCR Facturas · CDE Deporte Pedrola</title>
+  <style>
+    :root {
+      --amarillo: #FFD400;
+      --negro: #111;
+      --verde: #2E7D32;
+      --gris: #f4f4f4;
+      --borde: #e0e0e0;
+      --rojo: #c0392b;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+           background: var(--gris); color: var(--negro); line-height: 1.5; }
+
+    header {
+      background: var(--negro); color: var(--amarillo);
+      padding: 1rem 1.5rem; border-bottom: 5px solid var(--amarillo);
+      display: flex; align-items: center; gap: 1rem;
+    }
+    header h1 { font-size: 1.2rem; }
+    header small { color: #fff; font-weight: 400; font-size: 0.8rem; display: block; opacity: .8; }
+
+    .wrap { max-width: 1100px; margin: 0 auto; padding: 1.5rem 1rem; }
+
+    .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; }
+    @media (max-width: 720px) { .cols { grid-template-columns: 1fr; } }
+
+    .card {
+      background: #fff; border: 1px solid var(--borde);
+      border-radius: 8px; padding: 1.2rem;
+    }
+    .card h2 { font-size: .9rem; text-transform: uppercase; letter-spacing: .5px;
+                color: #555; margin-bottom: 1rem; }
+
+    /* Drop zone */
+    .dropzone {
+      border: 2px dashed var(--amarillo); border-radius: 8px;
+      padding: 2rem 1rem; text-align: center; cursor: pointer;
+      transition: background .15s;
+    }
+    .dropzone.over { background: #fff8e1; }
+    .dropzone p { color: #666; font-size: .9rem; margin-top: .5rem; }
+    .dropzone input { display: none; }
+
+    /* Form campos extraídos */
+    .campo { margin-bottom: .9rem; }
+    .campo label { display: block; font-size: .75rem; font-weight: 600;
+                   text-transform: uppercase; color: #666; margin-bottom: .3rem; }
+    .campo input, .campo textarea, .campo select {
+      width: 100%; padding: .5rem .7rem; border: 1px solid var(--borde);
+      border-radius: 5px; font-size: .9rem; font-family: inherit;
+    }
+    .campo input:focus, .campo textarea:focus { outline: 2px solid var(--amarillo); border-color: transparent; }
+
+    .secciones-wrap { display: flex; flex-wrap: wrap; gap: .4rem; margin-top: .3rem; }
+    .sec-chip {
+      padding: .25rem .6rem; border-radius: 20px; font-size: .75rem; font-weight: 600;
+      border: 2px solid var(--borde); cursor: pointer; user-select: none;
+      transition: all .12s;
+    }
+    .sec-chip.activo { background: var(--negro); color: var(--amarillo); border-color: var(--negro); }
+
+    .btn {
+      display: inline-flex; align-items: center; gap: .4rem;
+      padding: .55rem 1.1rem; border-radius: 5px; font-size: .9rem;
+      font-weight: 600; border: none; cursor: pointer; transition: opacity .15s;
+    }
+    .btn:disabled { opacity: .4; cursor: not-allowed; }
+    .btn-amarillo { background: var(--amarillo); color: var(--negro); }
+    .btn-verde { background: var(--verde); color: #fff; }
+    .btn-rojo { background: var(--rojo); color: #fff; }
+    .btn-row { display: flex; gap: .6rem; margin-top: 1rem; flex-wrap: wrap; }
+
+    .badge {
+      display: inline-block; font-size: .65rem; font-weight: 700;
+      padding: 2px 6px; border-radius: 3px; text-transform: uppercase;
+    }
+    .badge-verde { background: #e8f5e9; color: var(--verde); }
+    .badge-azul { background: #e3f2fd; color: #1565c0; }
+    .badge-gris { background: #f0f0f0; color: #666; }
+
+    /* Lista de facturas */
+    .lista { list-style: none; }
+    .lista-item {
+      padding: .7rem .8rem; border-bottom: 1px solid var(--borde);
+      cursor: pointer; display: grid;
+      grid-template-columns: auto 1fr auto;
+      gap: .5rem; align-items: center;
+      transition: background .1s;
+    }
+    .lista-item:hover { background: #fafafa; }
+    .lista-item .num { font-size: .7rem; color: #999; }
+    .lista-item .info strong { display: block; font-size: .9rem; }
+    .lista-item .info span { font-size: .8rem; color: #666; }
+    .lista-item .importe { font-weight: 700; font-size: .95rem; text-align: right; }
+
+    /* Spinner */
+    .spinner {
+      display: none; width: 28px; height: 28px;
+      border: 3px solid var(--borde); border-top-color: var(--negro);
+      border-radius: 50%; animation: spin .7s linear infinite; margin: 1rem auto;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .aviso { padding: .6rem .9rem; border-radius: 5px; font-size: .85rem; margin-top: .8rem; }
+    .aviso-ok { background: #e8f5e9; color: var(--verde); }
+    .aviso-err { background: #ffebee; color: var(--rojo); }
+    .aviso-info { background: #fff8e1; color: #b07800; }
+
+    .mejora-badge {
+      font-size: .75rem; color: var(--verde); font-weight: 600;
+      display: none; margin-top: .4rem;
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div style="width:44px;height:44px;border-radius:50%;background:var(--amarillo);
+              border:3px solid var(--verde);display:flex;align-items:center;
+              justify-content:center;font-weight:700;color:var(--negro);font-size:1rem;flex:0 0 44px">
+    CDE
+  </div>
+  <h1>OCR Facturas <small>Club Deportivo Elemental Deporte Pedrola</small></h1>
+</header>
+
+<div class="wrap">
+  <div class="cols">
+
+    <!-- COLUMNA IZQUIERDA: subida + extracción -->
+    <div>
+      <div class="card">
+        <h2>Subir factura o justificante</h2>
+
+        <div class="dropzone" id="dropzone">
+          <div style="font-size:2.5rem">📄</div>
+          <strong>Arrastra el PDF o imagen aquí</strong>
+          <p>o haz clic para seleccionar · PDF, JPG, PNG</p>
+          <input type="file" id="fileInput" accept=".pdf,.jpg,.jpeg,.png">
+        </div>
+
+        <div class="spinner" id="spinner"></div>
+        <div class="mejora-badge" id="mejoraBadge">✓ Usando ejemplos previos del mismo proveedor</div>
+        <div id="avisoUpload"></div>
+      </div>
+
+      <!-- Formulario de revisión/corrección -->
+      <div class="card" id="formCard" style="margin-top:1rem;display:none">
+        <h2>Revisar y corregir extracción</h2>
+
+        <div class="campo">
+          <label>Proveedor</label>
+          <input type="text" id="f_proveedor">
+        </div>
+        <div class="campo">
+          <label>Fecha</label>
+          <input type="text" id="f_fecha" placeholder="DD/MM/YYYY">
+        </div>
+        <div class="campo">
+          <label>Importe total (€)</label>
+          <input type="number" id="f_importe" step="0.01" min="0">
+        </div>
+        <div class="campo">
+          <label>Concepto</label>
+          <input type="text" id="f_concepto">
+        </div>
+        <div class="campo">
+          <label>Nº de factura / referencia</label>
+          <input type="text" id="f_numfactura">
+        </div>
+        <div class="campo">
+          <label>Secciones afectadas</label>
+          <div class="secciones-wrap" id="seccionesWrap"></div>
+        </div>
+
+        <div class="btn-row">
+          <button class="btn btn-amarillo" id="btnGuardar">💾 Guardar corrección</button>
+          <button class="btn btn-verde" id="btnDolibarr" disabled>📤 Enviar a Dolibarr</button>
+        </div>
+        <div id="avisoForm"></div>
+      </div>
+    </div>
+
+    <!-- COLUMNA DERECHA: historial -->
+    <div class="card">
+      <h2>Historial de facturas</h2>
+      <ul class="lista" id="listaFacturas">
+        <li style="padding:.8rem;color:#999;font-size:.85rem">Cargando...</li>
+      </ul>
+    </div>
+
+  </div>
+</div>
+
+<script>
+const SECCIONES = [
+  "Atletismo","Baloncesto","F7","Fútbol","Fútbol Sala",
+  "Gimnasia Rítmica","Kenpo","Kickboxing","Patinaje","Trail Running",
+  "Voleibol","General"
+];
+
+let facturaActualId = null;
+let seccionesActivas = new Set();
+
+// ── Chips de secciones ───────────────────────────────────────────────────────
+const secWrap = document.getElementById("seccionesWrap");
+SECCIONES.forEach(sec => {
+  const chip = document.createElement("span");
+  chip.className = "sec-chip";
+  chip.textContent = sec;
+  chip.dataset.sec = sec;
+  chip.addEventListener("click", () => {
+    if (seccionesActivas.has(sec)) {
+      seccionesActivas.delete(sec);
+      chip.classList.remove("activo");
+    } else {
+      seccionesActivas.add(sec);
+      chip.classList.add("activo");
+    }
+  });
+  secWrap.appendChild(chip);
+});
+
+function setSecciones(lista) {
+  seccionesActivas = new Set(lista || []);
+  secWrap.querySelectorAll(".sec-chip").forEach(c => {
+    c.classList.toggle("activo", seccionesActivas.has(c.dataset.sec));
+  });
+}
+
+// ── Dropzone ─────────────────────────────────────────────────────────────────
+const dropzone  = document.getElementById("dropzone");
+const fileInput = document.getElementById("fileInput");
+
+dropzone.addEventListener("click", () => fileInput.click());
+dropzone.addEventListener("dragover", e => { e.preventDefault(); dropzone.classList.add("over"); });
+dropzone.addEventListener("dragleave", () => dropzone.classList.remove("over"));
+dropzone.addEventListener("drop", e => {
+  e.preventDefault(); dropzone.classList.remove("over");
+  if (e.dataTransfer.files[0]) subirArchivo(e.dataTransfer.files[0]);
+});
+fileInput.addEventListener("change", () => {
+  if (fileInput.files[0]) subirArchivo(fileInput.files[0]);
+});
+
+// ── Subida y extracción ──────────────────────────────────────────────────────
+async function subirArchivo(file) {
+  mostrarAviso("avisoUpload", "info", `Procesando ${file.name}...`);
+  document.getElementById("spinner").style.display = "block";
+  document.getElementById("formCard").style.display = "none";
+  document.getElementById("mejoraBadge").style.display = "none";
+
+  const fd = new FormData();
+  fd.append("file", file);
+
+  try {
+    const res = await fetch("/api/upload", { method: "POST", body: fd });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || "Error desconocido");
+
+    facturaActualId = data.id;
+    rellenarFormulario(data.datos);
+
+    if (data.ejemplos_usados > 0) {
+      const b = document.getElementById("mejoraBadge");
+      b.textContent = `✓ Extracción mejorada con ${data.ejemplos_usados} ejemplo${data.ejemplos_usados > 1 ? "s" : ""} previo${data.ejemplos_usados > 1 ? "s" : ""} de este proveedor`;
+      b.style.display = "block";
+    }
+
+    document.getElementById("formCard").style.display = "block";
+    document.getElementById("btnDolibarr").disabled = true;
+    mostrarAviso("avisoUpload", "ok", "Extracción completada. Revisa y corrige si es necesario.");
+    cargarHistorial();
+  } catch (e) {
+    mostrarAviso("avisoUpload", "err", `Error: ${e.message}`);
+  } finally {
+    document.getElementById("spinner").style.display = "none";
+  }
+}
+
+function rellenarFormulario(datos) {
+  document.getElementById("f_proveedor").value   = datos.proveedor || "";
+  document.getElementById("f_fecha").value       = datos.fecha || "";
+  document.getElementById("f_importe").value     = datos.importe_total ?? "";
+  document.getElementById("f_concepto").value    = datos.concepto || "";
+  document.getElementById("f_numfactura").value  = datos.numero_factura || "";
+  setSecciones(datos.secciones || []);
+}
+
+// ── Guardar corrección ───────────────────────────────────────────────────────
+document.getElementById("btnGuardar").addEventListener("click", async () => {
+  if (!facturaActualId) return;
+  const payload = {
+    proveedor:      document.getElementById("f_proveedor").value,
+    fecha:          document.getElementById("f_fecha").value,
+    importe_total:  parseFloat(document.getElementById("f_importe").value) || null,
+    concepto:       document.getElementById("f_concepto").value,
+    numero_factura: document.getElementById("f_numfactura").value,
+    secciones:      [...seccionesActivas],
+  };
+  const res = await fetch(`/api/facturas/${facturaActualId}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  if (res.ok) {
+    mostrarAviso("avisoForm", "ok", "Guardado. Esta corrección mejora futuras extracciones.");
+    document.getElementById("btnDolibarr").disabled = false;
+    cargarHistorial();
+  } else {
+    mostrarAviso("avisoForm", "err", "Error al guardar.");
+  }
+});
+
+// ── Enviar a Dolibarr ────────────────────────────────────────────────────────
+document.getElementById("btnDolibarr").addEventListener("click", async () => {
+  if (!facturaActualId) return;
+  const btn = document.getElementById("btnDolibarr");
+  btn.disabled = true;
+  btn.textContent = "Enviando...";
+  const res = await fetch(`/api/facturas/${facturaActualId}/dolibarr`, { method: "POST" });
+  const data = await res.json();
+  if (res.ok) {
+    mostrarAviso("avisoForm", "ok", `✓ Creada en Dolibarr con ID #${data.dolibarr_id}`);
+    cargarHistorial();
+  } else {
+    mostrarAviso("avisoForm", "err", `Error Dolibarr: ${data.detail}`);
+    btn.disabled = false;
+    btn.textContent = "📤 Enviar a Dolibarr";
+  }
+});
+
+// ── Historial ────────────────────────────────────────────────────────────────
+async function cargarHistorial() {
+  const res = await fetch("/api/facturas");
+  const lista = await res.json();
+  const ul = document.getElementById("listaFacturas");
+
+  if (!lista.length) {
+    ul.innerHTML = '<li style="padding:.8rem;color:#999;font-size:.85rem">Sin facturas todavía.</li>';
+    return;
+  }
+
+  ul.innerHTML = lista.map(f => {
+    const secs = JSON.parse(f.secciones || "[]").join(", ") || "—";
+    const estado = f.dolibarr_id
+      ? `<span class="badge badge-verde">En Dolibarr</span>`
+      : f.corregido
+        ? `<span class="badge badge-azul">Corregida</span>`
+        : `<span class="badge badge-gris">Pendiente</span>`;
+    const imp = f.importe != null ? `${parseFloat(f.importe).toFixed(2)} €` : "—";
+    return `
+      <li class="lista-item" onclick="seleccionarFactura(${f.id})">
+        <span class="num">#${f.id}</span>
+        <div class="info">
+          <strong>${f.proveedor || "Sin proveedor"}</strong>
+          <span>${f.fecha || "—"} · ${secs} ${estado}</span>
+        </div>
+        <span class="importe">${imp}</span>
+      </li>`;
+  }).join("");
+}
+
+async function seleccionarFactura(id) {
+  const res = await fetch(`/api/facturas/${id}`);
+  const f = await res.json();
+  facturaActualId = id;
+  rellenarFormulario({
+    proveedor:      f.proveedor,
+    fecha:          f.fecha,
+    importe_total:  f.importe,
+    concepto:       f.concepto,
+    numero_factura: f.num_factura,
+    secciones:      JSON.parse(f.secciones || "[]"),
+  });
+  document.getElementById("formCard").style.display = "block";
+  document.getElementById("btnDolibarr").disabled = !!f.dolibarr_id;
+  document.getElementById("mejoraBadge").style.display = "none";
+  mostrarAviso("avisoForm", "info", `Editando factura #${id} · ${f.filename}`);
+}
+
+// ── Utils ────────────────────────────────────────────────────────────────────
+function mostrarAviso(id, tipo, msg) {
+  const el = document.getElementById(id);
+  el.className = `aviso aviso-${tipo === "ok" ? "ok" : tipo === "err" ? "err" : "info"}`;
+  el.textContent = msg;
+}
+
+cargarHistorial();
+</script>
+</body>
+</html>
