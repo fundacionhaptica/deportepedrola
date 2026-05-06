@@ -27,7 +27,7 @@ services:
     environment:
       DOLI_DB_TYPE: pgsql
       DOLI_DB_HOST: erp-db
-      DOLI_DB_PORT: "5432"
+      DOLI_DB_HOST_PORT: "5432"
       DOLI_DB_NAME: ${POSTGRES_DB}
       DOLI_DB_USER: ${POSTGRES_USER}
       DOLI_DB_PASSWORD: ${POSTGRES_PASSWORD}
