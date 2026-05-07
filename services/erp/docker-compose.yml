@@ -37,17 +37,8 @@ services:
       DOLI_URL_ROOT: https://erp.deportepedrola.com
       DOLI_COMPANY_NAME: "Club Deportivo Elemental Deporte Pedrola"
       DOLI_COMPANY_COUNTRYCODE: ES
-      DOLI_MODULES: >-
-        modAccounting,
-        modFournisseur,
-        modFacture,
-        modBanque,
-        modAdherent,
-        modDon,
-        modExpenseReport,
-        modCategorie,
-        modExport,
-        modImport
+      DOLI_INSTALL_AUTO: "1"
+      DOLI_MODULES: "modAccounting,modFournisseur,modFacture,modBanque,modAdherent,modDon,modExpenseReport,modCategorie,modExport,modImport"
       PHP_INI_DATE_TIMEZONE: Europe/Madrid
     volumes:
       - /volume1/docker/club/erp/html/custom:/var/www/html/custom
