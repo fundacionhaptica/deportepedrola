@@ -4,9 +4,9 @@
 #
 # Comportamiento:
 #  - Si no hay cambios remotos → silencioso, exit 0.
-#  - Si hay cambios → git pull (FAIL-HARD), luego para cada services/<x>/
-#    con .env existente: docker compose pull && docker compose up -d.
-#  - Si un servicio no tiene .env → se loguea aviso y se salta (no rompe).
+#  - Si hay cambios → git pull (FAIL-HARD), luego docker compose up -d
+#    desde el docker-compose.yml raíz del repo.
+#  - Si no existe el .env raíz → aviso y salida (no rompe otros servicios).
 #  - Cualquier fallo en git pull o en compose → exit != 0 con log claro.
 #
 # IMPORTANTE: este script NO puede tener "|| true" silenciador en git pull.
@@ -64,51 +64,21 @@ if ! git pull --ff-only origin "${BRANCH}"; then
 fi
 log "git pull OK. HEAD = $(git rev-parse --short HEAD)"
 
-# --- Reconciliar cada servicio ---
-declare -i deployed=0
-declare -i skipped=0
-declare -i failed=0
-
-for svc_dir in "${REPO_DIR}/services"/*/; do
-  svc_name="$(basename "${svc_dir}")"
-
-  if [[ ! -f "${svc_dir}/docker-compose.yml" ]]; then
-    log "  · ${svc_name}: sin docker-compose.yml, saltando."
-    skipped+=1
-    continue
-  fi
-
-  if [[ ! -f "${svc_dir}/.env" ]]; then
-    log "  · ${svc_name}: sin .env (servicio aún no configurado), saltando."
-    skipped+=1
-    continue
-  fi
-
-  log "  → ${svc_name}: pull + up -d"
-  pushd "${svc_dir}" >/dev/null
-
-  if ! docker compose pull 2>&1 | sed 's/^/      /'; then
-    log "    ${svc_name}: docker compose pull FALLÓ."
-    failed+=1
-    popd >/dev/null
-    continue
-  fi
-
-  if ! docker compose up -d --remove-orphans --build 2>&1 | sed 's/^/      /'; then
-    log "    ${svc_name}: docker compose up -d FALLÓ."
-    failed+=1
-    popd >/dev/null
-    continue
-  fi
-
-  popd >/dev/null
-  deployed+=1
-done
-
-log "Resumen: ${deployed} desplegado(s), ${skipped} saltado(s), ${failed} fallido(s)."
-
-if (( failed > 0 )); then
-  exit 1
+# --- Verificar .env raíz ---
+if [[ ! -f "${REPO_DIR}/.env" ]]; then
+  die "Sin .env raíz en ${REPO_DIR}. Copiar .env.example y rellenar los valores."
 fi
 
+# --- Levantar todos los servicios con el compose raíz ---
+log "Actualizando imágenes..."
+if ! docker compose pull 2>&1 | sed 's/^/  /'; then
+  die "docker compose pull falló."
+fi
+
+log "Aplicando cambios (up -d)..."
+if ! docker compose up -d --remove-orphans --build 2>&1 | sed 's/^/  /'; then
+  die "docker compose up -d falló."
+fi
+
+log "Deploy completado. HEAD = $(git rev-parse --short HEAD)"
 exit 0

@@ -1,0 +1,236 @@
+name: club
+
+# Compose raíz — levanta todos los servicios del club de una vez.
+# Variables de entorno: leer el .env.example de la raíz del repo.
+# Servicios con build propio (deploy-panel, ocr-facturas) siguen leyendo
+# su propio services/<x>/.env para las variables que les son exclusivas.
+
+services:
+
+  # ── Portal ───────────────────────────────────────────────────────────────
+  portal:
+    image: nginx:alpine
+    container_name: club-portal
+    restart: unless-stopped
+    ports:
+      - "8020:80"
+    volumes:
+      - ./services/portal/html:/usr/share/nginx/html:ro
+    networks:
+      - club-network
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  # ── ERP – Dolibarr ───────────────────────────────────────────────────────
+  erp-db:
+    image: postgres:16-alpine
+    container_name: club-erp-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${ERP_POSTGRES_DB}
+      POSTGRES_USER: ${ERP_POSTGRES_USER}
+      POSTGRES_PASSWORD: ${ERP_POSTGRES_PASSWORD}
+    volumes:
+      - /volume1/docker/club/erp/db:/var/lib/postgresql/data
+    networks:
+      - club-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${ERP_POSTGRES_USER} -d ${ERP_POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  erp:
+    image: dolibarr/dolibarr:21
+    container_name: club-erp-web
+    restart: unless-stopped
+    depends_on:
+      erp-db:
+        condition: service_healthy
+    environment:
+      DOLI_DB_TYPE: pgsql
+      DOLI_DB_HOST: erp-db
+      DOLI_DB_HOST_PORT: "5432"
+      DOLI_DB_NAME: ${ERP_POSTGRES_DB}
+      DOLI_DB_USER: ${ERP_POSTGRES_USER}
+      DOLI_DB_PASSWORD: ${ERP_POSTGRES_PASSWORD}
+      DOLI_ADMIN_LOGIN: ${ERP_DOLI_ADMIN_LOGIN}
+      DOLI_ADMIN_PASSWORD: ${ERP_DOLI_ADMIN_PASSWORD}
+      DOLI_URL_ROOT: https://erp.deportepedrola.com
+      DOLI_COMPANY_NAME: "Club Deportivo Elemental Deporte Pedrola"
+      DOLI_COMPANY_COUNTRYCODE: ES
+      DOLI_MODULES: >-
+        modAccounting,
+        modFournisseur,
+        modFacture,
+        modBanque,
+        modAdherent,
+        modDon,
+        modExpenseReport,
+        modCategorie,
+        modExport,
+        modImport
+      PHP_INI_DATE_TIMEZONE: Europe/Madrid
+    volumes:
+      - /volume1/docker/club/erp/html/custom:/var/www/html/custom
+      - /volume1/docker/club/erp/documents:/var/www/documents
+    ports:
+      - "127.0.0.1:8085:80"
+    networks:
+      - club-network
+
+  # ── Paperless-ngx ────────────────────────────────────────────────────────
+  paperless-db:
+    image: postgres:16-alpine
+    container_name: club-paperless-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: paperless
+      POSTGRES_USER: paperless
+      POSTGRES_PASSWORD: ${PAPERLESS_POSTGRES_PASSWORD}
+    volumes:
+      - /volume1/docker/club/paperless/db-data:/var/lib/postgresql/data
+    networks:
+      - club-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U paperless"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  paperless-redis:
+    image: redis:7-alpine
+    container_name: club-paperless-redis
+    restart: unless-stopped
+    networks:
+      - club-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  paperless-web:
+    image: ghcr.io/paperless-ngx/paperless-ngx:latest
+    container_name: club-paperless-web
+    restart: unless-stopped
+    depends_on:
+      paperless-db:
+        condition: service_healthy
+      paperless-redis:
+        condition: service_healthy
+    ports:
+      - "8010:8000"
+    volumes:
+      - /volume1/docker/club/paperless/data:/usr/src/paperless/data
+      - /volume1/docker/club/paperless/media:/usr/src/paperless/media
+      - /volume1/docker/club/paperless/export:/usr/src/paperless/export
+      - /volume1/docker/club/paperless/consume:/usr/src/paperless/consume
+      - /volume1/docker/club/paperless/trash:/usr/src/paperless/trash
+    environment:
+      USERMAP_UID: ${USERMAP_UID}
+      USERMAP_GID: ${USERMAP_GID}
+      PAPERLESS_REDIS: redis://paperless-redis:6379
+      PAPERLESS_DBHOST: paperless-db
+      PAPERLESS_DBNAME: paperless
+      PAPERLESS_DBUSER: paperless
+      PAPERLESS_DBPASS: ${PAPERLESS_POSTGRES_PASSWORD}
+      PAPERLESS_SECRET_KEY: ${PAPERLESS_SECRET_KEY}
+      PAPERLESS_TIME_ZONE: Europe/Madrid
+      PAPERLESS_OCR_LANGUAGES: spa
+      PAPERLESS_OCR_LANGUAGE: spa
+      PAPERLESS_ADMIN_USER: ${PAPERLESS_ADMIN_USER:-}
+      PAPERLESS_ADMIN_PASSWORD: ${PAPERLESS_ADMIN_PASSWORD:-}
+      PAPERLESS_ADMIN_MAIL: ${PAPERLESS_ADMIN_MAIL:-}
+      PAPERLESS_URL: https://contabilidad.deportepedrola.com
+      PAPERLESS_ALLOWED_HOSTS: contabilidad.deportepedrola.com,localhost
+      PAPERLESS_CORS_ALLOWED_HOSTS: https://contabilidad.deportepedrola.com
+      PAPERLESS_CSRF_TRUSTED_ORIGINS: https://contabilidad.deportepedrola.com
+      PAPERLESS_USE_X_FORWARD_HOST: "true"
+      PAPERLESS_USE_X_FORWARD_PORT: "true"
+      PAPERLESS_PROXY_SSL_HEADER: '["HTTP_X_FORWARDED_PROTO", "https"]'
+      PAPERLESS_TRASH_DIR: /usr/src/paperless/trash
+      PAPERLESS_EMPTY_TRASH_DELAY: 30
+      PAPERLESS_CONSUMER_POLLING: 30
+      PAPERLESS_CONSUMER_RECURSIVE: "true"
+      PAPERLESS_CONSUMER_SUBDIRS_AS_TAGS: "false"
+      PAPERLESS_FILENAME_FORMAT: "{created_year}/{correspondent}/{title}"
+    networks:
+      - club-network
+    healthcheck:
+      test: ["CMD", "curl", "-fs", "http://localhost:8000"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+
+  paperless-ai:
+    image: clusterzx/paperless-ai:latest
+    container_name: club-paperless-ai
+    restart: unless-stopped
+    depends_on:
+      paperless-web:
+        condition: service_healthy
+    environment:
+      PAPERLESS_URL: http://paperless-web:8000
+      PAPERLESS_API_TOKEN: ${PAPERLESS_API_TOKEN}
+      AI_PROVIDER: openai
+      OPENAI_API_KEY: ${KIMI_API_KEY}
+      OPENAI_API_BASE: https://api.moonshot.cn/v1
+      OPENAI_MODEL: ${KIMI_MODEL:-kimi-k2-0520}
+      PROCESS_PREDEFINED_DOCUMENTS: "yes"
+      SYSTEM_PROMPT_LANGUAGE: Spanish
+      SCAN_INTERVAL: 60
+      ADD_AI_PROCESSED_TAG: "yes"
+      AI_PROCESSED_TAG_NAME: ai-procesado
+    networks:
+      - club-network
+
+  # ── Deploy Panel ─────────────────────────────────────────────────────────
+  deploy-panel:
+    build:
+      context: ./services/deploy-panel
+    container_name: club-deploy-panel
+    restart: unless-stopped
+    ports:
+      - "8030:8000"
+    env_file: services/deploy-panel/.env
+    volumes:
+      - /volume1/docker/club/secrets/deploy_key:/run/secrets/deploy_key:ro
+      - /volume1/docker/club/secrets/known_hosts:/run/secrets/known_hosts:ro
+      - /volume1/docker/club/logs:/logs
+    networks:
+      - club-network
+
+  # ── OCR Facturas ─────────────────────────────────────────────────────────
+  # Requiere que el servicio externo `vision-router` esté levantado en ia-net
+  # (gestionado fuera de este repo, en el proyecto IA del NAS).
+  ocr-facturas:
+    build:
+      context: ./services/ocr-facturas
+    container_name: club-ocr-facturas
+    restart: unless-stopped
+    env_file: services/ocr-facturas/.env
+    volumes:
+      - /volume1/docker/club/ocr-facturas/db:/app/data
+      - /volume1/docker/club/ocr-facturas/uploads:/app/uploads
+    ports:
+      - "127.0.0.1:8086:8000"
+    networks:
+      - club-network
+      - ia-net
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 30s
+      timeout: 5s
+      start_period: 15s
+      retries: 3
+
+networks:
+  club-network:
+    external: true
+  ia-net:
+    external: true
