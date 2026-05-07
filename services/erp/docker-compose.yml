@@ -1,18 +1,19 @@
 services:
   erp-db:
-    image: postgres:16-alpine
+    image: mariadb:11
     container_name: club-erp-db
     restart: unless-stopped
     environment:
-      POSTGRES_DB: ${POSTGRES_DB}
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
     volumes:
-      - /volume1/docker/club/erp/db:/var/lib/postgresql/data
+      - /volume1/docker/club/erp/db:/var/lib/mysql
     networks:
       - club-network
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -25,12 +26,12 @@ services:
       erp-db:
         condition: service_healthy
     environment:
-      DOLI_DB_TYPE: pgsql
+      DOLI_DB_TYPE: mysqli
       DOLI_DB_HOST: erp-db
-      DOLI_DB_HOST_PORT: "5432"
-      DOLI_DB_NAME: ${POSTGRES_DB}
-      DOLI_DB_USER: ${POSTGRES_USER}
-      DOLI_DB_PASSWORD: ${POSTGRES_PASSWORD}
+      DOLI_DB_HOST_PORT: "3306"
+      DOLI_DB_NAME: ${MYSQL_DATABASE}
+      DOLI_DB_USER: ${MYSQL_USER}
+      DOLI_DB_PASSWORD: ${MYSQL_PASSWORD}
       DOLI_ADMIN_LOGIN: ${DOLI_ADMIN_LOGIN}
       DOLI_ADMIN_PASSWORD: ${DOLI_ADMIN_PASSWORD}
       DOLI_URL_ROOT: https://erp.deportepedrola.com
