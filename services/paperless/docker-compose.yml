@@ -85,6 +85,31 @@ services:
       retries: 5
       start_period: 60s
 
+  paperless-ai:
+    image: clusterzx/paperless-ai:latest
+    container_name: club-paperless-ai
+    restart: unless-stopped
+    depends_on:
+      web:
+        condition: service_healthy
+    environment:
+      PAPERLESS_URL: http://web:8000
+      PAPERLESS_API_TOKEN: ${PAPERLESS_API_TOKEN}
+      AI_PROVIDER: openai
+      OPENAI_API_KEY: ${KIMI_API_KEY}
+      OPENAI_API_BASE: https://api.moonshot.cn/v1
+      OPENAI_MODEL: ${KIMI_MODEL:-kimi-k2-0520}
+      PROCESS_PREDEFINED_DOCUMENTS: "yes"
+      # Idioma de las instrucciones al modelo
+      SYSTEM_PROMPT_LANGUAGE: Spanish
+      # Intervalo entre escaneos de documentos sin procesar (segundos)
+      SCAN_INTERVAL: 60
+      # Solo asignar campos si la confianza supera este umbral (0-1)
+      ADD_AI_PROCESSED_TAG: "yes"
+      AI_PROCESSED_TAG_NAME: ai-procesado
+    networks:
+      - club-network
+
 networks:
   club-network:
     external: true
