@@ -34,6 +34,7 @@ services:
       DOLI_DB_PASSWORD: ${MYSQL_PASSWORD}
       DOLI_ADMIN_LOGIN: ${DOLI_ADMIN_LOGIN}
       DOLI_ADMIN_PASSWORD: ${DOLI_ADMIN_PASSWORD}
+      DOLI_INSTALL_AUTO: ${DOLI_INSTALL_AUTO:-1}
       DOLI_URL_ROOT: https://erp.deportepedrola.com
       DOLI_COMPANY_NAME: "Club Deportivo Elemental Deporte Pedrola"
       DOLI_COMPANY_COUNTRYCODE: ES
@@ -51,6 +52,7 @@ services:
       PHP_INI_DATE_TIMEZONE: Europe/Madrid
     volumes:
       - /volume1/docker/club/erp/html/custom:/var/www/html/custom
+      - /volume1/docker/club/erp/html/conf:/var/www/html/conf
       - /volume1/docker/club/erp/documents:/var/www/documents
     networks:
       - club-network
