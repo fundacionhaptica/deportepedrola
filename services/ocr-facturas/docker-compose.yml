@@ -20,10 +20,6 @@ services:
       timeout: 5s
       start_period: 15s
       retries: 3
-    depends_on:
-      vision-router:
-        condition: service_healthy
-
 networks:
   club-network:
     external: true
