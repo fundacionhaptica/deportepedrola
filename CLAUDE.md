@@ -2,6 +2,24 @@
 
 > Este archivo lo lee automáticamente Claude Code al entrar en el repositorio. Contiene el contexto permanente del proyecto, reglas y decisiones ya tomadas. **NO borrar ni renombrar.**
 
+## Cómo trabajar con este CLAUDE.md (regla viva)
+
+**Cada vez que se resuelva un bug en este proyecto, AL TERMINAR la tarea
+hay que añadir una entrada a una sección `## Lecciones aprendidas`** (creándola
+si no existe aún), con:
+
+1. Fecha en formato `(AAAA-MM-DD)`.
+2. **Síntoma**: lo que el usuario vio (ej.: "Paperless 502", "OCR no se ejecuta", "login de NocoDB falla").
+3. **Causa raíz**: por qué pasaba en términos técnicos.
+4. **Fix**: el cambio concreto que lo resolvió (archivo, línea, comando).
+5. **Aprendizaje**: la heurística generalizable para la próxima vez.
+
+Objetivo: la próxima vez que aparezca el mismo síntoma, encontrar la entrada
+por búsqueda de texto y resolver en minutos en lugar de horas.
+
+Cuando se añada un servicio o componente nuevo al stack del club, crear o
+actualizar la sección correspondiente del CLAUDE.md antes de cerrar la tarea.
+
 ## Proyecto
 
 Infraestructura digital del **Club Deportivo Elemental Deporte Pedrola** (CIF G99528549, registro #8714/1 del Registro de Entidades Deportivas de Aragón, Pedrola, Zaragoza).
@@ -194,3 +212,45 @@ Español, imperativo, descriptivo:
 - **Colores del club**: amarillo y negro; escudo con verde predominante.
 - **Facilities**: Calle Acceso Piscina s/n, 50690 Pedrola (usadas mediante convenio con el Ayuntamiento de Pedrola).
 - **Contacto**: 976 619 158 / sdmpedrola@dpz.es.
+
+## Capacidades de Claude sobre este NAS (actualizado 2026-04-21)
+
+Claude tiene configuradas las siguientes capacidades para operar **de forma autónoma** sobre este NAS. Cuando pidas a Claude que haga algo aquí, **no necesita pedirte que ejecutes comandos manualmente**.
+
+### 1. MCP NAS (vía servidor MCP de Claude Code)
+
+El servidor MCP `60563066-1f4d-41c9-aedd-2d5fef9ff165` expone herramientas para leer/escribir ficheros y ejecutar comandos en el NAS confinados a `/volume1/docker/`. Es la vía principal para operaciones sobre el NAS desde Claude Code.
+
+### 2. SSH autónomo vía webhook n8n (vía alternativa)
+
+- Workflow n8n: `https://n8n.ruizespana.com/webhook/exec-nas`
+- Protegido con header `X-Api-Key` (la API key está en los secretos locales del usuario, no aquí)
+- Body JSON: `{"command": "<comando a ejecutar>"}`
+- El comando se ejecuta como usuario `jaime` vía SSH a `192.168.1.205:22`
+
+### 3. sudo sin contraseña para comandos específicos
+
+El usuario `jaime` tiene NOPASSWD en sudoers para:
+- `/usr/local/bin/docker` — acceso Docker completo sin prompt de contraseña
+
+Usar siempre la ruta completa: `sudo /usr/local/bin/docker compose ...`
+**Nota:** `sudo docker` falla porque apunta a un binario diferente; usar `sudo /usr/local/bin/docker`.
+
+### 4. Cloudflare Tunnel `Synology-MaJa`
+
+Ingress routes activas (el servicio siempre apunta a IP privada del NAS, **nunca `localhost`**):
+
+| Hostname | Service |
+|---|---|
+| `dsm.ruizespana.com` | DSM 5001 |
+| `contabilidad.deportepedrola.com` | `http://192.168.1.205:8010` (Paperless) |
+| `erp.deportepedrola.com` | `http://192.168.1.205:8020` (ERP) |
+| `n8n.ruizespana.com` | `http://192.168.1.205:5100` (n8n) |
+
+Para añadir un subdominio nuevo: desplegar el contenedor con `ports: "PUERTO:xxx"`, añadir ingress via API Cloudflare y crear CNAME proxied apuntando a `<tunnel_id>.cfargotunnel.com`.
+
+### 5. Límites de acceso para Claude
+
+- Claude **no puede hacer `git push`** desde el NAS: la Deploy Key es read-only. Los commits/push los hace Claude desde el PC local o el usuario desde GitHub web.
+- Claude **no puede crear tareas en DSM Task Scheduler** via API. El cron de `deploy.sh` debe configurarlo el usuario una vez en la UI DSM.
+- Claude **no puede ejecutar comandos con contraseña interactiva** (`sudo` de cualquier binario no en la whitelist NOPASSWD).
