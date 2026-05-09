@@ -1,34 +1,7 @@
-# --- Secretos ---
-# Nunca comitear .env reales. Solo .env.example es público.
+node_modules/
 .env
-*.env
-!.env.example
-
-# --- Datos persistentes de servicios ---
-# Generados por contenedores; viven en el NAS, no en git.
-data/
-media/
-consume/
-export/
-trash/
-db-data/
-backups/
+uploads/*
+!uploads/.gitkeep
 logs/
-
-# --- Sistema Synology ---
-@eaDir/
-@SynoEAStream
+*.log
 .DS_Store
-Thumbs.db
-
-# --- Editores ---
-.vscode/
-.idea/
-*.swp
-*.swo
-*~
-
-# --- Sistema operativo ---
-*.tmp
-*.bak
-*.orig
