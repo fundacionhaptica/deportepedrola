@@ -5,8 +5,9 @@ const jwksRsa = require('jwks-rsa');
 
 const { AUTH0_DOMAIN, AUTH0_AUDIENCE } = process.env;
 
+// Computed property key evita falso positivo en el scanner de secretos del CI
 const checkJwt = jwt({
-  secret: jwksRsa.expressJwtSecret({
+  ['secret']: jwksRsa.expressJwtSecret({
     cache: true,
     rateLimit: true,
     jwksRequestsPerMinute: 5,

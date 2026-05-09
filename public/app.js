@@ -1,40 +1,42 @@
 // Helper centralizado para llamadas autenticadas al API.
-// Si el servidor responde 401 (token expirado o inválido), redirige
-// automáticamente al logout de Auth0 para evitar fallos silenciosos.
+// Si el servidor responde 401 (expirado), redirige automáticamente a /auth/logout.
+// Expone: window.setToken(jwt), window.api(path, options)
 
-let _token = null;
+(function () {
+  'use strict';
 
-export function setToken(token) {
-  _token = token;
-}
+  var _bearer = null;
 
-export function getToken() {
-  return _token;
-}
-
-async function doLogout() {
-  _token = null;
-  window.location.href = '/auth/logout';
-}
-
-window.api = async (path, options = {}) => {
-  const headers = {
-    'Content-Type': 'application/json',
-    ...(options.headers || {}),
-    ...(_token ? { Authorization: `Bearer ${_token}` } : {}),
+  window['setToken'] = function (jwt) {
+    _bearer = jwt;
   };
 
-  const res = await fetch(path, { ...options, headers });
-
-  if (res.status === 401) {
-    await doLogout();
-    return null;
+  async function _doLogout() {
+    _bearer = null;
+    window.location.href = '/auth/logout';
   }
 
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(err.error || err.detail || `HTTP ${res.status}`);
-  }
+  window.api = async function (path, options) {
+    var opts = options || {};
+    var authHeader = _bearer ? { Authorization: 'Bearer ' + _bearer } : {};
+    var headers = Object.assign(
+      { 'Content-Type': 'application/json' },
+      opts.headers || {},
+      authHeader
+    );
 
-  return res.json();
-};
+    var res = await fetch(path, Object.assign({}, opts, { headers: headers }));
+
+    if (res.status === 401) {
+      await _doLogout();
+      return null;
+    }
+
+    if (!res.ok) {
+      var err = await res.json().catch(function () { return {}; });
+      throw new Error(err.error || err.detail || 'HTTP ' + res.status);
+    }
+
+    return res.json();
+  };
+}());

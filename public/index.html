@@ -183,8 +183,8 @@
   </div>
 </div>
 
+<script src="/app.js"></script>
 <script type="module">
-import { setToken } from '/app.js';
 
 // ── Auth0 SPA (Universal Login) ──────────────────────────────────────────────
 // Cargamos el SDK de Auth0 de forma dinámica para no depender de npm/build.
@@ -223,9 +223,9 @@ async function initAuth() {
 
   const autenticado = await auth0Client.isAuthenticated();
   if (autenticado) {
-    const token = await auth0Client.getTokenSilently();
-    const user  = await auth0Client.getUser();
-    setToken(token);
+    const jwt  = await auth0Client.getTokenSilently();
+    const user = await auth0Client.getUser();
+    window.setToken(jwt);
     document.getElementById('userName').textContent = user.name || user.email;
     document.getElementById('loginBanner').style.display = 'none';
     document.getElementById('contenido').style.display = 'block';

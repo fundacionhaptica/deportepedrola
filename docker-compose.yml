@@ -19,7 +19,7 @@ services:
     environment:
       POSTGRES_DB: deporte_pedrola
       POSTGRES_USER: deporte
-      POSTGRES_PASSWORD: CHANGEME
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     volumes:
       - deporte-db-data:/var/lib/postgresql/data
     healthcheck:
