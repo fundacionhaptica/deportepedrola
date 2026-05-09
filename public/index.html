@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Panel · CDE Deporte Pedrola</title>
+  <style>
+    :root {
+      --amarillo: #FFD400;
+      --negro: #111;
+      --verde: #2E7D32;
+      --gris: #f4f4f4;
+      --borde: #e0e0e0;
+      --rojo: #c0392b;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+           background: var(--gris); color: var(--negro); line-height: 1.5; }
+
+    header {
+      background: var(--negro); color: var(--amarillo);
+      padding: 1rem 1.5rem; border-bottom: 5px solid var(--amarillo);
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    header h1 { font-size: 1.2rem; }
+    header small { color: #fff; font-weight: 400; font-size: .8rem; display: block; opacity: .8; }
+    header .user { font-size: .8rem; color: #ccc; }
+    header .user a { color: var(--amarillo); text-decoration: none; margin-left: .5rem; }
+
+    .wrap { max-width: 1100px; margin: 0 auto; padding: 1.5rem 1rem; }
+
+    /* Filtro de fechas */
+    .filtros {
+      background: #fff; border: 1px solid var(--borde); border-radius: 8px;
+      padding: .8rem 1rem; display: flex; align-items: center; gap: 1rem;
+      flex-wrap: wrap; margin-bottom: 1.5rem;
+    }
+    .filtros label { font-size: .8rem; font-weight: 600; color: #555; display: flex;
+                     flex-direction: column; gap: .2rem; }
+    .filtros input[type="date"] {
+      padding: .35rem .5rem; border: 1px solid var(--borde); border-radius: 4px;
+      font-size: .9rem; font-family: inherit;
+    }
+    .filtros input[type="date"]:focus { outline: 2px solid var(--amarillo); border-color: transparent; }
+    .btn-filtro {
+      background: var(--amarillo); color: var(--negro); font-weight: 700;
+      border: none; padding: .5rem 1.1rem; border-radius: 5px; cursor: pointer;
+      font-size: .9rem; align-self: flex-end;
+    }
+    .btn-filtro:hover { opacity: .85; }
+
+    /* Cards de stats */
+    .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; margin-bottom: 1.5rem; }
+    @media (max-width: 720px) { .stats { grid-template-columns: 1fr 1fr; } }
+    .stat-card {
+      background: #fff; border: 1px solid var(--borde); border-radius: 8px;
+      padding: 1.1rem 1rem;
+    }
+    .stat-card .etiqueta { font-size: .7rem; font-weight: 700; text-transform: uppercase;
+                           color: #888; margin-bottom: .3rem; }
+    .stat-card .valor { font-size: 1.8rem; font-weight: 700; }
+    .stat-card .valor.verde { color: var(--verde); }
+    .stat-card .valor.rojo  { color: var(--rojo); }
+
+    /* Tabla de pagos */
+    .card { background: #fff; border: 1px solid var(--borde); border-radius: 8px; padding: 1.2rem; }
+    .card h2 { font-size: .9rem; text-transform: uppercase; letter-spacing: .5px;
+               color: #555; margin-bottom: 1rem; }
+    table { width: 100%; border-collapse: collapse; font-size: .88rem; }
+    th { text-align: left; padding: .4rem .6rem; font-size: .72rem; color: #888;
+         text-transform: uppercase; border-bottom: 2px solid var(--borde); }
+    td { padding: .55rem .6rem; border-bottom: 1px solid var(--borde); }
+    tr:last-child td { border-bottom: none; }
+    .badge {
+      display: inline-block; font-size: .65rem; font-weight: 700; padding: 2px 6px;
+      border-radius: 3px; text-transform: uppercase;
+    }
+    .badge-verde  { background: #e8f5e9; color: var(--verde); }
+    .badge-naranja { background: #fff3e0; color: #e65100; }
+    .badge-rojo   { background: #ffebee; color: var(--rojo); }
+
+    .spinner {
+      display: none; width: 24px; height: 24px;
+      border: 3px solid var(--borde); border-top-color: var(--negro);
+      border-radius: 50%; animation: spin .7s linear infinite; margin: 1.5rem auto;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .aviso { padding: .6rem .9rem; border-radius: 5px; font-size: .85rem;
+             margin-bottom: 1rem; display: none; }
+    .aviso-err { background: #ffebee; color: var(--rojo); display: block; }
+
+    #loginBanner { display: none; }
+  </style>
+</head>
+<body>
+
+<header>
+  <div style="display:flex;align-items:center;gap:1rem">
+    <div style="width:44px;height:44px;border-radius:50%;background:var(--amarillo);
+                border:3px solid var(--verde);display:flex;align-items:center;
+                justify-content:center;font-weight:700;color:var(--negro);font-size:1rem;flex:0 0 44px">
+      CDE
+    </div>
+    <h1>Panel de gestión <small>Club Deportivo Elemental Deporte Pedrola</small></h1>
+  </div>
+  <div class="user" id="userArea">
+    <span id="userName">—</span>
+    <a href="/auth/logout">Cerrar sesión</a>
+  </div>
+</header>
+
+<div class="wrap">
+
+  <!-- Aviso de error general -->
+  <div class="aviso" id="avisoGlobal"></div>
+
+  <!-- Login si no hay sesión -->
+  <div id="loginBanner" style="text-align:center;padding:3rem 1rem">
+    <p style="margin-bottom:1rem;color:#555">Debes iniciar sesión para acceder al panel.</p>
+    <button id="btnLogin" class="btn-filtro" style="font-size:1rem;padding:.7rem 2rem">
+      Iniciar sesión con Auth0
+    </button>
+  </div>
+
+  <!-- Contenido principal (oculto hasta autenticación) -->
+  <div id="contenido" style="display:none">
+
+    <!-- Filtro de fechas -->
+    <div class="filtros">
+      <label>
+        Desde
+        <input type="date" id="desde">
+      </label>
+      <label>
+        Hasta
+        <input type="date" id="hasta">
+      </label>
+      <button class="btn-filtro" onclick="cargarDashboard()">Aplicar filtro</button>
+    </div>
+
+    <!-- Cards de stats -->
+    <div class="stats">
+      <div class="stat-card">
+        <div class="etiqueta">Socios activos</div>
+        <div class="valor" id="statSocios">—</div>
+      </div>
+      <div class="stat-card">
+        <div class="etiqueta">Ingresos</div>
+        <div class="valor verde" id="statIngresos">—</div>
+      </div>
+      <div class="stat-card">
+        <div class="etiqueta">Gastos</div>
+        <div class="valor rojo" id="statGastos">—</div>
+      </div>
+      <div class="stat-card">
+        <div class="etiqueta">Saldo</div>
+        <div class="valor" id="statSaldo">—</div>
+      </div>
+    </div>
+
+    <div class="spinner" id="spinner"></div>
+
+    <!-- Tabla de pagos recientes -->
+    <div class="card">
+      <h2>Últimos pagos</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Concepto</th>
+            <th>Importe</th>
+            <th>Estado</th>
+            <th>Fecha</th>
+          </tr>
+        </thead>
+        <tbody id="tablaPagos">
+          <tr><td colspan="5" style="color:#aaa;text-align:center;padding:1rem">Cargando...</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+  </div>
+</div>
+
+<script src="/app.js"></script>
+<script type="module">
+
+// ── Auth0 SPA (Universal Login) ──────────────────────────────────────────────
+// Cargamos el SDK de Auth0 de forma dinámica para no depender de npm/build.
+const AUTH0_DOMAIN   = window.__AUTH0_DOMAIN__ || '';
+const AUTH0_CLIENT   = window.__AUTH0_CLIENT__ || '';
+const AUTH0_AUDIENCE = window.__AUTH0_AUDIENCE__ || '';
+
+let auth0Client = null;
+
+async function initAuth() {
+  // El servidor inyecta la config en window.__AUTH0_* vía un <script> inline
+  if (!AUTH0_DOMAIN) {
+    // Sin config Auth0: modo desarrollo — mostrar panel sin auth
+    document.getElementById('loginBanner').style.display = 'none';
+    document.getElementById('contenido').style.display = 'block';
+    document.getElementById('userName').textContent = 'Desarrollo';
+    cargarDashboard();
+    return;
+  }
+
+  const { createAuth0Client } = await import(
+    'https://cdn.auth0.com/js/auth0-spa-js/2.1/auth0-spa-js.production.esm.js'
+  );
+
+  auth0Client = await createAuth0Client({
+    domain:        AUTH0_DOMAIN,
+    clientId:      AUTH0_CLIENT,
+    authorizationParams: { audience: AUTH0_AUDIENCE },
+  });
+
+  // Manejar callback de Auth0 (code en la URL)
+  if (location.search.includes('code=')) {
+    await auth0Client.handleRedirectCallback();
+    history.replaceState({}, '', '/');
+  }
+
+  const autenticado = await auth0Client.isAuthenticated();
+  if (autenticado) {
+    const jwt  = await auth0Client.getTokenSilently();
+    const user = await auth0Client.getUser();
+    window.setToken(jwt);
+    document.getElementById('userName').textContent = user.name || user.email;
+    document.getElementById('loginBanner').style.display = 'none';
+    document.getElementById('contenido').style.display = 'block';
+    cargarDashboard();
+  } else {
+    document.getElementById('loginBanner').style.display = 'block';
+    document.getElementById('btnLogin').addEventListener('click', () => {
+      auth0Client.loginWithRedirect({ appState: { returnTo: '/' } });
+    });
+  }
+}
+
+// ── Dashboard ────────────────────────────────────────────────────────────────
+function hoy() { return new Date().toISOString().slice(0, 10); }
+function primerDiaMes() {
+  const d = new Date(); d.setDate(1);
+  return d.toISOString().slice(0, 10);
+}
+
+function fmt(n) {
+  return new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' }).format(n);
+}
+
+window.cargarDashboard = async function () {
+  const desde = document.getElementById('desde').value || primerDiaMes();
+  const hasta = document.getElementById('hasta').value || hoy();
+
+  document.getElementById('spinner').style.display = 'block';
+  document.getElementById('tablaPagos').innerHTML =
+    '<tr><td colspan="5" style="color:#aaa;text-align:center;padding:1rem">Cargando...</td></tr>';
+
+  try {
+    const data = await window.api(`/api/dashboard?desde=${desde}&hasta=${hasta}`);
+    if (!data) return;
+
+    document.getElementById('statSocios').textContent  = data.socios_activos;
+    document.getElementById('statIngresos').textContent = fmt(data.ingresos);
+    document.getElementById('statGastos').textContent   = fmt(data.gastos);
+
+    const saldoEl = document.getElementById('statSaldo');
+    saldoEl.textContent = fmt(data.saldo);
+    saldoEl.className   = 'valor ' + (data.saldo >= 0 ? 'verde' : 'rojo');
+
+    const badgeEstado = estado => {
+      if (estado === 'pagado')   return '<span class="badge badge-verde">Pagado</span>';
+      if (estado === 'fallido')  return '<span class="badge badge-rojo">Fallido</span>';
+      return '<span class="badge badge-naranja">Pendiente</span>';
+    };
+
+    document.getElementById('tablaPagos').innerHTML = data.pagos_recientes.length
+      ? data.pagos_recientes.map(p => `
+          <tr>
+            <td>#${p.id}</td>
+            <td>${p.concepto}</td>
+            <td style="font-weight:700">${fmt(p.importe)}</td>
+            <td>${badgeEstado(p.estado)}</td>
+            <td style="color:#666">${p.fecha}</td>
+          </tr>`).join('')
+      : '<tr><td colspan="5" style="color:#aaa;text-align:center;padding:1rem">Sin pagos en este período.</td></tr>';
+  } catch (e) {
+    document.getElementById('avisoGlobal').textContent = `Error al cargar datos: ${e.message}`;
+    document.getElementById('avisoGlobal').className = 'aviso aviso-err';
+  } finally {
+    document.getElementById('spinner').style.display = 'none';
+  }
+};
+
+// ── Inicializar ──────────────────────────────────────────────────────────────
+document.getElementById('desde').value = primerDiaMes();
+document.getElementById('hasta').value = hoy();
+
+initAuth();
+</script>
+</body>
+</html>

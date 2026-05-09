@@ -181,6 +181,7 @@
         <div class="btn-row">
           <button class="btn btn-amarillo" id="btnGuardar">💾 Guardar corrección</button>
           <button class="btn btn-verde" id="btnDolibarr" disabled>📤 Enviar a Dolibarr</button>
+          <button class="btn" id="btnReocr" style="display:none;background:#e0e0e0;color:#333">🔄 Reintentar OCR</button>
         </div>
         <div id="avisoForm"></div>
       </div>
@@ -295,6 +296,14 @@ function rellenarFormulario(datos) {
 // ── Guardar corrección ───────────────────────────────────────────────────────
 document.getElementById("btnGuardar").addEventListener("click", async () => {
   if (!facturaActualId) return;
+
+  const proveedor = document.getElementById("f_proveedor").value.trim();
+  const importe   = document.getElementById("f_importe").value;
+  if (!proveedor || !importe) {
+    mostrarAviso("avisoForm", "err", "Proveedor e importe son obligatorios antes de guardar.");
+    return;
+  }
+
   const payload = {
     proveedor:      document.getElementById("f_proveedor").value,
     fecha:          document.getElementById("f_fecha").value,
@@ -314,6 +323,25 @@ document.getElementById("btnGuardar").addEventListener("click", async () => {
     cargarHistorial();
   } else {
     mostrarAviso("avisoForm", "err", "Error al guardar.");
+  }
+});
+
+// ── Reintentar OCR ───────────────────────────────────────────────────────────
+document.getElementById("btnReocr").addEventListener("click", async () => {
+  if (!facturaActualId) return;
+  document.getElementById("spinner").style.display = "block";
+  mostrarAviso("avisoForm", "info", "Reintentando extracción OCR...");
+  try {
+    const res = await fetch(`/api/facturas/${facturaActualId}/reocr`, { method: "POST" });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || "Error desconocido");
+    rellenarFormulario(data.datos);
+    document.getElementById("btnDolibarr").disabled = true;
+    mostrarAviso("avisoForm", "ok", "OCR completado. Revisa y corrige si es necesario.");
+  } catch (e) {
+    mostrarAviso("avisoForm", "err", `Error: ${e.message}`);
+  } finally {
+    document.getElementById("spinner").style.display = "none";
   }
 });
 
@@ -381,6 +409,7 @@ async function seleccionarFactura(id) {
   document.getElementById("formCard").style.display = "block";
   document.getElementById("btnDolibarr").disabled = !!f.dolibarr_id;
   document.getElementById("mejoraBadge").style.display = "none";
+  document.getElementById("btnReocr").style.display = f.dolibarr_id ? "none" : "inline-flex";
   mostrarAviso("avisoForm", "info", `Editando factura #${id} · ${f.filename}`);
 }
 
