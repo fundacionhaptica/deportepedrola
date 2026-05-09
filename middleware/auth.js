@@ -57,4 +57,11 @@ function requireRol(...roles) {
 
 const requireAuth = [checkJwt, loadUser];
 
-module.exports = { requireAuth, requireRol };
+function handleAuthErrors(err, req, res, next) {
+  if (err.name === 'UnauthorizedError') {
+    return res.status(401).json({ error: 'Token inválido o ausente' });
+  }
+  next(err);
+}
+
+module.exports = { requireAuth, requireRol, handleAuthErrors };
