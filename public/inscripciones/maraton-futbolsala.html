@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Maratón Fútbol Sala · CDE Deporte Pedrola</title>
+  <link rel="stylesheet" href="/inscripciones/style.css">
+</head>
+<body>
+
+<header>
+  <div class="logo">CDE</div>
+  <h1>Inscripciones <small>CDE Deporte Pedrola</small></h1>
+</header>
+
+<div class="wrap">
+  <div class="event-hero">
+    <div class="icono">⚽</div>
+    <h2>Maratón Fútbol Sala</h2>
+    <div class="precio">40 € <small>por equipo</small></div>
+    <p class="desc">Torneo de fútbol sala organizado por el Club Deportivo Elemental Deporte Pedrola.</p>
+  </div>
+
+  <div class="card">
+    <div class="campo">
+      <label>Nombre del equipo</label>
+      <input type="text" id="nombre" placeholder="Nombre de tu equipo">
+    </div>
+    <div class="campo">
+      <label>Nombre del capitán / responsable</label>
+      <input type="text" id="capitan" placeholder="Nombre y apellidos">
+    </div>
+    <div class="campo">
+      <label>Correo electrónico</label>
+      <input type="email" id="email" placeholder="tu@email.com" autocomplete="email">
+    </div>
+    <div class="campo">
+      <label>Teléfono de contacto</label>
+      <input type="tel" id="telefono" placeholder="612 345 678">
+    </div>
+    <div class="campo">
+      <label>Número de jugadores</label>
+      <select id="jugadores">
+        <option value="5">5 jugadores</option>
+        <option value="6">6 jugadores</option>
+        <option value="7">7 jugadores</option>
+        <option value="8">8 jugadores</option>
+      </select>
+    </div>
+
+    <div class="aviso" id="aviso"></div>
+    <button class="btn-pagar" id="btnPagar" data-label="Inscribir equipo — 40 €">Inscribir equipo — 40 €</button>
+  </div>
+</div>
+
+<footer>
+  <a href="/inscripciones">← Todos los eventos</a>
+</footer>
+
+<script src="/inscripciones/inscripciones.js"></script>
+<script>
+  document.getElementById('btnPagar').addEventListener('click', function () {
+    var equipo   = document.getElementById('nombre').value.trim();
+    var capitan  = document.getElementById('capitan').value.trim();
+    var email    = document.getElementById('email').value.trim();
+    if (!equipo || !capitan || !email) {
+      mostrarAviso('err', 'Nombre del equipo, capitán y correo son obligatorios.');
+      return;
+    }
+    checkout({
+      evento: 'maraton-futbolsala',
+      nombre: equipo + ' — ' + capitan,
+      email: email,
+      meta: {
+        equipo: equipo,
+        capitan: capitan,
+        telefono: document.getElementById('telefono').value.trim(),
+        jugadores: document.getElementById('jugadores').value,
+      },
+    });
+  });
+</script>
+</body>
+</html>

@@ -1,0 +1,207 @@
+:root {
+  --amarillo: #FFD400;
+  --negro: #111;
+  --verde: #2E7D32;
+  --rojo: #c0392b;
+  --gris: #f4f4f4;
+  --borde: #e0e0e0;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+  background: var(--gris);
+  color: var(--negro);
+  min-height: 100vh;
+}
+
+/* ── Header ─────────────────────────────────────────────────────────────── */
+header {
+  background: var(--negro);
+  color: var(--amarillo);
+  padding: 1rem 1.5rem;
+  border-bottom: 4px solid var(--amarillo);
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+header h1 { font-size: 1.1rem; }
+header small { color: #ccc; font-weight: 400; font-size: .8rem; display: block; }
+
+.logo {
+  width: 42px; height: 42px; border-radius: 50%;
+  background: var(--amarillo); border: 3px solid var(--verde);
+  display: flex; align-items: center; justify-content: center;
+  font-weight: 700; color: var(--negro); font-size: .9rem; flex: 0 0 42px;
+}
+
+/* ── Layout ─────────────────────────────────────────────────────────────── */
+.wrap {
+  max-width: 520px;
+  margin: 1.8rem auto;
+  padding: 0 1rem 3rem;
+}
+
+/* ── Hero del evento ─────────────────────────────────────────────────────── */
+.event-hero {
+  background: var(--negro);
+  color: var(--amarillo);
+  border-radius: 10px;
+  padding: 2rem 1.5rem;
+  text-align: center;
+  margin-bottom: 1.5rem;
+}
+.event-hero .icono { font-size: 3rem; margin-bottom: .5rem; }
+.event-hero h2 { font-size: 1.6rem; margin-bottom: .3rem; }
+.event-hero .precio { font-size: 2.2rem; font-weight: 700; color: #fff; margin-top: .6rem; }
+.event-hero .precio small { font-size: .85rem; font-weight: 400; color: #aaa; display: block; }
+.event-hero .desc { color: #aaa; font-size: .88rem; margin-top: .5rem; line-height: 1.5; }
+
+/* ── Card ────────────────────────────────────────────────────────────────── */
+.card {
+  background: #fff;
+  border: 1px solid var(--borde);
+  border-radius: 8px;
+  padding: 1.5rem;
+}
+.card + .card { margin-top: 1rem; }
+
+/* ── Formulario ──────────────────────────────────────────────────────────── */
+.campo { margin-bottom: 1rem; }
+.campo:last-of-type { margin-bottom: 0; }
+.campo label {
+  display: block;
+  font-size: .72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .4px;
+  color: #666;
+  margin-bottom: .3rem;
+}
+.campo input,
+.campo select,
+.campo textarea {
+  width: 100%;
+  padding: .6rem .8rem;
+  border: 1px solid var(--borde);
+  border-radius: 5px;
+  font-size: .95rem;
+  font-family: inherit;
+  background: #fff;
+}
+.campo input:focus,
+.campo select:focus { outline: 2px solid var(--amarillo); border-color: transparent; }
+.campo .ayuda { font-size: .75rem; color: #999; margin-top: .25rem; }
+
+/* ── Botón principal ─────────────────────────────────────────────────────── */
+.btn-pagar {
+  display: block;
+  width: 100%;
+  background: var(--amarillo);
+  color: var(--negro);
+  font-size: 1.05rem;
+  font-weight: 700;
+  border: none;
+  border-radius: 6px;
+  padding: .9rem;
+  cursor: pointer;
+  margin-top: 1.3rem;
+  transition: opacity .15s;
+}
+.btn-pagar:hover { opacity: .85; }
+.btn-pagar:disabled { opacity: .45; cursor: not-allowed; }
+
+.btn-gratis {
+  background: var(--verde);
+  color: #fff;
+}
+
+/* ── Avisos ──────────────────────────────────────────────────────────────── */
+.aviso {
+  padding: .7rem 1rem;
+  border-radius: 5px;
+  font-size: .85rem;
+  margin-top: 1rem;
+  display: none;
+  line-height: 1.5;
+}
+.aviso.visible-err  { background: #ffebee; color: var(--rojo);  display: block; }
+.aviso.visible-ok   { background: #e8f5e9; color: var(--verde); display: block; }
+.aviso.visible-info { background: #fff8e1; color: #b07800;      display: block; }
+
+/* ── Spinner ─────────────────────────────────────────────────────────────── */
+.spinner {
+  display: inline-block;
+  width: 16px; height: 16px;
+  border: 2px solid rgba(0,0,0,.2);
+  border-top-color: currentColor;
+  border-radius: 50%;
+  animation: spin .6s linear infinite;
+  vertical-align: middle;
+  margin-left: .4rem;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── Footer ──────────────────────────────────────────────────────────────── */
+footer {
+  text-align: center;
+  color: #aaa;
+  font-size: .78rem;
+  padding: 2rem 1rem 1rem;
+}
+footer a { color: #888; text-decoration: none; }
+footer a:hover { color: var(--negro); }
+
+/* ── Grid de eventos (index) ─────────────────────────────────────────────── */
+.eventos-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+@media (max-width: 420px) { .eventos-grid { grid-template-columns: 1fr; } }
+
+.evento-card {
+  background: #fff;
+  border: 2px solid var(--borde);
+  border-radius: 10px;
+  padding: 1.3rem 1rem;
+  text-decoration: none;
+  color: var(--negro);
+  display: block;
+  transition: border-color .15s, box-shadow .15s;
+  text-align: center;
+}
+.evento-card:hover {
+  border-color: var(--amarillo);
+  box-shadow: 0 3px 10px rgba(255,212,0,.25);
+}
+.evento-card .ev-icon { font-size: 2.2rem; margin-bottom: .5rem; }
+.evento-card strong { display: block; font-size: .95rem; margin-bottom: .3rem; }
+.evento-card .ev-precio { font-size: .9rem; color: var(--verde); font-weight: 700; }
+.evento-card .ev-gratis { font-size: .85rem; color: #888; }
+
+/* ── Página OK ───────────────────────────────────────────────────────────── */
+.ok-card {
+  background: #fff;
+  border: 1px solid var(--borde);
+  border-radius: 10px;
+  padding: 2.5rem 2rem;
+  text-align: center;
+  margin-top: 2rem;
+  box-shadow: 0 2px 12px rgba(0,0,0,.06);
+}
+.ok-card .ok-icon { font-size: 4rem; margin-bottom: 1rem; }
+.ok-card h2 { font-size: 1.5rem; margin-bottom: .6rem; }
+.ok-card p { color: #555; font-size: .9rem; line-height: 1.6; margin-bottom: 1.5rem; }
+.ok-card a {
+  display: inline-block;
+  background: var(--amarillo);
+  color: var(--negro);
+  font-weight: 700;
+  padding: .65rem 1.8rem;
+  border-radius: 5px;
+  text-decoration: none;
+  font-size: .95rem;
+}
+.ok-card a:hover { opacity: .85; }

@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Donación · CDE Deporte Pedrola</title>
+  <link rel="stylesheet" href="/inscripciones/style.css">
+</head>
+<body>
+
+<header>
+  <div class="logo">CDE</div>
+  <h1>Inscripciones <small>CDE Deporte Pedrola</small></h1>
+</header>
+
+<div class="wrap">
+  <div class="event-hero">
+    <div class="icono">💛</div>
+    <h2>Donación al club</h2>
+    <p class="desc">
+      Tu aportación ayuda a mantener las actividades deportivas del club.<br>
+      Las donaciones superiores a 150 € tienen derecho a certificado fiscal (Ley 49/2002).
+    </p>
+  </div>
+
+  <div class="card">
+    <div class="campo">
+      <label>Nombre completo</label>
+      <input type="text" id="nombre" placeholder="Nombre y apellidos" autocomplete="name">
+    </div>
+    <div class="campo">
+      <label>Correo electrónico</label>
+      <input type="email" id="email" placeholder="tu@email.com" autocomplete="email">
+      <p class="ayuda">Se enviará el recibo y, si aplica, el certificado de donación.</p>
+    </div>
+    <div class="campo">
+      <label>Importe (€)</label>
+      <input type="number" id="importe" placeholder="10" min="5" step="1">
+      <p class="ayuda">Mínimo 5 €</p>
+    </div>
+
+    <div class="aviso" id="aviso"></div>
+    <button class="btn-pagar" id="btnPagar" data-label="Donar">Donar</button>
+  </div>
+</div>
+
+<footer>
+  <a href="/inscripciones">← Todos los eventos</a>
+</footer>
+
+<script src="/inscripciones/inscripciones.js"></script>
+<script>
+  document.getElementById('btnPagar').addEventListener('click', function () {
+    var nombre  = document.getElementById('nombre').value.trim();
+    var email   = document.getElementById('email').value.trim();
+    var importe = parseFloat(document.getElementById('importe').value);
+
+    if (!nombre || !email) {
+      mostrarAviso('err', 'Nombre y correo son obligatorios.');
+      return;
+    }
+    if (!importe || importe < 5) {
+      mostrarAviso('err', 'El importe mínimo es 5 €.');
+      return;
+    }
+    checkout({
+      evento: 'donacion',
+      nombre: nombre,
+      email: email,
+      importe_cents: Math.round(importe * 100),
+    });
+  });
+</script>
+</body>
+</html>

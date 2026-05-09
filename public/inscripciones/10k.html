@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Carrera 10K · CDE Deporte Pedrola</title>
+  <link rel="stylesheet" href="/inscripciones/style.css">
+</head>
+<body>
+
+<header>
+  <div class="logo">CDE</div>
+  <h1>Inscripciones <small>CDE Deporte Pedrola</small></h1>
+</header>
+
+<div class="wrap">
+  <div class="event-hero">
+    <div class="icono">🏃</div>
+    <h2>Carrera 10K</h2>
+    <div class="precio">8 € <small>por participante</small></div>
+    <p class="desc">Carrera popular organizada por el Club Deportivo Elemental Deporte Pedrola.</p>
+  </div>
+
+  <div class="card">
+    <div class="campo">
+      <label>Nombre completo</label>
+      <input type="text" id="nombre" placeholder="Nombre y apellidos" autocomplete="name">
+    </div>
+    <div class="campo">
+      <label>Correo electrónico</label>
+      <input type="email" id="email" placeholder="tu@email.com" autocomplete="email">
+    </div>
+    <div class="campo">
+      <label>Teléfono</label>
+      <input type="tel" id="telefono" placeholder="612 345 678">
+    </div>
+    <div class="campo">
+      <label>Talla camiseta</label>
+      <select id="talla">
+        <option value="XS">XS</option>
+        <option value="S">S</option>
+        <option value="M" selected>M</option>
+        <option value="L">L</option>
+        <option value="XL">XL</option>
+        <option value="XXL">XXL</option>
+      </select>
+    </div>
+
+    <div class="aviso" id="aviso"></div>
+    <button class="btn-pagar" id="btnPagar" data-label="Inscribirme — 8 €">Inscribirme — 8 €</button>
+  </div>
+</div>
+
+<footer>
+  <a href="/inscripciones">← Todos los eventos</a>
+</footer>
+
+<script src="/inscripciones/inscripciones.js"></script>
+<script>
+  document.getElementById('btnPagar').addEventListener('click', function () {
+    var nombre   = document.getElementById('nombre').value.trim();
+    var email    = document.getElementById('email').value.trim();
+    if (!nombre || !email) {
+      mostrarAviso('err', 'Nombre y correo son obligatorios.');
+      return;
+    }
+    checkout({
+      evento: '10k',
+      nombre: nombre,
+      email: email,
+      meta: {
+        talla: document.getElementById('talla').value,
+        telefono: document.getElementById('telefono').value.trim(),
+      },
+    });
+  });
+</script>
+</body>
+</html>
