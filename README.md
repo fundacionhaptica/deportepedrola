@@ -1,71 +1,132 @@
-# Club Deportivo Elemental Deporte Pedrola — Infraestructura
+# Sistema de gestión — Club Deportivo Elemental Deporte Pedrola
 
-Repositorio de infraestructura como código (IaC) del club. Contiene la definición
-declarativa de los servicios autoalojados (Docker Compose), la documentación
-operativa y los scripts de despliegue automatizado en el NAS Synology.
+Aplicación web de gestión interna para el Club Deportivo Elemental Deporte Pedrola (CIF G99528549). Cubre socios, facturas con OCR, ingresos, cobros por Stripe e informes financieros.
 
-> **Uso interno del club.** No redistribuir. La transferencia de mantenimiento
-> sigue el procedimiento descrito en [`docs/08-seguridad.md`](docs/08-seguridad.md).
+Desplegada en: `https://erp.deportepedrola.com`
 
 ---
 
-## Servicios
+## Stack
 
-| Servicio       | Subdominio                        | Estado        | Documentación                                  |
-| -------------- | --------------------------------- | ------------- | ---------------------------------------------- |
-| Portal índice  | `erp.deportepedrola.com`          | 📝 Planificado | [`docs/06-portal.md`](docs/06-portal.md)       |
-| Paperless-ngx  | `contabilidad.deportepedrola.com` | 🚧 En progreso | [`docs/03-paperless.md`](docs/03-paperless.md) |
-| NocoDB         | `socios.deportepedrola.com`       | 📝 Planificado | [`docs/04-nocodb.md`](docs/04-nocodb.md)       |
-| Metabase       | `stats.deportepedrola.com`        | 📝 Planificado | [`docs/05-metabase.md`](docs/05-metabase.md)   |
-| n8n            | (gestionado fuera del repo)       | ✅ Operativo   | —                                              |
-| Verifactu SaaS | (proveedor por elegir)            | 📝 Pendiente   | —                                              |
-
----
-
-## Principios de diseño
-
-- **Declarativo.** Todo el estado de los servicios vive en este repo. El NAS solo
-  ejecuta lo que está aquí descrito.
-- **Pull deploy.** El NAS hace `git pull` cada 5 minutos vía cron y reconcilia
-  con `docker compose up -d`. No se expone SSH ni se hace push desde fuera.
-- **Aislamiento.** Red Docker `club-network` y volúmenes en
-  `/volume1/docker/club/`, separados de cualquier otro servicio del NAS.
-- **Secretos fuera del repo.** Solo se versionan los `.env.example`. Los `.env`
-  reales viven únicamente en el NAS.
-- **Documentación en español**, porque la mantienen personas del club.
-- **Subdominio descriptivo, no nombre de producto** (`contabilidad`, no `paperless`):
-  permite cambiar la herramienta sin cambiar la URL.
+| Capa | Tecnología |
+|---|---|
+| Backend | Node.js 20 + Express |
+| Base de datos | PostgreSQL 16 |
+| Autenticación | Auth0 (JWT + JWKS) |
+| OCR de facturas | Anthropic Claude API |
+| Pagos | Stripe Checkout (pagos únicos) |
+| PDFs | pdfkit |
+| Frontend | HTML + JS vanilla + Chart.js (CDN) |
+| Despliegue | Docker Compose |
 
 ---
 
-## Estructura del repositorio
+## Instalación en el NAS
 
-```
-.
-├── CLAUDE.md                  Contexto permanente para Claude Code
-├── README.md                  Este archivo
-├── docs/                      Documentación operativa numerada
-├── services/                  Un directorio por servicio Docker Compose
-│   ├── paperless/
-│   └── portal/
-├── scripts/                   Bootstrap, deploy automático, scaffolding
-└── .github/workflows/         Validación CI (compose, secretos, shellcheck)
+### 1. Clonar el repositorio
+
+```bash
+git clone https://github.com/fundacionhaptica/deportepedrola.git
+cd deportepedrola
 ```
 
+### 2. Crear y editar el archivo de entorno
+
+```bash
+cp .env.example .env
+nano .env
+```
+
+Rellenar al menos:
+- `DATABASE_URL` (ajustar contraseña)
+- `AUTH0_DOMAIN`, `AUTH0_AUDIENCE`, `AUTH0_CLIENT_ID`
+- `ANTHROPIC_API_KEY`
+- `STRIPE_SECRET_KEY`, `STRIPE_PUBLISHABLE_KEY`, `STRIPE_WEBHOOK_SECRET`
+- `PUBLIC_URL`
+- `CLUB_REPRESENTANTE_DNI`, `CLUB_EMAIL`, `CLUB_TELEFONO`
+
+### 3. Crear directorio de uploads
+
+```bash
+mkdir -p uploads/facturas uploads/certificados-donacion
+touch uploads/.gitkeep
+```
+
+### 4. Arrancar los contenedores
+
+```bash
+docker compose up -d --build
+```
+
+### 5. Ejecutar migraciones de base de datos
+
+```bash
+docker compose exec app npm run migrate
+```
+
+### 6. (Opcional) Importar socios desde Excel
+
+```bash
+docker compose exec app node db/seed-socios.js /ruta/al/Socios_DP.xlsx
+```
+
 ---
 
-## Cómo navegar el repo
+## Configuración de Auth0
 
-- **Primera instalación** del NAS desde cero → [`docs/01-setup-inicial.md`](docs/01-setup-inicial.md).
-- **Cómo funciona el auto-deploy** y cómo añadir un servicio nuevo → [`docs/02-deploy.md`](docs/02-deploy.md).
-- **Diagnóstico de problemas** comunes → [`docs/09-troubleshooting.md`](docs/09-troubleshooting.md).
-- **Arquitectura global** del sistema → [`docs/00-arquitectura.md`](docs/00-arquitectura.md).
-- **Backups y recuperación** → [`docs/07-backups.md`](docs/07-backups.md).
-- **Seguridad y RGPD** → [`docs/08-seguridad.md`](docs/08-seguridad.md).
+1. Crear un tenant en [auth0.com](https://auth0.com) (plan gratuito suficiente).
+2. Crear una **API**:
+   - Identifier: `https://api.deporte-pedrola` (valor de `AUTH0_AUDIENCE`)
+   - Signing algorithm: RS256
+3. Crear una **Application** de tipo "Single Page Application":
+   - Allowed Callback URLs: `https://erp.deportepedrola.com`
+   - Allowed Logout URLs: `https://erp.deportepedrola.com`
+   - Allowed Web Origins: `https://erp.deportepedrola.com`
+4. Copiar **Domain** → `AUTH0_DOMAIN` y **Client ID** → `AUTH0_CLIENT_ID` en `.env`.
+
+### Promocionar el primer administrador
+
+Tras el primer login, ejecutar en la base de datos:
+
+```sql
+UPDATE usuarios SET rol = 'admin' WHERE email = 'jaime@ejemplo.com';
+```
+
+---
+
+## Configuración de Stripe
+
+1. Crear una cuenta en [stripe.com](https://stripe.com).
+2. Copiar las claves de API (modo test primero) en `.env`.
+3. Configurar el webhook en el dashboard de Stripe:
+   - URL: `https://erp.deportepedrola.com/api/stripe/webhook`
+   - Eventos a escuchar: `checkout.session.completed`
+4. Copiar el **Webhook Signing Secret** → `STRIPE_WEBHOOK_SECRET` en `.env`.
+
+---
+
+## Importación de socios desde Excel
+
+```bash
+docker compose exec app node db/seed-socios.js /ruta/al/Socios_DP.xlsx
+```
+
+El script importa socios y crea inscripciones para la temporada `2024-2025`. No se ejecuta automáticamente en el arranque.
+
+---
+
+## ⚠️ Aviso legal: certificados de donación y Ley 49/2002
+
+Los certificados de donación generados por esta aplicación incluyen referencias a la **Ley 49/2002** sobre incentivos fiscales al mecenazgo (deducción en IRPF, modelo 182).
+
+**Estas deducciones solo aplican si la entidad está efectivamente acogida al régimen especial de dicha ley** (entidades sin fines lucrativos de utilidad pública, fundaciones, etc.).
+
+Un club deportivo inscrito en el registro de entidades deportivas de Aragón no acoge automáticamente la Ley 49/2002. **Jaime debe confirmar con el asesor fiscal si el club cumple los requisitos antes de entregar certificados a donantes.**
+
+Si el club no está acogido a dicha ley, adaptar el texto del certificado en `lib/certificado-donacion.js`.
 
 ---
 
 ## Licencia
 
-Uso interno del **Club Deportivo Elemental Deporte Pedrola**
-(CIF G99528549). Todos los derechos reservados.
+Uso interno del Club Deportivo Elemental Deporte Pedrola. Todos los derechos reservados.
