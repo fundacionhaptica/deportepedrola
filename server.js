@@ -4,7 +4,6 @@ const express  = require('express');
 const path     = require('path');
 const pool     = require('./db');
 const stripe   = require('./lib/stripe');
-const { handleAuthErrors } = require('./middleware/auth');
 
 const app  = express();
 const PORT = process.env.PORT || 3000;
@@ -114,23 +113,23 @@ app.use('/api/informes',    require('./routes/informes'));
 app.use('/api/stripe',      require('./routes/stripe'));
 
 // =============================================================================
-// 7. SPA FALLBACK — rutas del frontend (hash router no necesita esto,
-//    pero cubre /pago/ok y /pago/cancelado que Stripe redirige)
+// 7. SPA FALLBACK — sirve index.html para cualquier ruta no-API
+//    Cubre /pago/ok, /pago/cancelado y cualquier ruta del hash router
 // =============================================================================
 
-app.get('/pago/ok',        (_req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
-app.get('/pago/cancelado', (_req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
+app.get('*', (_req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
 
 // =============================================================================
 // 8. MANEJO DE ERRORES
 // =============================================================================
 
-// JWT inválido o ausente
-app.use(handleAuthErrors);
-
-// Error genérico
 // eslint-disable-next-line no-unused-vars
 app.use((err, _req, res, _next) => {
+  if (err.name === 'UnauthorizedError') {
+    return res.status(401).json({ error: 'Token inválido o ausente' });
+  }
   console.error(err);
   res.status(err.status || 500).json({ error: err.message || 'Error interno del servidor' });
 });
