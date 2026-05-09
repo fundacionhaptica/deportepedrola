@@ -12,6 +12,7 @@ services:
         condition: service_healthy
     networks:
       - deporte-net
+      - ia-net
 
   db:
     image: postgres:16-alpine
@@ -36,3 +37,5 @@ volumes:
 networks:
   deporte-net:
     driver: bridge
+  ia-net:
+    external: true
