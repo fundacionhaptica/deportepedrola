@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cuota de socio · CDE Deporte Pedrola</title>
+  <link rel="stylesheet" href="/inscripciones/style.css">
+</head>
+<body>
+
+<header>
+  <div class="logo">CDE</div>
+  <h1>Inscripciones <small>CDE Deporte Pedrola</small></h1>
+</header>
+
+<div class="wrap">
+  <div class="event-hero">
+    <div class="icono">🏅</div>
+    <h2>Cuota de socio</h2>
+    <p class="desc">Hazte socio del club y accede a todas las actividades deportivas de la temporada.</p>
+  </div>
+
+  <div class="card">
+    <div class="campo">
+      <label>Categoría</label>
+      <select id="categoria">
+        <option value="infantil"  data-precio="2000">Infantil (menor de 14 años) — 20 €</option>
+        <option value="adulto"    data-precio="3000">Adulto — 30 €</option>
+        <option value="familia"   data-precio="5000">Familia — 50 €</option>
+      </select>
+    </div>
+    <div class="campo">
+      <label>Nombre completo</label>
+      <input type="text" id="nombre" placeholder="Nombre y apellidos" autocomplete="name">
+    </div>
+    <div class="campo">
+      <label>Correo electrónico</label>
+      <input type="email" id="email" placeholder="tu@email.com" autocomplete="email">
+    </div>
+    <div class="campo">
+      <label>Teléfono</label>
+      <input type="tel" id="telefono" placeholder="612 345 678" autocomplete="tel">
+    </div>
+    <div class="campo">
+      <label>Sección deportiva</label>
+      <select id="seccion">
+        <option value="">— Selecciona —</option>
+        <option>Atletismo</option>
+        <option>Baloncesto</option>
+        <option>Fútbol 7</option>
+        <option>Fútbol</option>
+        <option>Fútbol Sala</option>
+        <option>Gimnasia Rítmica</option>
+        <option>Kenpo</option>
+        <option>Kickboxing</option>
+        <option>Patinaje</option>
+        <option>Trail Running</option>
+        <option>Voleibol</option>
+        <option>General / Sin sección</option>
+      </select>
+    </div>
+
+    <div class="aviso" id="aviso"></div>
+    <button class="btn-pagar" id="btnPagar" data-label="Pagar cuota">Pagar cuota</button>
+  </div>
+</div>
+
+<footer>
+  <a href="/inscripciones">← Todos los eventos</a>
+</footer>
+
+<script src="/inscripciones/inscripciones.js"></script>
+<script>
+  document.getElementById('btnPagar').addEventListener('click', function () {
+    var nombre   = document.getElementById('nombre').value.trim();
+    var email    = document.getElementById('email').value.trim();
+    var catEl    = document.getElementById('categoria');
+    var precio   = parseInt(catEl.options[catEl.selectedIndex].dataset.precio, 10);
+    var seccion  = document.getElementById('seccion').value;
+    var telefono = document.getElementById('telefono').value.trim();
+
+    if (!nombre || !email) {
+      mostrarAviso('err', 'Nombre y correo son obligatorios.');
+      return;
+    }
+    checkout({
+      evento: 'cuotas',
+      nombre: nombre,
+      email: email,
+      importe_cents: precio,
+      meta: { categoria: catEl.value, seccion: seccion, telefono: telefono },
+    });
+  });
+</script>
+</body>
+</html>

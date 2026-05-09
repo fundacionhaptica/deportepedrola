@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Inscripción confirmada · CDE Deporte Pedrola</title>
+  <link rel="stylesheet" href="/inscripciones/style.css">
+</head>
+<body>
+
+<header>
+  <div class="logo">CDE</div>
+  <h1>Inscripciones <small>CDE Deporte Pedrola</small></h1>
+</header>
+
+<div class="wrap">
+  <div class="ok-card">
+    <div class="ok-icon">✅</div>
+    <h2 id="titulo">¡Inscripción confirmada!</h2>
+    <p id="mensaje">
+      Tu inscripción se ha registrado correctamente.<br>
+      Recibirás un correo de confirmación en breve.
+    </p>
+    <a href="/inscripciones">Ver todos los eventos</a>
+  </div>
+</div>
+
+<footer>
+  Club Deportivo Elemental Deporte Pedrola · CIF G99528549
+</footer>
+
+<script>
+  // Personalizar mensaje según el evento
+  var params = new URLSearchParams(location.search);
+  var evento = params.get('evento');
+  var nombre = params.get('nombre');
+
+  var mensajes = {
+    'cuotas':               '¡Ya eres socio del club esta temporada!',
+    '10k':                  '¡Nos vemos en la carrera!',
+    'maraton-futbolsala':   '¡Equipo inscrito en el Maratón Fútbol Sala!',
+    'copa-futbol':          '¡Equipo inscrito en la Copa Fútbol!',
+    'san-silvestre':        '¡Nos vemos en la San Silvestre!',
+    'donacion':             '¡Gracias por tu donación al club!',
+  };
+
+  if (mensajes[evento]) {
+    document.getElementById('titulo').textContent = mensajes[evento];
+  }
+  if (nombre) {
+    document.getElementById('mensaje').innerHTML =
+      'Inscripción a nombre de <strong>' + nombre + '</strong> registrada correctamente.<br>' +
+      'Recibirás un correo de confirmación en breve.';
+  }
+</script>
+</body>
+</html>
