@@ -70,7 +70,7 @@ async def upload_factura(file: UploadFile = File(...)):
         if ejemplos:
             datos, raw = await extractor.extraer_factura(img_path, ejemplos)
 
-    factura_id = await db.guardar_factura(file.filename, datos, raw)
+    factura_id = await db.guardar_factura(file.filename, datos, raw, str(img_path))
 
     return {
         "id": factura_id,
@@ -123,6 +123,31 @@ async def enviar_a_dolibarr(factura_id: int):
 
     await db.marcar_enviada(factura_id, doli_id)
     return {"ok": True, "dolibarr_id": doli_id}
+
+
+@app.post("/api/facturas/{factura_id}/reocr")
+async def reintentar_ocr(factura_id: int):
+    """Reintenta el OCR usando la imagen procesada guardada, sin necesidad de re-subir el PDF."""
+    factura = await db.get_factura(factura_id)
+    if not factura:
+        raise HTTPException(404, "Factura no encontrada")
+
+    img_path_str = factura.get("img_path") or ""
+    if not img_path_str or not Path(img_path_str).exists():
+        raise HTTPException(400, "Archivo original no disponible para reintento")
+
+    img_path = Path(img_path_str)
+    proveedor = factura.get("proveedor") or ""
+    ejemplos = await db.ejemplos_por_proveedor(proveedor) if proveedor else []
+
+    datos, raw = await extractor.extraer_factura(img_path, ejemplos or None)
+    await db.actualizar_ocr(factura_id, datos, raw)
+
+    return {
+        "id": factura_id,
+        "datos": datos,
+        "ejemplos_usados": len(ejemplos),
+    }
 
 
 @app.get("/api/facturas")

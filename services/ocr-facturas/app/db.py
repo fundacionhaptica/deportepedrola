@@ -20,10 +20,17 @@ async def init_db():
                 num_factura TEXT,
                 secciones   TEXT,   -- JSON list
                 raw_ai      TEXT,   -- respuesta cruda de la IA
+                img_path    TEXT,   -- ruta de la imagen procesada (para reintento OCR)
                 corregido   INTEGER DEFAULT 0,
                 dolibarr_id INTEGER
             )
         """)
+        # Migración: añadir img_path si la tabla ya existía sin esa columna
+        try:
+            await db.execute("ALTER TABLE facturas ADD COLUMN img_path TEXT DEFAULT ''")
+            await db.commit()
+        except Exception:
+            pass  # columna ya existe
         await db.execute("""
             CREATE TABLE IF NOT EXISTS correcciones (
                 id          INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -37,13 +44,13 @@ async def init_db():
         await db.commit()
 
 
-async def guardar_factura(filename: str, datos: dict, raw_ai: str) -> int:
+async def guardar_factura(filename: str, datos: dict, raw_ai: str, img_path: str = "") -> int:
     async with aiosqlite.connect(DB_PATH) as db:
         cur = await db.execute("""
             INSERT INTO facturas
               (created_at, filename, proveedor, fecha, importe, concepto,
-               num_factura, secciones, raw_ai)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+               num_factura, secciones, raw_ai, img_path)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
             datetime.now().isoformat(),
             filename,
@@ -54,6 +61,7 @@ async def guardar_factura(filename: str, datos: dict, raw_ai: str) -> int:
             datos.get("numero_factura", ""),
             json.dumps(datos.get("secciones", []), ensure_ascii=False),
             raw_ai,
+            img_path,
         ))
         await db.commit()
         return cur.lastrowid
@@ -150,3 +158,24 @@ async def get_factura(factura_id: int) -> dict | None:
         cur = await db.execute("SELECT * FROM facturas WHERE id=?", (factura_id,))
         row = await cur.fetchone()
         return dict(row) if row else None
+
+
+async def actualizar_ocr(factura_id: int, datos: dict, raw_ai: str):
+    """Sobreescribe los datos OCR de una factura y resetea el flag corregido."""
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute("""
+            UPDATE facturas SET
+                proveedor=?, fecha=?, importe=?, concepto=?,
+                num_factura=?, secciones=?, raw_ai=?, corregido=0
+            WHERE id=?
+        """, (
+            datos.get("proveedor", ""),
+            datos.get("fecha", ""),
+            datos.get("importe_total"),
+            datos.get("concepto", ""),
+            datos.get("numero_factura", ""),
+            json.dumps(datos.get("secciones", []), ensure_ascii=False),
+            raw_ai,
+            factura_id,
+        ))
+        await db.commit()
