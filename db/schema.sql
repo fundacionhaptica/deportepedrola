@@ -317,7 +317,7 @@ FROM (
     0::NUMERIC                 AS gastos,
     SUM(importe)               AS ingresos
   FROM ingresos
-  WHERE es_tesoreria = FALSE
+  WHERE es_tesoreria = FALSE OR es_tesoreria IS NULL
   GROUP BY DATE_TRUNC('month', fecha)
 ) sub
 GROUP BY mes
