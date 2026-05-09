@@ -28,10 +28,18 @@ const upload = multer({
   },
 });
 
+// Wrapper para capturar errores de multer (tipo no permitido, tamaño excedido)
+function handleUpload(req, res, next) {
+  upload.single('pdf')(req, res, (err) => {
+    if (err) return res.status(400).json({ error: err.message || 'Error al subir archivo' });
+    next();
+  });
+}
+
 // ─── POST /ocr ────────────────────────────────────────────────────────────────
 
 router.post('/ocr', requireAuth, requireRol('admin', 'tesorero'),
-  upload.single('pdf'),
+  handleUpload,
   async (req, res) => {
     if (!req.file) return res.status(400).json({ error: 'Se requiere un PDF' });
 
