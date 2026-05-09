@@ -4,6 +4,10 @@ let secciones = [];
 let equipos   = [];
 
 const TIPOS = ['cuota','inscripcion','subvencion','donacion','adelanto_presidente','otro'];
+const LABELS = {
+  cuota: 'Cuota', inscripcion: 'Inscripción', subvencion: 'Subvención',
+  donacion: 'Donación', adelanto_presidente: 'Adelanto presidente', otro: 'Otro',
+};
 
 export async function render(container) {
   container.innerHTML = `
@@ -12,20 +16,20 @@ export async function render(container) {
       <div class="actions">
         <select id="ing-tipo-fil" style="width:160px">
           <option value="">Todos los tipos</option>
-          ${TIPOS.map(t => `<option value="${t}">${labelTipo(t)}</option>`).join('')}
+          ${TIPOS.map(t => `<option value="${t}">${LABELS[t]}</option>`).join('')}
         </select>
-        <input type="search" id="ing-buscar" placeholder="Buscar concepto, socio…" style="width:200px">
+        <input type="search" id="ing-buscar" placeholder="Buscar concepto…" style="width:190px">
         <button class="btn btn-primary" id="ing-nuevo">+ Nuevo ingreso</button>
       </div>
     </div>
 
     <div class="card">
       <div class="table-wrap">
-        <table id="ing-tabla">
+        <table>
           <thead>
             <tr>
-              <th>Fecha</th><th>Tipo</th><th>Concepto</th><th>Socio</th>
-              <th>Sección</th><th>Importe</th><th>Stripe</th><th></th>
+              <th>Fecha</th><th>Tipo</th><th>Concepto</th>
+              <th>Socio</th><th>Sección</th><th>Importe</th><th>Stripe</th><th></th>
             </tr>
           </thead>
           <tbody id="ing-body"></tbody>
@@ -43,7 +47,7 @@ export async function render(container) {
           <div class="form-group">
             <label>Tipo *</label>
             <select name="tipo" id="ing-tipo" required>
-              ${TIPOS.map(t => `<option value="${t}">${labelTipo(t)}</option>`).join('')}
+              ${TIPOS.map(t => `<option value="${t}">${LABELS[t]}</option>`).join('')}
             </select>
           </div>
           <div class="form-group">
@@ -52,7 +56,7 @@ export async function render(container) {
           </div>
           <div class="form-group">
             <label>Importe (€) *</label>
-            <input type="number" name="importe" min="0.01" step="0.01" required placeholder="0.00">
+            <input type="number" name="importe" min="0" step="0.01" required placeholder="0.00">
           </div>
         </div>
         <div class="form-row">
@@ -82,49 +86,57 @@ export async function render(container) {
           </div>
         </div>
 
-        <!-- Campos donación -->
+        <!-- Donación -->
         <fieldset id="fld-donacion" style="display:none;border:1px solid var(--border);border-radius:var(--radius);padding:.75rem;margin-bottom:.75rem">
-          <legend style="font-size:.8rem;color:var(--muted);padding:0 .4rem">Datos donante</legend>
+          <legend style="font-size:.78rem;color:var(--muted);padding:0 .3rem;font-weight:700">Datos donante</legend>
           <div class="form-row">
             <div class="form-group"><label>Nombre donante</label><input name="donante_nombre"></div>
             <div class="form-group"><label>NIF donante</label><input name="donante_nif"></div>
           </div>
-          <div class="form-row">
-            <div class="form-group" style="grid-column:1/-1"><label>Dirección donante</label><input name="donante_direccion"></div>
+          <div class="form-group" style="margin-bottom:.5rem">
+            <label>Dirección donante</label><input name="donante_direccion">
           </div>
         </fieldset>
 
-        <!-- Campos subvención -->
+        <!-- Subvención -->
         <fieldset id="fld-subvencion" style="display:none;border:1px solid var(--border);border-radius:var(--radius);padding:.75rem;margin-bottom:.75rem">
-          <legend style="font-size:.8rem;color:var(--muted);padding:0 .4rem">Datos subvención</legend>
+          <legend style="font-size:.78rem;color:var(--muted);padding:0 .3rem;font-weight:700">Datos subvención</legend>
           <div class="form-row">
             <div class="form-group"><label>Organismo</label><input name="organismo"></div>
             <div class="form-group"><label>Expediente</label><input name="expediente"></div>
           </div>
         </fieldset>
 
-        <div class="form-group" style="margin-bottom:.75rem"><label>Notas</label><textarea name="notas" rows="2"></textarea></div>
+        <!-- Adelanto (informativo) -->
+        <div id="fld-adelanto" class="alert alert-info" style="display:none;margin-bottom:.75rem">
+          ℹ️ Los adelantos del presidente se marcan automáticamente como tesorería y no computan en el balance de ingresos.
+        </div>
 
-        <div id="dlg-ing-stripe" style="display:none;border-top:1px solid var(--border);padding-top:.75rem;margin-bottom:.75rem">
-          <p style="font-size:.85rem;color:var(--muted);margin-bottom:.5rem">Generar enlace de pago Stripe (cuota):</p>
+        <div class="form-group" style="margin-bottom:.75rem">
+          <label>Notas</label><textarea name="notas" rows="2"></textarea>
+        </div>
+
+        <!-- Botón Stripe cuota -->
+        <div id="fld-stripe" style="display:none;border-top:1px solid var(--border);padding-top:.75rem;margin-bottom:.75rem">
+          <p style="font-size:.83rem;color:var(--muted);margin-bottom:.6rem;font-weight:600">💳 Cobrar cuota por Stripe</p>
           <div class="form-row">
             <div class="form-group">
               <label>Temporada</label>
-              <input id="ing-stripe-temporada" placeholder="2025-26">
+              <input id="ing-stripe-temp" placeholder="2025-26">
             </div>
             <div class="form-group">
               <label>Precio (€)</label>
               <input id="ing-stripe-precio" type="number" min="1" step="0.01" placeholder="60.00">
             </div>
           </div>
-          <button type="button" class="btn btn-secondary" id="ing-stripe-btn" style="font-size:.8rem">Crear enlace Stripe</button>
-          <div id="ing-stripe-link" style="margin-top:.5rem;font-size:.85rem"></div>
+          <button type="button" class="btn btn-accent btn-sm" id="ing-stripe-btn">Generar enlace de pago</button>
+          <div id="ing-stripe-result" style="margin-top:.5rem;font-size:.85rem"></div>
         </div>
 
         <div id="dlg-ing-error" class="alert alert-error" style="display:none"></div>
         <div class="dialog-footer">
           <button type="button" class="btn btn-secondary" id="dlg-ing-cancel">Cancelar</button>
-          <button type="submit" class="btn btn-primary">Guardar</button>
+          <button type="submit" class="btn btn-primary">Guardar ingreso</button>
         </div>
       </form>
     </dialog>
@@ -136,14 +148,14 @@ export async function render(container) {
   document.getElementById('dlg-ing-close').addEventListener('click', cerrarDlg);
   document.getElementById('dlg-ing-cancel').addEventListener('click', cerrarDlg);
   document.getElementById('form-ingreso').addEventListener('submit', guardar);
-  document.getElementById('ing-tipo').addEventListener('change', e => actualizarCamposCondicionales(e.target.value));
+  document.getElementById('ing-tipo').addEventListener('change', e => mostrarCampos(e.target.value));
   document.getElementById('ing-sec-sel').addEventListener('change', e => filtrarEquipos(e.target.value));
   document.getElementById('ing-stripe-btn').addEventListener('click', crearStripe);
 
-  await Promise.all([cargarFiltros(), cargar()]);
+  await Promise.all([cargarSelects(), cargar()]);
 }
 
-async function cargarFiltros() {
+async function cargarSelects() {
   try {
     [socios, secciones, equipos] = await Promise.all([
       window.api('/socios?activo=true&limit=500'),
@@ -152,15 +164,12 @@ async function cargarFiltros() {
     ]);
 
     const selSocio = document.getElementById('ing-socio-sel');
-    socios.forEach(s => {
-      selSocio.insertAdjacentHTML('beforeend',
-        `<option value="${s.id}">${s.apellidos}, ${s.nombre}</option>`);
-    });
+    socios.forEach(s => selSocio.insertAdjacentHTML('beforeend',
+      `<option value="${s.id}">${s.apellidos}, ${s.nombre}</option>`));
 
     const selSec = document.getElementById('ing-sec-sel');
-    secciones.forEach(s => {
-      selSec.insertAdjacentHTML('beforeend', `<option value="${s.id}">${s.nombre}</option>`);
-    });
+    secciones.forEach(s => selSec.insertAdjacentHTML('beforeend',
+      `<option value="${s.id}">${s.nombre}</option>`));
 
     filtrarEquipos('');
   } catch (err) {
@@ -169,13 +178,11 @@ async function cargarFiltros() {
 }
 
 function filtrarEquipos(seccionId) {
-  const selEq = document.getElementById('ing-eq-sel');
-  if (!selEq) return;
-  selEq.innerHTML = '<option value="">— sin equipo —</option>';
+  const sel = document.getElementById('ing-eq-sel');
+  if (!sel) return;
+  sel.innerHTML = '<option value="">— sin equipo —</option>';
   const lista = seccionId ? equipos.filter(e => String(e.seccion_id) === String(seccionId)) : equipos;
-  lista.forEach(e => {
-    selEq.insertAdjacentHTML('beforeend', `<option value="${e.id}">${e.nombre}</option>`);
-  });
+  lista.forEach(e => sel.insertAdjacentHTML('beforeend', `<option value="${e.id}">${e.nombre}</option>`));
 }
 
 async function cargar(params = '') {
@@ -191,41 +198,29 @@ function renderTabla(lista) {
   const tbody = document.getElementById('ing-body');
   if (!tbody) return;
   if (!lista.length) {
-    tbody.innerHTML = '<tr><td colspan="8" class="empty">Sin resultados</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="8" class="empty">Sin ingresos registrados</td></tr>';
     return;
   }
   tbody.innerHTML = lista.map(i => `
     <tr>
       <td>${i.fecha ? i.fecha.substring(0,10) : '—'}</td>
-      <td><span class="badge ${badgeTipo(i.tipo)}">${labelTipo(i.tipo)}</span></td>
+      <td><span class="badge ${badgeTipo(i.tipo)}">${LABELS[i.tipo] || i.tipo}</span></td>
       <td>${i.concepto || '—'}</td>
-      <td>${i.socio_nombre ? `${i.socio_apellidos}, ${i.socio_nombre}` : '—'}</td>
+      <td>${i.socio_apellidos ? `${i.socio_apellidos}, ${i.socio_nombre}` : '—'}</td>
       <td>${i.seccion_nombre || '—'}</td>
-      <td style="font-weight:600">${fmtEur(i.importe)}</td>
-      <td>${i.stripe_session_id ? '<span class="badge badge-green">Stripe</span>' : '—'}</td>
-      <td>
-        ${i.certificado_pdf_path ? `<button class="btn-icon" title="Certificado" onclick="verCertificado(${i.id})">🎗</button>` : ''}
-        <button class="btn-icon" title="Editar" onclick="editarIngreso(${i.id})">✏️</button>
+      <td style="font-weight:700">${fmtEur(i.importe)}</td>
+      <td>${i.stripe_session_id ? '<span class="badge badge-blue">Stripe</span>' : '—'}</td>
+      <td style="white-space:nowrap">
+        ${i.certificado_pdf_path ? `<button class="btn-icon" title="Certificado donación" onclick="window._verCert(${i.id})">🎗</button>` : ''}
+        <button class="btn-icon" title="Editar" onclick="window._editarIngreso(${i.id})">✏️</button>
       </td>
     </tr>
   `).join('');
 }
 
-function labelTipo(t) {
-  const map = {
-    cuota: 'Cuota', inscripcion: 'Inscripción', subvencion: 'Subvención',
-    donacion: 'Donación', adelanto_presidente: 'Adelanto pres.', otro: 'Otro',
-  };
-  return map[t] || t;
-}
-
 function badgeTipo(t) {
-  if (t === 'cuota')               return 'badge-blue';
-  if (t === 'inscripcion')         return 'badge-green';
-  if (t === 'subvencion')          return 'badge-blue';
-  if (t === 'donacion')            return 'badge-green';
-  if (t === 'adelanto_presidente') return 'badge-orange';
-  return 'badge-gray';
+  const m = { cuota:'badge-blue', inscripcion:'badge-green', subvencion:'badge-blue', donacion:'badge-green', adelanto_presidente:'badge-orange', otro:'badge-gray' };
+  return m[t] || 'badge-gray';
 }
 
 function fmtEur(n) {
@@ -249,28 +244,20 @@ let editandoId = null;
 
 function abrirDlg(id = null) {
   editandoId = id;
-  const form  = document.getElementById('form-ingreso');
-  const title = document.getElementById('dlg-ing-title');
-  const errEl = document.getElementById('dlg-ing-error');
-
-  form.reset();
-  errEl.style.display = 'none';
-  document.getElementById('ing-stripe-link').textContent = '';
-
-  // reset selects
+  document.getElementById('form-ingreso').reset();
+  document.getElementById('dlg-ing-error').style.display = 'none';
+  document.getElementById('ing-stripe-result').textContent = '';
   document.getElementById('ing-socio-sel').value = '';
   document.getElementById('ing-sec-sel').value   = '';
   filtrarEquipos('');
+  mostrarCampos('cuota');
 
-  actualizarCamposCondicionales('cuota');
+  document.getElementById('dlg-ing-title').textContent = id ? 'Editar ingreso' : 'Nuevo ingreso';
 
   if (id) {
-    title.textContent = 'Editar ingreso';
-    cargarIngresoEnDlg(id);
+    cargarEnDlg(id);
   } else {
-    title.textContent = 'Nuevo ingreso';
-    // prefill hoy
-    form.elements['fecha'].value = new Date().toISOString().substring(0,10);
+    document.getElementById('form-ingreso').elements['fecha'].value = new Date().toISOString().substring(0,10);
   }
 
   document.getElementById('dlg-ingreso').showModal();
@@ -280,69 +267,67 @@ function cerrarDlg() {
   document.getElementById('dlg-ingreso').close();
 }
 
-async function cargarIngresoEnDlg(id) {
+async function cargarEnDlg(id) {
   try {
-    const ing = await window.api(`/ingresos/${id}`);
+    const ing  = await window.api(`/ingresos/${id}`);
     const form = document.getElementById('form-ingreso');
-
-    form.elements['tipo'].value    = ing.tipo    || 'otro';
-    form.elements['fecha'].value   = ing.fecha   ? ing.fecha.substring(0,10) : '';
-    form.elements['importe'].value = ing.importe || '';
+    form.elements['tipo'].value    = ing.tipo     || 'otro';
+    form.elements['fecha'].value   = ing.fecha    ? ing.fecha.substring(0,10) : '';
+    form.elements['importe'].value = ing.importe  || '';
     form.elements['concepto'].value = ing.concepto || '';
     form.elements['notas'].value    = ing.notas    || '';
-
     document.getElementById('ing-socio-sel').value = ing.socio_id   || '';
     document.getElementById('ing-sec-sel').value   = ing.seccion_id || '';
     filtrarEquipos(ing.seccion_id || '');
     document.getElementById('ing-eq-sel').value    = ing.equipo_id  || '';
-
-    // Campos condicionales
-    actualizarCamposCondicionales(ing.tipo);
+    mostrarCampos(ing.tipo);
     if (ing.tipo === 'donacion') {
       form.elements['donante_nombre']?.value    !== undefined && (form.elements['donante_nombre'].value    = ing.donante_nombre    || '');
       form.elements['donante_nif']?.value       !== undefined && (form.elements['donante_nif'].value       = ing.donante_nif       || '');
       form.elements['donante_direccion']?.value !== undefined && (form.elements['donante_direccion'].value = ing.donante_direccion || '');
     }
     if (ing.tipo === 'subvencion') {
-      form.elements['organismo']?.value   !== undefined && (form.elements['organismo'].value   = ing.organismo   || '');
-      form.elements['expediente']?.value  !== undefined && (form.elements['expediente'].value  = ing.expediente  || '');
+      form.elements['organismo']?.value  !== undefined && (form.elements['organismo'].value  = ing.organismo  || '');
+      form.elements['expediente']?.value !== undefined && (form.elements['expediente'].value = ing.expediente || '');
     }
   } catch (err) {
     console.error(err);
   }
 }
 
-function actualizarCamposCondicionales(tipo) {
-  document.getElementById('fld-donacion').style.display  = tipo === 'donacion'   ? '' : 'none';
-  document.getElementById('fld-subvencion').style.display = tipo === 'subvencion' ? '' : 'none';
-  document.getElementById('dlg-ing-stripe').style.display = tipo === 'cuota'     ? '' : 'none';
+function mostrarCampos(tipo) {
+  document.getElementById('fld-donacion').style.display   = tipo === 'donacion'            ? '' : 'none';
+  document.getElementById('fld-subvencion').style.display = tipo === 'subvencion'          ? '' : 'none';
+  document.getElementById('fld-adelanto').style.display   = tipo === 'adelanto_presidente' ? '' : 'none';
+  document.getElementById('fld-stripe').style.display     = tipo === 'cuota'               ? '' : 'none';
 }
 
-// ─── Stripe cuota ────────────────────────────────────────────────────────────
+// ─── Stripe ──────────────────────────────────────────────────────────────────
 
 async function crearStripe() {
-  const socioId    = document.getElementById('ing-socio-sel').value;
-  const temporada  = document.getElementById('ing-stripe-temporada').value.trim();
-  const precio     = document.getElementById('ing-stripe-precio').value;
-  const linkEl     = document.getElementById('ing-stripe-link');
+  const socioId   = document.getElementById('ing-socio-sel').value;
+  const temporada = document.getElementById('ing-stripe-temp').value.trim();
+  const precio    = document.getElementById('ing-stripe-precio').value;
+  const resultEl  = document.getElementById('ing-stripe-result');
 
   if (!socioId || !temporada || !precio) {
-    linkEl.textContent = 'Rellena socio, temporada y precio.';
-    linkEl.style.color = 'var(--danger)';
+    resultEl.style.color = 'var(--danger)';
+    resultEl.textContent = 'Rellena el socio, la temporada y el precio.';
     return;
   }
-  linkEl.textContent = 'Generando…';
-  linkEl.style.color = 'var(--muted)';
+
+  resultEl.style.color = 'var(--muted)';
+  resultEl.textContent = 'Generando enlace…';
 
   try {
     const res = await window.api('/stripe/cuota', {
       method: 'POST',
       body: JSON.stringify({ socio_id: socioId, temporada, precio: parseFloat(precio) }),
     });
-    linkEl.innerHTML = `<a href="${res.url}" target="_blank" style="color:var(--primary)">Abrir enlace Stripe ↗</a>`;
+    resultEl.innerHTML = `<a href="${res.url}" target="_blank" style="color:var(--primary);font-weight:600">Abrir enlace de pago Stripe ↗</a>`;
   } catch (err) {
-    linkEl.textContent = 'Error: ' + err.message;
-    linkEl.style.color = 'var(--danger)';
+    resultEl.style.color = 'var(--danger)';
+    resultEl.textContent = 'Error: ' + err.message;
   }
 }
 
@@ -370,7 +355,5 @@ async function guardar(e) {
   }
 }
 
-// ─── Acciones globales ───────────────────────────────────────────────────────
-
-window.editarIngreso    = function(id) { abrirDlg(id); };
-window.verCertificado   = function(id) { window.open(`/api/ingresos/${id}/certificado`, '_blank'); };
+window._editarIngreso = id => abrirDlg(id);
+window._verCert       = id => window.open(`/api/ingresos/${id}/certificado`, '_blank');

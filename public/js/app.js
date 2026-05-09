@@ -5,13 +5,13 @@ import { render as renderIngresos   } from './views/ingresos.js';
 import { render as renderEstructura } from './views/estructura.js';
 
 let auth0Client = null;
-
-// ─── Inicialización ───────────────────────────────────────────────────────────
+let accessToken = null; // token en memoria
 
 async function init() {
+  // 1. Cargar config del servidor
   const config = await fetch('/api/config').then(r => r.json());
 
-  // createAuth0Client es global inyectado por el CDN de auth0-spa-js
+  // 2. Crear cliente Auth0
   auth0Client = await createAuth0Client({
     domain:   config.auth0_domain,
     clientId: config.auth0_client_id,
@@ -22,26 +22,37 @@ async function init() {
     cacheLocation: 'localstorage',
   });
 
-  // Manejar callback de redirect de Auth0
+  // Manejar callback de redirect
   if (window.location.search.includes('code=') && window.location.search.includes('state=')) {
     await auth0Client.handleRedirectCallback();
     window.history.replaceState({}, document.title, window.location.pathname);
   }
 
   const isAuthenticated = await auth0Client.isAuthenticated();
+
+  // Ocultar spinner siempre
+  document.getElementById('auth-loading').style.display = 'none';
+
   if (!isAuthenticated) {
-    await auth0Client.loginWithRedirect();
-    return; // la página se redirige, no continuar
+    // 3. Mostrar pantalla de login
+    const loginPage = document.getElementById('login-page');
+    loginPage.style.display = '';
+    document.getElementById('btn-login').addEventListener('click', () => {
+      auth0Client.loginWithRedirect();
+    });
+    return;
   }
 
-  // ─── window.api — helper autenticado ────────────────────────────────────────
-  // Uso: window.api('/socios', { method:'POST', body: JSON.stringify(data) })
-  // Para FormData (uploads) no establece Content-Type (el navegador lo pone con boundary)
+  // 4. Guardar access token en memoria
+  accessToken = await auth0Client.getTokenSilently();
+
+  // 5. Helper API autenticado
   window.api = async (path, opts = {}) => {
-    const token  = await auth0Client.getTokenSilently();
+    // Refrescar token si expiró
+    accessToken = await auth0Client.getTokenSilently();
     const isForm = opts.body instanceof FormData;
     const headers = {
-      'Authorization': `Bearer ${token}`,
+      'Authorization': `Bearer ${accessToken}`,
       ...(!isForm && { 'Content-Type': 'application/json' }),
       ...(opts.headers || {}),
     };
@@ -53,19 +64,19 @@ async function init() {
     return res.json();
   };
 
-  // ─── UI de usuario ───────────────────────────────────────────────────────────
+  // Mostrar nombre de usuario y botón logout
   const user = await auth0Client.getUser();
   document.getElementById('user-name').textContent = user.name || user.email || '';
 
+  // 3. Botón logout
   document.getElementById('btn-logout').addEventListener('click', () => {
     auth0Client.logout({ logoutParams: { returnTo: window.location.origin } });
   });
 
-  // Mostrar shell y ocultar spinner
-  document.getElementById('auth-loading').style.display = 'none';
-  document.getElementById('app-shell').style.display    = '';
+  // Mostrar app shell
+  document.getElementById('app-shell').style.display = '';
 
-  // ─── Router ──────────────────────────────────────────────────────────────────
+  // 6. Router por hash
   window.addEventListener('hashchange', route);
   route();
 }
@@ -89,5 +100,6 @@ function route() {
 
 init().catch(err => {
   console.error('Error de inicialización:', err);
-  document.getElementById('auth-loading').textContent = 'Error al cargar la aplicación.';
+  document.getElementById('auth-loading').innerHTML =
+    `<span style="color:var(--danger)">Error al cargar: ${err.message}</span>`;
 });

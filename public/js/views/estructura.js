@@ -5,7 +5,7 @@ let disciplinas = [];
 export async function render(container) {
   container.innerHTML = `
     <div class="page-header">
-      <h1>Estructura</h1>
+      <h1>Estructura del club</h1>
     </div>
 
     <div class="grid-3" style="align-items:start">
@@ -13,49 +13,49 @@ export async function render(container) {
       <!-- Secciones -->
       <div class="card">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem">
-          <h2 style="font-size:1rem">Secciones</h2>
-          <button class="btn btn-primary" id="sec-nuevo" style="font-size:.8rem;padding:.35rem .7rem">+ Nueva</button>
+          <div class="card-title" style="margin:0">Secciones</div>
+          <button class="btn btn-primary btn-sm" id="sec-nuevo">+ Nueva</button>
         </div>
-        <div id="sec-lista"></div>
+        <div id="sec-lista"><p class="empty" style="padding:1rem">Cargando…</p></div>
       </div>
 
       <!-- Equipos -->
       <div class="card">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.5rem">
-          <h2 style="font-size:1rem">Equipos</h2>
-          <button class="btn btn-primary" id="eq-nuevo" style="font-size:.8rem;padding:.35rem .7rem">+ Nuevo</button>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.6rem">
+          <div class="card-title" style="margin:0">Equipos</div>
+          <button class="btn btn-primary btn-sm" id="eq-nuevo">+ Nuevo</button>
         </div>
-        <select id="eq-sec-fil" style="width:100%;margin-bottom:.75rem;font-size:.8rem">
+        <select id="eq-sec-fil" style="width:100%;margin-bottom:.75rem;font-size:.82rem">
           <option value="">Todas las secciones</option>
         </select>
-        <div id="eq-lista"></div>
+        <div id="eq-lista"><p class="empty" style="padding:1rem">Cargando…</p></div>
       </div>
 
       <!-- Disciplinas -->
       <div class="card">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem">
-          <h2 style="font-size:1rem">Disciplinas</h2>
-          <button class="btn btn-primary" id="dis-nuevo" style="font-size:.8rem;padding:.35rem .7rem">+ Nueva</button>
+          <div class="card-title" style="margin:0">Disciplinas</div>
+          <button class="btn btn-primary btn-sm" id="dis-nuevo">+ Nueva</button>
         </div>
-        <div id="dis-lista"></div>
+        <div id="dis-lista"><p class="empty" style="padding:1rem">Cargando…</p></div>
       </div>
 
     </div>
 
-    <!-- Dialog genérico -->
-    <dialog id="dlg-estructura">
+    <!-- Dialog -->
+    <dialog id="dlg-est">
       <div class="dialog-header">
         <h2 id="dlg-est-title">Nueva sección</h2>
         <button class="btn-icon" id="dlg-est-close">✕</button>
       </div>
-      <form id="form-estructura">
+      <form id="form-est" autocomplete="off">
         <div class="form-group" style="margin-bottom:.75rem">
           <label>Nombre *</label>
           <input name="nombre" required>
         </div>
-        <div class="form-group" id="fld-seccion-eq" style="display:none;margin-bottom:.75rem">
+        <div class="form-group" id="fld-sec-eq" style="display:none;margin-bottom:.75rem">
           <label>Sección *</label>
-          <select name="seccion_id" id="est-sec-sel" required>
+          <select name="seccion_id" id="est-sec-sel">
             <option value="">— seleccionar —</option>
           </select>
         </div>
@@ -77,7 +77,7 @@ export async function render(container) {
   document.getElementById('dis-nuevo').addEventListener('click', () => abrirDlg('disciplina'));
   document.getElementById('dlg-est-close').addEventListener('click', cerrarDlg);
   document.getElementById('dlg-est-cancel').addEventListener('click', cerrarDlg);
-  document.getElementById('form-estructura').addEventListener('submit', guardar);
+  document.getElementById('form-est').addEventListener('submit', guardar);
   document.getElementById('eq-sec-fil').addEventListener('change', e => renderEquipos(e.target.value));
 
   await cargar();
@@ -98,95 +98,95 @@ async function cargar() {
 
 function renderTodo() {
   renderSecciones();
-  renderEquiposFiltro();
+  const sel = document.getElementById('eq-sec-fil');
+  if (sel) {
+    sel.innerHTML = '<option value="">Todas las secciones</option>';
+    secciones.forEach(s => sel.insertAdjacentHTML('beforeend', `<option value="${s.id}">${s.nombre}</option>`));
+  }
   renderEquipos('');
   renderDisciplinas();
+}
+
+function renderItem(item, tipo) {
+  return `
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:.45rem 0;border-bottom:1px solid var(--border)">
+      <span style="font-size:.875rem">${item.nombre}</span>
+      <button class="btn-icon btn-sm" onclick="window._editarEst('${tipo}',${item.id})" title="Editar">✏️</button>
+    </div>
+  `;
 }
 
 function renderSecciones() {
   const el = document.getElementById('sec-lista');
   if (!el) return;
-  if (!secciones.length) { el.innerHTML = '<p style="color:var(--muted);font-size:.85rem">Sin secciones</p>'; return; }
-  el.innerHTML = secciones.map(s => `
-    <div style="display:flex;justify-content:space-between;align-items:center;padding:.4rem 0;border-bottom:1px solid var(--border)">
-      <span style="font-size:.875rem">${s.nombre}</span>
-      <button class="btn-icon" style="font-size:.75rem;color:var(--muted)" onclick="editarEst('seccion',${s.id})">✏️</button>
-    </div>
-  `).join('');
-}
-
-function renderEquiposFiltro() {
-  const sel = document.getElementById('eq-sec-fil');
-  if (!sel) return;
-  sel.innerHTML = '<option value="">Todas las secciones</option>';
-  secciones.forEach(s => {
-    sel.insertAdjacentHTML('beforeend', `<option value="${s.id}">${s.nombre}</option>`);
-  });
+  el.innerHTML = secciones.length
+    ? secciones.map(s => renderItem(s, 'seccion')).join('')
+    : '<p style="color:var(--muted);font-size:.85rem;padding:.5rem 0">Sin secciones</p>';
 }
 
 function renderEquipos(seccionId) {
   const el = document.getElementById('eq-lista');
   if (!el) return;
   const lista = seccionId ? equipos.filter(e => String(e.seccion_id) === String(seccionId)) : equipos;
-  if (!lista.length) { el.innerHTML = '<p style="color:var(--muted);font-size:.85rem">Sin equipos</p>'; return; }
-  el.innerHTML = lista.map(e => {
-    const sec = secciones.find(s => s.id === e.seccion_id);
-    return `
-      <div style="display:flex;justify-content:space-between;align-items:center;padding:.4rem 0;border-bottom:1px solid var(--border)">
-        <div>
-          <div style="font-size:.875rem">${e.nombre}</div>
-          ${sec ? `<div style="font-size:.75rem;color:var(--muted)">${sec.nombre}</div>` : ''}
-        </div>
-        <button class="btn-icon" style="font-size:.75rem;color:var(--muted)" onclick="editarEst('equipo',${e.id})">✏️</button>
-      </div>
-    `;
-  }).join('');
+  el.innerHTML = lista.length
+    ? lista.map(e => {
+        const sec = secciones.find(s => s.id === e.seccion_id);
+        return `
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:.45rem 0;border-bottom:1px solid var(--border)">
+            <div>
+              <div style="font-size:.875rem">${e.nombre}</div>
+              ${sec ? `<div style="font-size:.75rem;color:var(--muted)">${sec.nombre}</div>` : ''}
+            </div>
+            <button class="btn-icon btn-sm" onclick="window._editarEst('equipo',${e.id})" title="Editar">✏️</button>
+          </div>`;
+      }).join('')
+    : '<p style="color:var(--muted);font-size:.85rem;padding:.5rem 0">Sin equipos</p>';
 }
 
 function renderDisciplinas() {
   const el = document.getElementById('dis-lista');
   if (!el) return;
-  if (!disciplinas.length) { el.innerHTML = '<p style="color:var(--muted);font-size:.85rem">Sin disciplinas</p>'; return; }
-  el.innerHTML = disciplinas.map(d => `
-    <div style="display:flex;justify-content:space-between;align-items:center;padding:.4rem 0;border-bottom:1px solid var(--border)">
-      <span style="font-size:.875rem">${d.nombre}</span>
-      <button class="btn-icon" style="font-size:.75rem;color:var(--muted)" onclick="editarEst('disciplina',${d.id})">✏️</button>
-    </div>
-  `).join('');
+  el.innerHTML = disciplinas.length
+    ? disciplinas.map(d => renderItem(d, 'disciplina')).join('')
+    : '<p style="color:var(--muted);font-size:.85rem;padding:.5rem 0">Sin disciplinas</p>';
 }
 
 // ─── Dialog ─────────────────────────────────────────────────────────────────
 
-let dlgTipo    = 'seccion';
-let dlgEditId  = null;
+let dlgTipo   = 'seccion';
+let dlgEditId = null;
+
+const ENDPOINTS = {
+  seccion:    '/estructura/secciones',
+  equipo:     '/estructura/equipos',
+  disciplina: '/estructura/disciplinas',
+};
+const NOMBRES = { seccion: 'sección', equipo: 'equipo', disciplina: 'disciplina' };
 
 function abrirDlg(tipo, id = null) {
   dlgTipo   = tipo;
   dlgEditId = id;
 
-  const form  = document.getElementById('form-estructura');
-  const title = document.getElementById('dlg-est-title');
-  const errEl = document.getElementById('dlg-est-error');
-
+  const form = document.getElementById('form-est');
   form.reset();
-  errEl.style.display = 'none';
+  document.getElementById('dlg-est-error').style.display = 'none';
+  document.getElementById('dlg-est-title').textContent   = (id ? 'Editar ' : 'Nueva ') + NOMBRES[tipo];
 
-  const labels = { seccion: 'sección', equipo: 'equipo', disciplina: 'disciplina' };
-  title.textContent = (id ? 'Editar ' : 'Nueva ') + labels[tipo];
-
-  const fldSec = document.getElementById('fld-seccion-eq');
+  const fldSec = document.getElementById('fld-sec-eq');
   fldSec.style.display = tipo === 'equipo' ? '' : 'none';
-  document.getElementById('est-sec-sel').required = tipo === 'equipo';
 
   if (tipo === 'equipo') {
     const sel = document.getElementById('est-sec-sel');
     sel.innerHTML = '<option value="">— seleccionar —</option>';
     secciones.forEach(s => sel.insertAdjacentHTML('beforeend', `<option value="${s.id}">${s.nombre}</option>`));
+    sel.required = true;
+  } else {
+    document.getElementById('est-sec-sel').required = false;
   }
 
   if (id) {
-    const items = tipo === 'seccion' ? secciones : tipo === 'equipo' ? equipos : disciplinas;
-    const item  = items.find(i => i.id === id);
+    const lista = tipo === 'seccion' ? secciones : tipo === 'equipo' ? equipos : disciplinas;
+    const item  = lista.find(i => i.id === id);
     if (item) {
       form.elements['nombre'].value      = item.nombre      || '';
       form.elements['descripcion'].value = item.descripcion || '';
@@ -194,11 +194,11 @@ function abrirDlg(tipo, id = null) {
     }
   }
 
-  document.getElementById('dlg-estructura').showModal();
+  document.getElementById('dlg-est').showModal();
 }
 
 function cerrarDlg() {
-  document.getElementById('dlg-estructura').close();
+  document.getElementById('dlg-est').close();
 }
 
 async function guardar(e) {
@@ -208,10 +208,8 @@ async function guardar(e) {
   const errEl = document.getElementById('dlg-est-error');
   errEl.style.display = 'none';
 
-  const endpoints = { seccion: '/estructura/secciones', equipo: '/estructura/equipos', disciplina: '/estructura/disciplinas' };
-  const base = endpoints[dlgTipo];
-
   try {
+    const base = ENDPOINTS[dlgTipo];
     if (dlgEditId) {
       await window.api(`${base}/${dlgEditId}`, { method: 'PUT', body: JSON.stringify(data) });
     } else {
@@ -225,6 +223,4 @@ async function guardar(e) {
   }
 }
 
-// ─── Acciones globales ───────────────────────────────────────────────────────
-
-window.editarEst = function(tipo, id) { abrirDlg(tipo, id); };
+window._editarEst = (tipo, id) => abrirDlg(tipo, id);

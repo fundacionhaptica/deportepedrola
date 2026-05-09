@@ -8,11 +8,29 @@
 </head>
 <body>
 
-  <div id="auth-loading" class="auth-loading">Cargando…</div>
+  <!-- Estado inicial: cargando -->
+  <div id="auth-loading" class="auth-loading">
+    <div class="spinner" style="width:32px;height:32px;border-width:3px;border-top-color:var(--primary);border-color:var(--border);border-top-color:var(--primary)"></div>
+    <span style="color:var(--muted)">Cargando…</span>
+  </div>
 
+  <!-- Login (se muestra si no autenticado) -->
+  <div id="login-page" style="display:none" class="login-page">
+    <div class="login-card">
+      <div class="login-logo">⚽</div>
+      <h1>Deporte Pedrola</h1>
+      <p>Área de gestión interna del club</p>
+      <button id="btn-login" class="btn btn-primary">Iniciar sesión</button>
+    </div>
+  </div>
+
+  <!-- App shell (se muestra si autenticado) -->
   <div id="app-shell" style="display:none">
     <header>
-      <a class="brand" href="#dashboard">Deporte Pedrola</a>
+      <a class="brand" href="#dashboard">
+        <div class="brand-logo">DP</div>
+        Deporte Pedrola
+      </a>
       <nav id="main-nav">
         <a href="#dashboard">Dashboard</a>
         <a href="#socios">Socios</a>
@@ -22,7 +40,7 @@
       </nav>
       <div class="header-user">
         <span id="user-name"></span>
-        <button id="btn-logout" class="btn-sm">Salir</button>
+        <button id="btn-logout" class="btn-sm-header">Salir</button>
       </div>
     </header>
     <main>
@@ -30,11 +48,11 @@
     </main>
   </div>
 
-  <!-- CDN: Auth0 (classic script, carga antes del módulo) -->
+  <!-- CDN Auth0 (debe cargar antes del módulo ES) -->
   <script src="https://cdn.auth0.com/js/auth0-spa-js/2.0/auth0-spa-js.production.js"></script>
-  <!-- CDN: Chart.js -->
+  <!-- CDN Chart.js -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-  <!-- App (módulo ES, siempre diferido — los scripts de arriba ya ejecutaron) -->
+  <!-- App -->
   <script type="module" src="/js/app.js"></script>
 
 </body>
