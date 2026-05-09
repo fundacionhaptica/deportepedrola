@@ -1,0 +1,295 @@
+/* ============================================================
+   Deporte Pedrola — hoja de estilos extraída de deportepedrola.com
+   Basada en análisis visual de la web pública (Google Sites)
+   ============================================================ */
+
+/* ── Variables de marca ── */
+:root {
+  --dp-amarillo:      #FFD400;
+  --dp-verde:         #2E7D32;
+  --dp-negro:         #111111;
+  --dp-gris-bg:       #f4f4f4;
+  --dp-gris-borde:    #e0e0e0;
+  --dp-texto:         #333333;
+  --dp-texto-suave:   #555555;
+  --dp-blanco:        #ffffff;
+
+  /* Fuente: Google Sites usa Roboto o system-ui */
+  --dp-fuente: "Roboto", -apple-system, BlinkMacSystemFont, "Segoe UI",
+               "Helvetica Neue", Arial, sans-serif;
+
+  /* Tamaños de fuente */
+  --dp-hero-size:     3.5rem;   /* "Colabora" */
+  --dp-h2-size:       1.8rem;   /* secciones */
+  --dp-body-size:     1rem;
+  --dp-small-size:    0.875rem;
+
+  /* Espaciados */
+  --dp-max-width:     960px;
+  --dp-seccion-gap:   3rem;
+  --dp-accent-bar:    6px;
+}
+
+/* ── Reset mínimo ── */
+*, *::before, *::after { box-sizing: border-box; }
+html, body {
+  margin: 0;
+  padding: 0;
+  font-family: var(--dp-fuente);
+  font-size: var(--dp-body-size);
+  color: var(--dp-texto);
+  background: var(--dp-gris-bg);
+  line-height: 1.6;
+}
+
+/* ── Barra de cookies (banner superior) ── */
+.cookie-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.75rem 1.5rem;
+  background: var(--dp-blanco);
+  font-size: var(--dp-small-size);
+  border-bottom: 1px solid var(--dp-gris-borde);
+}
+.cookie-banner a {
+  font-weight: 600;
+  color: var(--dp-negro);
+}
+.cookie-banner button {
+  white-space: nowrap;
+  padding: 0.5rem 1.2rem;
+  background: var(--dp-negro);
+  color: var(--dp-blanco);
+  border: none;
+  border-radius: 4px;
+  font-size: var(--dp-small-size);
+  cursor: pointer;
+}
+
+/* ── Navegación principal ── */
+.site-nav {
+  background: var(--dp-negro);
+  color: var(--dp-blanco);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+.site-nav .wrap {
+  max-width: var(--dp-max-width);
+  margin: 0 auto;
+  padding: 0 1rem;
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  height: 64px;
+}
+.site-nav .logo {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  text-decoration: none;
+  color: var(--dp-blanco);
+  font-weight: 500;
+  font-size: 1.1rem;
+  letter-spacing: 0.3px;
+}
+.site-nav .logo-escudo {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--dp-blanco);
+  border: 2px solid var(--dp-verde);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  flex: 0 0 40px;
+}
+.site-nav .logo-escudo img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+.site-nav ul {
+  display: flex;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  gap: 0;
+  flex: 1;
+}
+.site-nav ul li a {
+  display: block;
+  padding: 0 1rem;
+  height: 64px;
+  line-height: 64px;
+  color: var(--dp-blanco);
+  text-decoration: none;
+  font-size: var(--dp-small-size);
+  font-weight: 500;
+  letter-spacing: 0.5px;
+  transition: background 0.15s ease;
+}
+.site-nav ul li a:hover,
+.site-nav ul li a[aria-current="page"] {
+  background: rgba(255, 255, 255, 0.08);
+}
+/* Enlace NOTICIAS en mayúsculas */
+.site-nav ul li a.uppercase {
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+.site-nav .nav-search {
+  margin-left: auto;
+  background: none;
+  border: none;
+  color: var(--dp-blanco);
+  cursor: pointer;
+  padding: 0.5rem;
+  opacity: 0.8;
+}
+.site-nav .nav-search:hover { opacity: 1; }
+
+/* Submenú desplegable */
+.site-nav .has-submenu { position: relative; }
+.site-nav .submenu {
+  display: none;
+  position: absolute;
+  top: 64px;
+  left: 0;
+  min-width: 200px;
+  background: var(--dp-negro);
+  border-top: 3px solid var(--dp-amarillo);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  z-index: 200;
+}
+.site-nav .has-submenu:hover .submenu,
+.site-nav .has-submenu:focus-within .submenu {
+  display: block;
+}
+.site-nav .submenu li a {
+  height: auto;
+  line-height: 1.5;
+  padding: 0.75rem 1rem;
+}
+
+/* ── Hero / cabecera de página ── */
+.page-hero {
+  position: relative;
+  min-height: 300px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  background: var(--dp-negro);
+}
+.page-hero img.hero-bg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0.55;
+}
+.page-hero .hero-title {
+  position: relative;
+  z-index: 1;
+  color: var(--dp-blanco);
+  font-size: var(--dp-hero-size);
+  font-weight: 200;      /* característico del diseño de Google Sites */
+  letter-spacing: 2px;
+  text-align: center;
+  margin: 0;
+  padding: 2rem 1rem;
+}
+
+/* Barra amarilla de acento (separador hero → contenido) */
+.accent-bar {
+  height: var(--dp-accent-bar);
+  background: var(--dp-amarillo);
+}
+
+/* ── Contenido principal ── */
+.page-content {
+  max-width: var(--dp-max-width);
+  margin: 0 auto;
+  padding: var(--dp-seccion-gap) 1.5rem;
+  background: var(--dp-blanco);
+}
+
+/* Texto introductorio en negrita */
+.page-content .intro {
+  font-size: 1rem;
+  line-height: 1.7;
+  margin-bottom: var(--dp-seccion-gap);
+}
+.page-content .intro strong {
+  font-weight: 700;
+}
+
+/* Encabezados de sección dentro del contenido */
+.page-content h2 {
+  font-size: var(--dp-h2-size);
+  font-weight: 300;
+  color: var(--dp-negro);
+  margin: 2.5rem 0 1rem 0;
+  line-height: 1.3;
+}
+.page-content h2:first-child { margin-top: 0; }
+
+/* Listas con bullet cuadrado (■) */
+.page-content ul {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 1.5rem 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+.page-content ul li {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  font-size: var(--dp-body-size);
+  color: var(--dp-texto);
+  line-height: 1.6;
+}
+.page-content ul li::before {
+  content: "■";
+  color: var(--dp-negro);
+  font-size: 0.6rem;
+  margin-top: 0.45rem;
+  flex: 0 0 auto;
+}
+.page-content ul li strong {
+  font-weight: 700;
+}
+
+/* ── Footer del sitio ── */
+.site-footer {
+  background: var(--dp-negro);
+  color: rgba(255, 255, 255, 0.65);
+  text-align: center;
+  padding: 2rem 1rem;
+  font-size: var(--dp-small-size);
+}
+.site-footer a {
+  color: var(--dp-amarillo);
+  text-decoration: none;
+}
+.site-footer a:hover { text-decoration: underline; }
+
+/* ── Responsive ── */
+@media (max-width: 600px) {
+  :root {
+    --dp-hero-size: 2.2rem;
+    --dp-h2-size:   1.4rem;
+  }
+  .site-nav ul { display: none; } /* simplificado; añadir hamburger si hace falta */
+  .page-hero { min-height: 200px; }
+  .page-content { padding: 2rem 1rem; }
+}
