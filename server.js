@@ -36,9 +36,19 @@ EVENTOS_PUBLICOS.forEach(function (e) {
   });
 });
 
-// Todas las rutas no-API y no-inscripciones devuelven el SPA
+// Todas las rutas no-API y no-inscripciones devuelven el SPA con config Auth0 inyectada
+const fs = require('fs');
+const indexHtml = fs.readFileSync(path.join(__dirname, 'public', 'index.html'), 'utf8');
+const auth0Script = `<script>
+window.__AUTH0_DOMAIN__   = ${JSON.stringify(process.env.AUTH0_DOMAIN   || '')};
+window.__AUTH0_CLIENT__   = ${JSON.stringify(process.env.AUTH0_CLIENT_ID || '')};
+window.__AUTH0_AUDIENCE__ = ${JSON.stringify(process.env.AUTH0_AUDIENCE  || '')};
+</script>`;
+const indexWithAuth0 = indexHtml.replace('</head>', auth0Script + '\n</head>');
+
 app.get(/^(?!\/api|\/inscripciones).*/, (_req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+  res.setHeader('Content-Type', 'text/html');
+  res.send(indexWithAuth0);
 });
 
 app.listen(PORT, () => {
