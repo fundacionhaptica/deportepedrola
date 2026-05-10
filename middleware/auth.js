@@ -18,4 +18,16 @@ const checkJwt = jwt({
   algorithms: ['RS256'],
 });
 
-module.exports = { checkJwt };
+// Verifica que el token JWT incluya el permiso requerido.
+// Auth0 debe tener RBAC activado y "Add Permissions in the Access Token" habilitado.
+function checkPermission(permission) {
+  return (req, res, next) => {
+    const permissions = req.auth && req.auth.permissions;
+    if (!Array.isArray(permissions) || !permissions.includes(permission)) {
+      return res.status(403).json({ error: 'Permiso insuficiente.' });
+    }
+    next();
+  };
+}
+
+module.exports = { checkJwt, checkPermission };
