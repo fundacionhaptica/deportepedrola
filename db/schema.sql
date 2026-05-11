@@ -34,6 +34,23 @@ CREATE TABLE IF NOT EXISTS movimientos (
     created_at      TIMESTAMPTZ   NOT NULL DEFAULT NOW()
 );
 
+CREATE TABLE IF NOT EXISTS facturas (
+    id              SERIAL        PRIMARY KEY,
+    nombre_archivo  TEXT          NOT NULL,
+    ruta_archivo    TEXT          NOT NULL,
+    proveedor       TEXT,
+    nif_proveedor   TEXT,
+    numero_factura  TEXT,
+    fecha_factura   DATE,
+    concepto        TEXT,
+    base_imponible  NUMERIC(10,2),
+    iva_porcentaje  NUMERIC(5,2),
+    iva_importe     NUMERIC(10,2),
+    importe         NUMERIC(10,2),
+    ocr_raw_json    JSONB,
+    created_at      TIMESTAMPTZ   NOT NULL DEFAULT NOW()
+);
+
 -- Vista balance mensual — los adelantos del presidente (es_tesoreria=true) no computan
 CREATE OR REPLACE VIEW v_balance_mensual AS
 SELECT
