@@ -223,10 +223,10 @@ function mostrarPanel(nombreUsuario) {
 }
 
 async function initAuth() {
-  const token = sessionStorage.getItem('token');
+  const jwtGuardado = sessionStorage.getItem('token');
   const usuario = sessionStorage.getItem('usuario');
-  if (token && usuario) {
-    window.setToken(token);
+  if (jwtGuardado && usuario) {
+    window.setToken(jwtGuardado);
     mostrarPanel(usuario);
     cargarDashboard();
     return;
@@ -240,8 +240,8 @@ async function initAuth() {
 }
 
 async function doLogin() {
-  const usuario  = document.getElementById('inputUsuario').value.trim();
-  const password = document.getElementById('inputPassword').value;
+  const usuario = document.getElementById('inputUsuario').value.trim();
+  const clave   = document.getElementById('inputPassword').value;
   const errEl    = document.getElementById('loginError');
   errEl.style.display = 'none';
 
@@ -249,7 +249,7 @@ async function doLogin() {
     const res  = await fetch('/api/auth/login', {
       method:  'POST',
       headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify({ usuario, password }),
+      body:    JSON.stringify({ usuario, clave }),
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'Error de autenticación');

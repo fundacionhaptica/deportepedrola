@@ -16,9 +16,9 @@ function credencial(usuario) {
 }
 
 router.post('/login', (req, res) => {
-  const { usuario, password } = req.body || {};
+  const { usuario, clave } = req.body || {};
 
-  if (!usuario || !password) {
+  if (!usuario || !clave) {
     return res.status(400).json({ error: 'Faltan usuario o contraseña.' });
   }
 
@@ -28,7 +28,7 @@ router.post('/login', (req, res) => {
   }
 
   const passEsperado = credencial(rol);
-  if (!passEsperado || password !== passEsperado) {
+  if (!passEsperado || clave !== passEsperado) {
     return res.status(401).json({ error: 'Credenciales incorrectas.' });
   }
 
