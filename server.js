@@ -56,6 +56,11 @@ EVENTOS_PUBLICOS.forEach(function (e) {
   });
 });
 
+// Página de facturas (requiere auth, resuelta en cliente)
+app.get('/facturas', (_req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'facturas.html'));
+});
+
 // Todas las rutas no-API y no-inscripciones devuelven el SPA
 app.get(/^(?!\/api|\/inscripciones).*/, (_req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));

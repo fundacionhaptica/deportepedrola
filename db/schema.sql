@@ -127,8 +127,10 @@ CREATE TABLE IF NOT EXISTS facturas (
     iva_importe     NUMERIC(10,2),
     importe         NUMERIC(10,2),
     ocr_raw_json    JSONB,
+    ocr_revisado    BOOLEAN       NOT NULL DEFAULT FALSE,
     created_at      TIMESTAMPTZ   NOT NULL DEFAULT NOW()
 );
+ALTER TABLE facturas ADD COLUMN IF NOT EXISTS ocr_revisado BOOLEAN NOT NULL DEFAULT FALSE;
 
 -- Vista balance mensual — los adelantos del presidente (es_tesoreria=true) no computan
 CREATE OR REPLACE VIEW v_balance_mensual AS

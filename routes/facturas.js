@@ -127,6 +127,42 @@ router.post('/upload', upload.array('archivos', 20), async (req, res) => {
   res.json({ resultados });
 });
 
+// PATCH /api/facturas/:id — corrige campos tras revisión OCR
+router.patch('/:id', async (req, res) => {
+  try {
+    const { proveedor, nif_proveedor, numero_factura, fecha_factura,
+            concepto, base_imponible, iva_porcentaje, iva_importe, importe } = req.body;
+    const { rows: [factura] } = await db.query(
+      `UPDATE facturas SET
+         proveedor       = COALESCE($1, proveedor),
+         nif_proveedor   = COALESCE($2, nif_proveedor),
+         numero_factura  = COALESCE($3, numero_factura),
+         fecha_factura   = COALESCE($4::date, fecha_factura),
+         concepto        = COALESCE($5, concepto),
+         base_imponible  = COALESCE($6, base_imponible),
+         iva_porcentaje  = COALESCE($7, iva_porcentaje),
+         iva_importe     = COALESCE($8, iva_importe),
+         importe         = COALESCE($9, importe),
+         ocr_revisado    = true
+       WHERE id = $10
+       RETURNING id, proveedor, nif_proveedor, numero_factura, fecha_factura,
+                 concepto, base_imponible, iva_porcentaje, iva_importe, importe`,
+      [proveedor || null, nif_proveedor || null, numero_factura || null,
+       fecha_factura || null, concepto || null,
+       base_imponible != null ? base_imponible : null,
+       iva_porcentaje != null ? iva_porcentaje : null,
+       iva_importe    != null ? iva_importe    : null,
+       importe        != null ? importe        : null,
+       req.params.id]
+    );
+    if (!factura) return res.status(404).json({ error: 'Factura no encontrada.' });
+    res.json(factura);
+  } catch (e) {
+    console.error('[facturas] PATCH /:id', e.message);
+    res.status(500).json({ error: 'Error interno del servidor' });
+  }
+});
+
 // GET /api/facturas/:id — detalle completo incluido OCR raw
 router.get('/:id', async (req, res) => {
   try {
