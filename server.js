@@ -33,6 +33,15 @@ app.use('/api/stripe/webhook', express.raw({ type: 'application/json' }));
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
+// Config pública de Auth0 (dominio, clientId y audience no son secretos)
+app.get('/api/config', (_req, res) => {
+  res.json({
+    auth0Domain:   process.env.AUTH0_DOMAIN   || '',
+    auth0Client:   process.env.AUTH0_CLIENT_ID || '',
+    auth0Audience: process.env.AUTH0_AUDIENCE  || '',
+  });
+});
+
 // Rutas
 app.use('/api/inscripciones',      require('./routes/inscripciones'));
 app.use('/api/dashboard', checkJwt, canRead,    require('./routes/dashboard'));

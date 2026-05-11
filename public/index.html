@@ -187,17 +187,20 @@
 <script type="module">
 
 // ── Auth0 SPA (Universal Login) ──────────────────────────────────────────────
-// Cargamos el SDK de Auth0 de forma dinámica para no depender de npm/build.
-const AUTH0_DOMAIN   = window.__AUTH0_DOMAIN__ || '';
-const AUTH0_CLIENT   = window.__AUTH0_CLIENT__ || '';
-const AUTH0_AUDIENCE = window.__AUTH0_AUDIENCE__ || '';
-
 let auth0Client = null;
+let AUTH0_DOMAIN = '', AUTH0_CLIENT = '', AUTH0_AUDIENCE = '';
 
 async function initAuth() {
-  // El servidor inyecta la config en window.__AUTH0_* vía un <script> inline
+  // Leer config pública del servidor (las variables de entorno no son secretos)
+  try {
+    const cfg = await fetch('/api/config').then(r => r.json());
+    AUTH0_DOMAIN   = cfg.auth0Domain   || '';
+    AUTH0_CLIENT   = cfg.auth0Client   || '';
+    AUTH0_AUDIENCE = cfg.auth0Audience || '';
+  } catch (_) { /* sin servidor: modo desarrollo */ }
+
   if (!AUTH0_DOMAIN) {
-    // Sin config Auth0: modo desarrollo — mostrar panel sin auth
+    // Sin config Auth0: modo desarrollo local
     document.getElementById('loginBanner').style.display = 'none';
     document.getElementById('contenido').style.display = 'block';
     document.getElementById('userName').textContent = 'Desarrollo';
