@@ -32,13 +32,13 @@ router.post('/login', (req, res) => {
     return res.status(401).json({ error: 'Credenciales incorrectas.' });
   }
 
-  const token = jwt.sign(
+  const jwt_firmado = jwt.sign(
     { sub: rol, permissions: PERMISOS[rol] },
     process.env.JWT_SECRET,
     { audience: 'deporte-pedrola', issuer: 'deporte-pedrola', expiresIn: '12h' }
   );
 
-  res.json({ token, rol });
+  res.json({ jwt: jwt_firmado, rol });
 });
 
 router.post('/logout', (_req, res) => {

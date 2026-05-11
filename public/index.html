@@ -254,7 +254,7 @@ async function doLogin() {
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'Error de autenticación');
 
-    sessionStorage.setItem('token',   data.token);
+    sessionStorage.setItem('token',   data.jwt);
     sessionStorage.setItem('usuario', usuario);
     window.setToken(data.token);
     mostrarPanel(usuario);
