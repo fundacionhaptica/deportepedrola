@@ -91,6 +91,25 @@
     .aviso-err { background: #ffebee; color: var(--rojo); display: block; }
 
     #loginBanner { display: none; }
+
+    .login-form {
+      background: #fff; border: 1px solid var(--borde); border-radius: 8px;
+      padding: 2rem; max-width: 340px; margin: 4rem auto; text-align: center;
+    }
+    .login-form h2 { font-size: 1.1rem; margin-bottom: 1.5rem; }
+    .login-form input {
+      width: 100%; padding: .6rem .8rem; margin-bottom: .8rem;
+      border: 1px solid var(--borde); border-radius: 5px;
+      font-size: .95rem; font-family: inherit;
+    }
+    .login-form input:focus { outline: 2px solid var(--amarillo); border-color: transparent; }
+    .login-form .btn-login {
+      width: 100%; background: var(--amarillo); color: var(--negro);
+      font-weight: 700; border: none; padding: .65rem; border-radius: 5px;
+      cursor: pointer; font-size: 1rem;
+    }
+    .login-form .btn-login:hover { opacity: .85; }
+    .login-error { color: var(--rojo); font-size: .85rem; margin-top: .5rem; display: none; }
   </style>
 </head>
 <body>
@@ -104,9 +123,9 @@
     </div>
     <h1>Panel de gestión <small>Club Deportivo Elemental Deporte Pedrola</small></h1>
   </div>
-  <div class="user" id="userArea">
+  <div class="user" id="userArea" style="display:none">
     <span id="userName">—</span>
-    <a href="/auth/logout">Cerrar sesión</a>
+    <a href="#" id="btnLogout">Cerrar sesión</a>
   </div>
 </header>
 
@@ -115,12 +134,15 @@
   <!-- Aviso de error general -->
   <div class="aviso" id="avisoGlobal"></div>
 
-  <!-- Login si no hay sesión -->
-  <div id="loginBanner" style="text-align:center;padding:3rem 1rem">
-    <p style="margin-bottom:1rem;color:#555">Debes iniciar sesión para acceder al panel.</p>
-    <button id="btnLogin" class="btn-filtro" style="font-size:1rem;padding:.7rem 2rem">
-      Iniciar sesión con Auth0
-    </button>
+  <!-- Formulario de login -->
+  <div id="loginBanner">
+    <div class="login-form">
+      <h2>Acceso al panel</h2>
+      <input type="text"     id="inputUsuario"  placeholder="Usuario"     autocomplete="username">
+      <input type="password" id="inputPassword" placeholder="Contraseña"  autocomplete="current-password">
+      <button class="btn-login" id="btnLogin">Entrar</button>
+      <div class="login-error" id="loginError"></div>
+    </div>
   </div>
 
   <!-- Contenido principal (oculto hasta autenticación) -->
@@ -184,62 +206,71 @@
 </div>
 
 <script src="/app.js"></script>
-<script type="module">
+<script>
 
-// ── Auth0 SPA (Universal Login) ──────────────────────────────────────────────
-let auth0Client = null;
-let AUTH0_DOMAIN = '', AUTH0_CLIENT = '', AUTH0_AUDIENCE = '';
+// ── Autenticación propia ─────────────────────────────────────────────────────
+function mostrarLogin() {
+  document.getElementById('loginBanner').style.display = 'block';
+  document.getElementById('contenido').style.display   = 'none';
+  document.getElementById('userArea').style.display    = 'none';
+}
+
+function mostrarPanel(nombreUsuario) {
+  document.getElementById('loginBanner').style.display = 'none';
+  document.getElementById('contenido').style.display   = 'block';
+  document.getElementById('userArea').style.display    = 'flex';
+  document.getElementById('userName').textContent      = nombreUsuario;
+}
 
 async function initAuth() {
-  // Leer config pública del servidor (las variables de entorno no son secretos)
-  try {
-    const cfg = await fetch('/api/config').then(r => r.json());
-    AUTH0_DOMAIN   = cfg.auth0Domain   || '';
-    AUTH0_CLIENT   = cfg.auth0Client   || '';
-    AUTH0_AUDIENCE = cfg.auth0Audience || '';
-  } catch (_) { /* sin servidor: modo desarrollo */ }
-
-  if (!AUTH0_DOMAIN) {
-    // Sin config Auth0: modo desarrollo local
-    document.getElementById('loginBanner').style.display = 'none';
-    document.getElementById('contenido').style.display = 'block';
-    document.getElementById('userName').textContent = 'Desarrollo';
+  const jwtGuardado = sessionStorage.getItem('token');
+  const usuario = sessionStorage.getItem('usuario');
+  if (jwtGuardado && usuario) {
+    window.setToken(jwtGuardado);
+    mostrarPanel(usuario);
     cargarDashboard();
     return;
   }
+  mostrarLogin();
 
-  const { createAuth0Client } = await import(
-    'https://cdn.auth0.com/js/auth0-spa-js/2.1/auth0-spa-js.production.esm.js'
-  );
-
-  auth0Client = await createAuth0Client({
-    domain:        AUTH0_DOMAIN,
-    clientId:      AUTH0_CLIENT,
-    authorizationParams: { audience: AUTH0_AUDIENCE },
+  document.getElementById('btnLogin').addEventListener('click', doLogin);
+  document.getElementById('inputPassword').addEventListener('keydown', e => {
+    if (e.key === 'Enter') doLogin();
   });
+}
 
-  // Manejar callback de Auth0 (code en la URL)
-  if (location.search.includes('code=')) {
-    await auth0Client.handleRedirectCallback();
-    history.replaceState({}, '', '/');
-  }
+async function doLogin() {
+  const usuario = document.getElementById('inputUsuario').value.trim();
+  const clave   = document.getElementById('inputPassword').value;
+  const errEl    = document.getElementById('loginError');
+  errEl.style.display = 'none';
 
-  const autenticado = await auth0Client.isAuthenticated();
-  if (autenticado) {
-    const jwt  = await auth0Client.getTokenSilently();
-    const user = await auth0Client.getUser();
-    window.setToken(jwt);
-    document.getElementById('userName').textContent = user.name || user.email;
-    document.getElementById('loginBanner').style.display = 'none';
-    document.getElementById('contenido').style.display = 'block';
-    cargarDashboard();
-  } else {
-    document.getElementById('loginBanner').style.display = 'block';
-    document.getElementById('btnLogin').addEventListener('click', () => {
-      auth0Client.loginWithRedirect({ appState: { returnTo: '/' } });
+  try {
+    const res  = await fetch('/api/auth/login', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ usuario, clave }),
     });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Error de autenticación');
+
+    sessionStorage.setItem('token',   data.jwt);
+    sessionStorage.setItem('usuario', usuario);
+    window.setToken(data.token);
+    mostrarPanel(usuario);
+    cargarDashboard();
+  } catch (e) {
+    errEl.textContent    = e.message;
+    errEl.style.display  = 'block';
   }
 }
+
+document.getElementById('btnLogout').addEventListener('click', e => {
+  e.preventDefault();
+  sessionStorage.clear();
+  window.setToken(null);
+  mostrarLogin();
+});
 
 // ── Dashboard ────────────────────────────────────────────────────────────────
 function hoy() { return new Date().toISOString().slice(0, 10); }
@@ -302,5 +333,6 @@ document.getElementById('hasta').value = hoy();
 
 initAuth();
 </script>
+
 </body>
 </html>
