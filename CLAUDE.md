@@ -70,6 +70,14 @@ uploads/            → PDFs subidos (gitignored salvo .gitkeep)
 - Vista autoservicio para socios (ver pagos pendientes y pagar).
 - Backups automáticos de la base de datos.
 
+## Despliegue vía SSH desde PowerShell
+
+Para reiniciar el contenedor sin usar el Container Manager:
+
+```powershell
+ssh jaime@MaJaNAS "sudo docker compose -f /volume1/docker/club/new/docker-compose.yml up -d --build"
+```
+
 ## Idioma
 
 Todas las comunicaciones, commits y documentación en **español**. Solo nombres técnicos en inglés por convención.
