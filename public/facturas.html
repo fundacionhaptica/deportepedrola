@@ -20,6 +20,13 @@
     header h1 { font-size: 1.2rem; }
     header small { color: #fff; font-weight: 400; font-size: .8rem; display: block; opacity: .8; }
     header .nav a { color: var(--amarillo); text-decoration: none; font-size: .85rem; margin-left: 1rem; }
+    nav { background: #1a1a1a; padding: .4rem 1.5rem; display: flex; gap: .3rem; }
+    nav a {
+      color: #ccc; text-decoration: none; font-size: .83rem; font-weight: 600;
+      padding: .35rem .8rem; border-radius: 4px; transition: background .15s;
+    }
+    nav a:hover { background: #333; color: #fff; }
+    nav a.activa { background: var(--amarillo); color: var(--negro); }
     .wrap { max-width: 1100px; margin: 0 auto; padding: 1.5rem 1rem; }
     .card { background: #fff; border: 1px solid var(--borde); border-radius: 8px; padding: 1.2rem; margin-bottom: 1.5rem; }
     .card h2 { font-size: .9rem; text-transform: uppercase; letter-spacing: .5px; color: #555; margin-bottom: 1rem; }
@@ -100,9 +107,14 @@
     <h1>Facturas <small>Club Deportivo Elemental Deporte Pedrola</small></h1>
   </div>
   <div class="nav">
-    <a href="/">← Panel</a>
+    <span id="userNameHeader" style="font-size:.8rem;color:#ccc"></span>
   </div>
 </header>
+
+<nav>
+  <a href="/">Panel</a>
+  <a href="/facturas" class="activa">Facturas</a>
+</nav>
 
 <div class="wrap">
 
@@ -324,6 +336,8 @@ if (!jwtGuardado) {
   window.location.href = '/';
 } else {
   window.setToken(jwtGuardado);
+  const usuarioGuardado = sessionStorage.getItem('usuario');
+  if (usuarioGuardado) document.getElementById('userNameHeader').textContent = usuarioGuardado;
   cargarFacturas(1);
 }
 </script>

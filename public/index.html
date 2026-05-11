@@ -26,6 +26,13 @@
     header small { color: #fff; font-weight: 400; font-size: .8rem; display: block; opacity: .8; }
     header .user { font-size: .8rem; color: #ccc; }
     header .user a { color: var(--amarillo); text-decoration: none; margin-left: .5rem; }
+    nav { background: #1a1a1a; padding: .4rem 1.5rem; display: flex; gap: .3rem; }
+    nav a {
+      color: #ccc; text-decoration: none; font-size: .83rem; font-weight: 600;
+      padding: .35rem .8rem; border-radius: 4px; transition: background .15s;
+    }
+    nav a:hover { background: #333; color: #fff; }
+    nav a.activa { background: var(--amarillo); color: var(--negro); }
 
     .wrap { max-width: 1100px; margin: 0 auto; padding: 1.5rem 1rem; }
 
@@ -129,6 +136,11 @@
   </div>
 </header>
 
+<nav id="navMenu" style="display:none">
+  <a href="/" class="activa">Panel</a>
+  <a href="/facturas">Facturas</a>
+</nav>
+
 <div class="wrap">
 
   <!-- Aviso de error general -->
@@ -219,6 +231,7 @@ function mostrarPanel(nombreUsuario) {
   document.getElementById('loginBanner').style.display = 'none';
   document.getElementById('contenido').style.display   = 'block';
   document.getElementById('userArea').style.display    = 'flex';
+  document.getElementById('navMenu').style.display     = 'flex';
   document.getElementById('userName').textContent      = nombreUsuario;
 }
 
