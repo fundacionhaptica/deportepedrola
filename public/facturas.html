@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Facturas · CDE Deporte Pedrola</title>
+  <style>
+    :root {
+      --amarillo: #FFD400; --negro: #111; --verde: #2E7D32;
+      --gris: #f4f4f4; --borde: #e0e0e0; --rojo: #c0392b;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+           background: var(--gris); color: var(--negro); line-height: 1.5; }
+    header {
+      background: var(--negro); color: var(--amarillo);
+      padding: 1rem 1.5rem; border-bottom: 5px solid var(--amarillo);
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    header h1 { font-size: 1.2rem; }
+    header small { color: #fff; font-weight: 400; font-size: .8rem; display: block; opacity: .8; }
+    header .nav a { color: var(--amarillo); text-decoration: none; font-size: .85rem; margin-left: 1rem; }
+    .wrap { max-width: 1100px; margin: 0 auto; padding: 1.5rem 1rem; }
+    .card { background: #fff; border: 1px solid var(--borde); border-radius: 8px; padding: 1.2rem; margin-bottom: 1.5rem; }
+    .card h2 { font-size: .9rem; text-transform: uppercase; letter-spacing: .5px; color: #555; margin-bottom: 1rem; }
+
+    /* Zona de subida */
+    .dropzone {
+      border: 2px dashed var(--borde); border-radius: 8px; padding: 2rem;
+      text-align: center; cursor: pointer; transition: border-color .2s;
+    }
+    .dropzone.over { border-color: var(--amarillo); background: #fffde7; }
+    .dropzone p { color: #777; font-size: .9rem; margin-bottom: .5rem; }
+    .dropzone input[type=file] { display: none; }
+    .btn {
+      background: var(--amarillo); color: var(--negro); font-weight: 700;
+      border: none; padding: .5rem 1.2rem; border-radius: 5px; cursor: pointer; font-size: .9rem;
+    }
+    .btn:hover { opacity: .85; }
+    .btn-small { padding: .3rem .7rem; font-size: .78rem; }
+    .btn-outline {
+      background: transparent; border: 1px solid var(--borde); color: var(--negro);
+      font-weight: 600; padding: .3rem .7rem; border-radius: 5px; cursor: pointer; font-size: .78rem;
+    }
+    .btn-outline:hover { background: var(--gris); }
+
+    /* Progreso de subida */
+    #progresoWrap { display: none; margin-top: 1rem; }
+    .progreso-item { font-size: .82rem; padding: .3rem 0; border-bottom: 1px solid var(--borde); display: flex; align-items: center; gap: .5rem; }
+    .progreso-item .estado { font-weight: 700; }
+    .ok  { color: var(--verde); }
+    .err { color: var(--rojo); }
+    .spin { display: inline-block; width: 14px; height: 14px; border: 2px solid var(--borde);
+            border-top-color: var(--negro); border-radius: 50%; animation: spin .6s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* Filtros */
+    .filtros { display: flex; gap: .8rem; flex-wrap: wrap; align-items: flex-end; margin-bottom: 1.2rem; }
+    .filtros label { font-size: .8rem; font-weight: 600; color: #555; display: flex; flex-direction: column; gap: .2rem; }
+    .filtros input { padding: .35rem .5rem; border: 1px solid var(--borde); border-radius: 4px; font-size: .9rem; font-family: inherit; }
+
+    /* Tabla */
+    table { width: 100%; border-collapse: collapse; font-size: .86rem; }
+    th { text-align: left; padding: .4rem .6rem; font-size: .72rem; color: #888;
+         text-transform: uppercase; border-bottom: 2px solid var(--borde); }
+    td { padding: .5rem .6rem; border-bottom: 1px solid var(--borde); }
+    tr:last-child td { border-bottom: none; }
+    .importe { font-weight: 700; text-align: right; }
+    .sin-datos { color: #aaa; text-align: center; padding: 2rem; }
+
+    /* Paginación */
+    .paginacion { display: flex; gap: .5rem; justify-content: center; margin-top: 1rem; }
+    .paginacion button { padding: .3rem .8rem; border: 1px solid var(--borde); background: #fff;
+                         border-radius: 4px; cursor: pointer; font-size: .85rem; }
+    .paginacion button.activa { background: var(--amarillo); border-color: var(--amarillo); font-weight: 700; }
+
+    /* Modal detalle */
+    .modal-bg { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.5); z-index: 100; align-items: center; justify-content: center; }
+    .modal-bg.open { display: flex; }
+    .modal { background: #fff; border-radius: 8px; padding: 1.5rem; max-width: 540px; width: 95%; max-height: 90vh; overflow-y: auto; }
+    .modal h3 { margin-bottom: 1rem; font-size: 1rem; }
+    .campo { display: flex; justify-content: space-between; padding: .4rem 0; border-bottom: 1px solid var(--borde); font-size: .88rem; }
+    .campo .etiq { color: #777; }
+    .campo .val  { font-weight: 600; text-align: right; }
+    .modal-footer { margin-top: 1rem; display: flex; gap: .5rem; }
+
+    .aviso { padding: .6rem .9rem; border-radius: 5px; font-size: .85rem; margin-bottom: 1rem; display: none; }
+    .aviso-err { background: #ffebee; color: var(--rojo); display: block; }
+  </style>
+</head>
+<body>
+
+<header>
+  <div style="display:flex;align-items:center;gap:1rem">
+    <div style="width:44px;height:44px;border-radius:50%;background:var(--amarillo);
+                border:3px solid var(--verde);display:flex;align-items:center;
+                justify-content:center;font-weight:700;color:var(--negro);font-size:1rem;flex:0 0 44px">
+      CDE
+    </div>
+    <h1>Facturas <small>Club Deportivo Elemental Deporte Pedrola</small></h1>
+  </div>
+  <div class="nav">
+    <a href="/">← Panel</a>
+  </div>
+</header>
+
+<div class="wrap">
+
+  <div class="aviso" id="avisoGlobal"></div>
+
+  <!-- Subida -->
+  <div class="card">
+    <h2>Subir facturas</h2>
+    <div class="dropzone" id="dropzone">
+      <p>Arrastra aquí los PDF o imágenes, o haz clic para seleccionar</p>
+      <p style="font-size:.78rem;color:#aaa">PDF, JPG, PNG, WEBP · Máximo 20 archivos a la vez · 20 MB por archivo</p>
+      <input type="file" id="inputArchivos" multiple accept=".pdf,.jpg,.jpeg,.png,.webp">
+      <button class="btn" onclick="document.getElementById('inputArchivos').click()">Seleccionar archivos</button>
+    </div>
+    <div id="progresoWrap">
+      <div id="listaProgreso"></div>
+    </div>
+  </div>
+
+  <!-- Listado -->
+  <div class="card">
+    <h2>Todas las facturas</h2>
+    <div class="filtros">
+      <label>Desde <input type="date" id="desde"></label>
+      <label>Hasta <input type="date" id="hasta"></label>
+      <label>Proveedor <input type="text" id="proveedor" placeholder="Buscar..."></label>
+      <button class="btn btn-small" onclick="cargarFacturas(1)">Filtrar</button>
+    </div>
+    <div id="tablaWrap">
+      <table>
+        <thead>
+          <tr>
+            <th>#</th><th>Fecha</th><th>Proveedor</th><th>Concepto</th><th>Nº Factura</th><th class="importe">Importe</th><th></th>
+          </tr>
+        </thead>
+        <tbody id="tablaFacturas">
+          <tr><td colspan="7" class="sin-datos">Cargando...</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="paginacion" id="paginacion"></div>
+  </div>
+
+</div>
+
+<!-- Modal detalle -->
+<div class="modal-bg" id="modalBg">
+  <div class="modal">
+    <h3 id="modalTitulo">Detalle factura</h3>
+    <div id="modalCuerpo"></div>
+    <div class="modal-footer">
+      <a id="btnDescargar" href="#" class="btn btn-small" target="_blank">Descargar archivo</a>
+      <button class="btn-outline" onclick="cerrarModal()">Cerrar</button>
+    </div>
+  </div>
+</div>
+
+<script src="/app.js"></script>
+<script>
+const fmt = n => n != null
+  ? new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' }).format(n)
+  : '—';
+const fmtFecha = f => f ? f.slice(0, 10) : '—';
+
+let paginaActual = 1;
+
+// ── Subida ────────────────────────────────────────────────────────────────────
+const dropzone   = document.getElementById('dropzone');
+const inputFiles = document.getElementById('inputArchivos');
+
+dropzone.addEventListener('dragover', e => { e.preventDefault(); dropzone.classList.add('over'); });
+dropzone.addEventListener('dragleave', () => dropzone.classList.remove('over'));
+dropzone.addEventListener('drop', e => {
+  e.preventDefault();
+  dropzone.classList.remove('over');
+  subirArchivos(e.dataTransfer.files);
+});
+inputFiles.addEventListener('change', () => subirArchivos(inputFiles.files));
+
+async function subirArchivos(fileList) {
+  if (!fileList || fileList.length === 0) return;
+
+  const wrap  = document.getElementById('progresoWrap');
+  const lista = document.getElementById('listaProgreso');
+  wrap.style.display = 'block';
+
+  // Subir en lotes de 5 para no saturar
+  const archivos = Array.from(fileList);
+  const LOTE = 5;
+
+  for (let i = 0; i < archivos.length; i += LOTE) {
+    const lote = archivos.slice(i, i + LOTE);
+
+    // Mostrar spinner para cada archivo del lote
+    const items = lote.map(f => {
+      const div = document.createElement('div');
+      div.className = 'progreso-item';
+      div.innerHTML = `<span class="spin"></span> <span>${f.name}</span> <span class="estado">Procesando OCR...</span>`;
+      lista.appendChild(div);
+      return div;
+    });
+
+    const formData = new FormData();
+    lote.forEach(f => formData.append('archivos', f));
+
+    try {
+      const res  = await fetch('/api/facturas/upload', {
+        method:  'POST',
+        headers: { Authorization: 'Bearer ' + (sessionStorage.getItem('token') || '') },
+        body:    formData,
+      });
+      const data = await res.json();
+
+      (data.resultados || []).forEach((r, idx) => {
+        const item = items[idx];
+        if (!item) return;
+        if (r.ok) {
+          item.innerHTML = `<span class="ok">✓</span> <span>${lote[idx].name}</span>
+            <span class="estado ok">${r.proveedor || '(sin proveedor)'} · ${fmt(r.importe)}</span>`;
+        } else {
+          item.innerHTML = `<span class="err">✗</span> <span>${lote[idx].name}</span>
+            <span class="estado err">${r.error || 'Error'}</span>`;
+        }
+      });
+    } catch (e) {
+      items.forEach((item, idx) => {
+        item.innerHTML = `<span class="err">✗</span> <span>${lote[idx].name}</span>
+          <span class="estado err">Error de red</span>`;
+      });
+    }
+  }
+
+  inputFiles.value = '';
+  cargarFacturas(1);
+}
+
+// ── Listado ───────────────────────────────────────────────────────────────────
+async function cargarFacturas(pagina) {
+  paginaActual = pagina || 1;
+  const desde    = document.getElementById('desde').value;
+  const hasta    = document.getElementById('hasta').value;
+  const proveedor = document.getElementById('proveedor').value;
+
+  const params = new URLSearchParams({ page: paginaActual });
+  if (desde)    params.set('desde', desde);
+  if (hasta)    params.set('hasta', hasta);
+  if (proveedor) params.set('proveedor', proveedor);
+
+  try {
+    const data = await window.api(`/api/facturas?${params}`);
+    if (!data) return;
+
+    const tbody = document.getElementById('tablaFacturas');
+    tbody.innerHTML = data.facturas.length
+      ? data.facturas.map(f => `
+          <tr>
+            <td style="color:#aaa;font-size:.78rem">#${f.id}</td>
+            <td>${fmtFecha(f.fecha_factura)}</td>
+            <td>${f.proveedor || '<span style="color:#aaa">—</span>'}</td>
+            <td style="font-size:.82rem;color:#555">${f.concepto || '—'}</td>
+            <td style="font-size:.82rem">${f.numero_factura || '—'}</td>
+            <td class="importe">${fmt(f.importe)}</td>
+            <td><button class="btn-outline" onclick="verDetalle(${f.id})">Ver</button></td>
+          </tr>`).join('')
+      : '<tr><td colspan="7" class="sin-datos">No hay facturas.</td></tr>';
+
+    // Paginación
+    const paginas = Math.ceil(data.total / data.limit);
+    const pag = document.getElementById('paginacion');
+    pag.innerHTML = '';
+    for (let p = 1; p <= paginas; p++) {
+      const btn = document.createElement('button');
+      btn.textContent = p;
+      if (p === paginaActual) btn.className = 'activa';
+      btn.onclick = () => cargarFacturas(p);
+      pag.appendChild(btn);
+    }
+  } catch (e) {
+    document.getElementById('avisoGlobal').textContent = `Error: ${e.message}`;
+    document.getElementById('avisoGlobal').className = 'aviso aviso-err';
+  }
+}
+
+// ── Modal detalle ─────────────────────────────────────────────────────────────
+async function verDetalle(id) {
+  const data = await window.api(`/api/facturas/${id}`);
+  if (!data) return;
+
+  document.getElementById('modalTitulo').textContent =
+    data.proveedor || data.nombre_archivo;
+
+  document.getElementById('modalCuerpo').innerHTML = [
+    ['Proveedor',      data.proveedor      || '—'],
+    ['NIF/CIF',        data.nif_proveedor  || '—'],
+    ['Nº Factura',     data.numero_factura || '—'],
+    ['Fecha',          fmtFecha(data.fecha_factura)],
+    ['Concepto',       data.concepto       || '—'],
+    ['Base imponible', fmt(data.base_imponible)],
+    ['IVA %',          data.iva_porcentaje != null ? `${data.iva_porcentaje}%` : '—'],
+    ['IVA importe',    fmt(data.iva_importe)],
+    ['Total',          fmt(data.importe)],
+    ['Archivo',        data.nombre_archivo],
+  ].map(([e, v]) => `<div class="campo"><span class="etiq">${e}</span><span class="val">${v}</span></div>`).join('');
+
+  document.getElementById('btnDescargar').href = `/api/facturas/${id}/archivo`;
+  document.getElementById('modalBg').classList.add('open');
+}
+
+function cerrarModal() {
+  document.getElementById('modalBg').classList.remove('open');
+}
+document.getElementById('modalBg').addEventListener('click', e => {
+  if (e.target === document.getElementById('modalBg')) cerrarModal();
+});
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+const jwtGuardado = sessionStorage.getItem('token');
+if (!jwtGuardado) {
+  window.location.href = '/';
+} else {
+  window.setToken(jwtGuardado);
+  cargarFacturas(1);
+}
+</script>
+</body>
+</html>
