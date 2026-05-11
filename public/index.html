@@ -487,7 +487,7 @@ async function doLogin() {
 
     sessionStorage.setItem('token',   data.jwt);
     sessionStorage.setItem('usuario', usuario);
-    window.setToken(data.token);
+    window.setToken(data.jwt);
     mostrarPanel(usuario);
     cargarDashboard();
   } catch (e) {
