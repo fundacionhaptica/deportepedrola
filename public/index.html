@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Panel · CDE Deporte Pedrola</title>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <style>
     :root {
       --amarillo: #FFD400;
@@ -141,6 +142,34 @@
     .csv-area:hover { border-color: var(--amarillo); }
     .csv-area.drag-over { border-color: var(--amarillo); background: #fffde7; }
 
+    /* Tabla socios con scroll horizontal */
+    .tabla-socios-wrap { overflow-x: auto; }
+    .tabla-socios-wrap table { min-width: 900px; }
+
+    /* Chips de actividades */
+    .acts { display: flex; flex-wrap: wrap; gap: 2px; }
+    .act-chip {
+      font-size: .62rem; padding: 1px 5px; border-radius: 3px;
+      background: #e3f2fd; color: #1565c0; font-weight: 600;
+    }
+
+    /* Modal detalle socio */
+    .modal-overlay {
+      position: fixed; inset: 0; background: rgba(0,0,0,.45);
+      display: flex; align-items: center; justify-content: center;
+      z-index: 1000; padding: 1rem;
+    }
+    .modal {
+      background: #fff; border-radius: 10px; max-width: 680px; width: 100%;
+      max-height: 90vh; overflow-y: auto; padding: 1.5rem;
+    }
+    .modal h3 { font-size: 1rem; margin-bottom: 1rem; }
+    .modal-grid { display: grid; grid-template-columns: 1fr 1fr; gap: .5rem 1.2rem; font-size: .85rem; }
+    .modal-grid dt { color: #888; font-weight: 600; font-size: .75rem; text-transform: uppercase; }
+    .modal-grid dd { margin: 0 0 .4rem; }
+    .modal-acts { display: flex; flex-wrap: wrap; gap: 4px; margin-top: .4rem; }
+    .modal-close { float: right; background: none; border: none; font-size: 1.3rem; cursor: pointer; }
+
     #loginBanner { display: none; }
 
     .login-form {
@@ -273,24 +302,31 @@
 
         <!-- Lista de socios -->
         <div class="card">
-          <h2>Listado de socios</h2>
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.8rem">
+            <h2 style="margin:0">Listado de socios (<span id="totalSocios">…</span>)</h2>
+            <input type="search" id="buscarSocio" placeholder="Buscar nombre o email…"
+              style="padding:.35rem .6rem;border:1px solid var(--borde);border-radius:5px;font-size:.85rem;width:220px">
+          </div>
           <div id="spinnerSocios" class="spinner"></div>
+          <div class="tabla-socios-wrap">
           <table>
             <thead>
               <tr>
                 <th>#</th>
                 <th>Nombre</th>
                 <th>Email</th>
-                <th>Sección</th>
-                <th>Rol</th>
+                <th>Actividades</th>
+                <th>Cuota</th>
+                <th>Pagado</th>
                 <th>Estado</th>
                 <th></th>
               </tr>
             </thead>
             <tbody id="tablaSocios">
-              <tr><td colspan="7" style="color:#aaa;text-align:center;padding:1rem">Cargando...</td></tr>
+              <tr><td colspan="8" style="color:#aaa;text-align:center;padding:1rem">Cargando...</td></tr>
             </tbody>
           </table>
+          </div>
         </div>
 
         <!-- Panel derecho: alta individual + importación CSV -->
@@ -306,9 +342,6 @@
               <label>Email *
                 <input type="email" id="snEmail" placeholder="ana@example.com" required>
               </label>
-              <label>Sección
-                <input type="text" id="snSeccion" placeholder="Fútbol sala, Atletismo…">
-              </label>
               <label>Rol
                 <select id="snRol">
                   <option value="socio">Socio</option>
@@ -320,24 +353,35 @@
             </form>
           </div>
 
-          <!-- Importación masiva CSV -->
+          <!-- Importación masiva Excel / CSV -->
           <div class="card">
-            <h2>Importar CSV</h2>
+            <h2>Importar Excel / CSV</h2>
             <p style="font-size:.8rem;color:#666;margin-bottom:.6rem">
-              CSV con cabecera: <code>nombre,email,seccion,rol</code><br>
-              Las filas con email duplicado se omiten sin error.
+              Sube el Excel de socios (<code>.xlsx</code>) o un CSV.<br>
+              Se detectan automáticamente las columnas del Excel de inscripción.<br>
+              Emails duplicados se <strong>actualizan</strong> (no se pierden datos).
             </p>
             <div class="csv-area" id="csvArea" onclick="document.getElementById('inputCsv').click()"
                  ondragover="csvDragOver(event)" ondragleave="csvDragLeave(event)" ondrop="csvDrop(event)">
-              Arrastra un CSV aquí o haz clic para seleccionar
+              📂 Arrastra el Excel o CSV aquí, o haz clic para seleccionar
             </div>
-            <input type="file" id="inputCsv" accept=".csv,text/csv" style="display:none"
+            <input type="file" id="inputCsv" accept=".xlsx,.xls,.csv,text/csv" style="display:none"
                    onchange="csvFileSelected(this)">
             <div id="csvResultado" style="font-size:.82rem;margin-top:.6rem;display:none"></div>
           </div>
 
         </div>
       </div>
+      <!-- Modal detalle socio -->
+      <div class="modal-overlay" id="modalSocio" style="display:none" onclick="cerrarModal(event)">
+        <div class="modal" id="modalContenido">
+          <button class="modal-close" onclick="document.getElementById('modalSocio').style.display='none'">×</button>
+          <h3 id="modalNombre"></h3>
+          <dl class="modal-grid" id="modalDetalle"></dl>
+          <div style="margin-top:1rem;display:flex;gap:.6rem;flex-wrap:wrap" id="modalAcciones"></div>
+        </div>
+      </div>
+
     </div><!-- /tab-socios -->
 
   </div><!-- /contenido -->
@@ -476,15 +520,70 @@ window.cambiarTab = function (tab) {
 };
 
 // ── Socios ───────────────────────────────────────────────────────────────────
+var _sociosCache = [];
+
+const ACTS_LABEL = {
+  act_atletismo:'Atletismo', act_baloncesto:'Baloncesto', act_f7:'F7',
+  act_futbol:'Fútbol', act_fs:'Fútbol Sala', act_g_ritmica:'G.Rítmica',
+  act_kenpo:'Kenpo', act_kickboxing:'Kickboxing', act_patinaje:'Patinaje',
+  act_trail:'Trail', act_voleibol:'Voleibol', act_dirigidas:'Act.Dirigidas',
+};
+
+function escHtml(str) {
+  return String(str == null ? '' : str).replace(/[&<>"']/g, c =>
+    ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
 function mostrarAvisoSocios(msg, esError) {
   const el = document.getElementById('avisoSocios');
   el.textContent = msg;
   el.className = 'aviso ' + (esError ? 'aviso-err' : 'aviso-ok');
-  setTimeout(() => { el.className = 'aviso'; }, 4000);
+  setTimeout(() => { el.className = 'aviso'; }, 5000);
 }
 
-function fmtRol(rol) {
-  return { socio: 'Socio', junta: 'Junta', admin: 'Admin' }[rol] || rol;
+function fmtCuota(v) {
+  if (v == null) return '—';
+  return new Intl.NumberFormat('es-ES', {style:'currency',currency:'EUR'}).format(v);
+}
+
+function actsDeUnSocio(s) {
+  return Object.keys(ACTS_LABEL).filter(k => s[k]);
+}
+
+function renderFilasSocios(socios) {
+  const tbody = document.getElementById('tablaSocios');
+  document.getElementById('totalSocios').textContent = socios.length;
+  if (!socios.length) {
+    tbody.innerHTML = '<tr><td colspan="8" style="color:#aaa;text-align:center;padding:1rem">Sin socios.</td></tr>';
+    return;
+  }
+  tbody.innerHTML = socios.map(s => {
+    const acts = actsDeUnSocio(s);
+    const actsHtml = acts.length
+      ? `<div class="acts">${acts.map(a => `<span class="act-chip">${ACTS_LABEL[a]}</span>`).join('')}</div>`
+      : '<span style="color:#bbb;font-size:.8rem">—</span>';
+    const pagadoBadge = s.pagado
+      ? `<span class="badge badge-verde">Sí${s.pagado_metodo ? ' ('+s.pagado_metodo+')' : ''}</span>`
+      : '<span class="badge badge-rojo">No</span>';
+    return `<tr style="${s.activo ? '' : 'opacity:.45'}">
+      <td style="color:#aaa">${s.id}</td>
+      <td><a href="#" style="color:var(--negro);font-weight:600;text-decoration:none"
+             onclick="abrirModal(${s.id});return false">
+        ${escHtml(s.apellidos ? s.apellidos+', '+s.nombre : s.nombre)}
+      </a></td>
+      <td style="font-size:.78rem;color:#666">${escHtml(s.email)}</td>
+      <td>${actsHtml}</td>
+      <td style="font-weight:700;white-space:nowrap">${fmtCuota(s.cuota)}</td>
+      <td>${pagadoBadge}</td>
+      <td><span class="badge ${s.activo ? 'badge-verde' : 'badge-naranja'}">${s.activo ? 'Activo' : 'Baja'}</span></td>
+      <td style="white-space:nowrap">
+        <button class="btn-sm ${s.activo ? 'btn-baja' : 'btn-alta'}"
+                onclick="toggleActivo(${s.id}, ${!s.activo})">
+          ${s.activo ? 'Baja' : 'Alta'}
+        </button>
+      </td>
+    </tr>`;
+  }).join('');
 }
 
 window.cargarSocios = async function () {
@@ -492,30 +591,82 @@ window.cargarSocios = async function () {
   try {
     const socios = await window.api('/api/socios');
     if (!socios) return;
-    const tbody = document.getElementById('tablaSocios');
-    if (!socios.length) {
-      tbody.innerHTML = '<tr><td colspan="7" style="color:#aaa;text-align:center;padding:1rem">Sin socios todavía.</td></tr>';
-      return;
-    }
-    tbody.innerHTML = socios.map(s => `
-      <tr id="fila-${s.id}" style="${s.activo ? '' : 'opacity:.5'}">
-        <td>${s.id}</td>
-        <td>${escHtml(s.nombre)}</td>
-        <td style="font-size:.8rem;color:#555">${escHtml(s.email)}</td>
-        <td style="font-size:.8rem">${escHtml(s.seccion || '—')}</td>
-        <td><span class="badge ${s.rol === 'admin' ? 'badge-rojo' : s.rol === 'junta' ? 'badge-naranja' : 'badge-verde'}">${fmtRol(s.rol)}</span></td>
-        <td><span class="badge ${s.activo ? 'badge-verde' : 'badge-rojo'}">${s.activo ? 'Activo' : 'Baja'}</span></td>
-        <td>
-          <button class="btn-sm ${s.activo ? 'btn-baja' : 'btn-alta'}"
-                  onclick="toggleActivo(${s.id}, ${!s.activo})">
-            ${s.activo ? 'Dar de baja' : 'Reactivar'}
-          </button>
-        </td>
-      </tr>`).join('');
+    _sociosCache = socios;
+    renderFilasSocios(socios);
   } catch (e) {
     mostrarAvisoSocios('Error al cargar socios: ' + e.message, true);
   } finally {
     document.getElementById('spinnerSocios').style.display = 'none';
+  }
+};
+
+// Búsqueda en tiempo real
+document.getElementById('buscarSocio').addEventListener('input', function () {
+  const q = this.value.trim().toLowerCase();
+  if (!q) { renderFilasSocios(_sociosCache); return; }
+  renderFilasSocios(_sociosCache.filter(s =>
+    (s.nombre + ' ' + (s.apellidos||'')).toLowerCase().includes(q) ||
+    s.email.toLowerCase().includes(q)
+  ));
+});
+
+// ── Modal detalle ────────────────────────────────────────────────────────────
+window.abrirModal = function (id) {
+  const s = _sociosCache.find(x => x.id === id);
+  if (!s) return;
+  document.getElementById('modalNombre').textContent =
+    (s.apellidos ? s.apellidos + ', ' + s.nombre : s.nombre);
+  const acts = actsDeUnSocio(s);
+  document.getElementById('modalDetalle').innerHTML = `
+    <dt>Email</dt><dd>${escHtml(s.email)}</dd>
+    <dt>DNI</dt><dd>${escHtml(s.dni || '—')}</dd>
+    <dt>F. Nacimiento</dt><dd>${s.fecha_nacimiento || '—'}</dd>
+    <dt>Teléfono</dt><dd>${escHtml(s.telefono || '—')}</dd>
+    <dt>Domicilio</dt><dd>${escHtml(s.domicilio || '—')}</dd>
+    <dt>Localidad</dt><dd>${escHtml(s.localidad || '—')} ${escHtml(s.codigo_postal || '')}</dd>
+    <dt>IBAN</dt><dd style="font-family:monospace">${escHtml(s.numero_cuenta || '—')}</dd>
+    <dt>Tutor</dt><dd>${escHtml(s.apellidos_tutor || '—')}</dd>
+    <dt>DNI Tutor</dt><dd>${escHtml(s.dni_tutor || '—')}</dd>
+    <dt>Tlf. Tutor</dt><dd>${escHtml(s.telefono_tutor || '—')}</dd>
+    <dt>Cuota</dt><dd>${fmtCuota(s.cuota)}</dd>
+    <dt>Pagado</dt><dd>${s.pagado ? 'Sí — ' + (s.pagado_metodo||'') + (s.pagado_fecha ? ' ('+s.pagado_fecha+')' : '') : 'No'}</dd>
+    <dt>Actividades</dt><dd>${acts.map(a => ACTS_LABEL[a]).join(', ') || '—'}</dd>
+    <dt>Rol</dt><dd>${s.rol}</dd>
+    <dt>Estado</dt><dd>${s.activo ? 'Activo' : 'Baja'}</dd>
+  `;
+  document.getElementById('modalAcciones').innerHTML = s.pagado
+    ? `<button class="btn-sm btn-baja" onclick="marcarPagado(${s.id},false)">Desmarcar pagado</button>`
+    : `<button class="btn-sm btn-alta" style="padding:.4rem .9rem;font-size:.82rem"
+         onclick="elegirMetodoPago(${s.id})">Marcar como pagado…</button>`;
+  document.getElementById('modalSocio').style.display = 'flex';
+};
+
+window.cerrarModal = function (e) {
+  if (e.target === document.getElementById('modalSocio')) {
+    document.getElementById('modalSocio').style.display = 'none';
+  }
+};
+
+window.elegirMetodoPago = function (id) {
+  const metodo = prompt('Método de pago: escribe  stripe  remesa  o  efectivo');
+  if (!metodo) return;
+  if (!['stripe','remesa','efectivo'].includes(metodo.trim().toLowerCase())) {
+    alert('Método no válido. Usa: stripe, remesa o efectivo');
+    return;
+  }
+  marcarPagado(id, true, metodo.trim().toLowerCase());
+};
+
+window.marcarPagado = async function (id, pagado, metodo) {
+  try {
+    const body = { pagado };
+    if (pagado && metodo) body.pagado_metodo = metodo;
+    await window.api(`/api/socios/${id}`, { method: 'PATCH', body: JSON.stringify(body) });
+    document.getElementById('modalSocio').style.display = 'none';
+    mostrarAvisoSocios(pagado ? 'Pago registrado.' : 'Pago desmarcado.', false);
+    await cargarSocios();
+  } catch (e) {
+    mostrarAvisoSocios('Error: ' + e.message, true);
   }
 };
 
@@ -525,8 +676,8 @@ window.toggleActivo = async function (id, nuevoEstado) {
       method: 'PATCH',
       body: JSON.stringify({ activo: nuevoEstado }),
     });
-    await cargarSocios();
     mostrarAvisoSocios(nuevoEstado ? 'Socio reactivado.' : 'Socio dado de baja.', false);
+    await cargarSocios();
   } catch (e) {
     mostrarAvisoSocios('Error: ' + e.message, true);
   }
@@ -535,65 +686,109 @@ window.toggleActivo = async function (id, nuevoEstado) {
 window.crearSocio = async function (e) {
   e.preventDefault();
   const btn = document.getElementById('btnCrearSocio');
-  btn.disabled = true;
-  btn.textContent = 'Guardando…';
+  btn.disabled = true; btn.textContent = 'Guardando…';
   try {
     await window.api('/api/socios', {
       method: 'POST',
       body: JSON.stringify({
         nombre:  document.getElementById('snNombre').value,
         email:   document.getElementById('snEmail').value,
-        seccion: document.getElementById('snSeccion').value,
         rol:     document.getElementById('snRol').value,
       }),
     });
     document.getElementById('formNuevoSocio').reset();
-    mostrarAvisoSocios('Socio añadido correctamente.', false);
+    mostrarAvisoSocios('Socio añadido.', false);
     await cargarSocios();
   } catch (err) {
     mostrarAvisoSocios('Error: ' + err.message, true);
   } finally {
-    btn.disabled = false;
-    btn.textContent = 'Añadir socio';
+    btn.disabled = false; btn.textContent = 'Añadir socio';
   }
 };
 
-// ── CSV import ───────────────────────────────────────────────────────────────
-function escHtml(str) {
-  return String(str).replace(/[&<>"']/g, c =>
-    ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
+// ── Importar Excel / CSV ─────────────────────────────────────────────────────
+// Mapea cabeceras del Excel de inscripción → campos del schema
+function mapearFila(row) {
+  function col(names) {
+    for (const n of names) {
+      const k = Object.keys(row).find(k => k.trim().toUpperCase() === n.toUpperCase());
+      if (k && row[k] != null && String(row[k]).trim() !== '') return String(row[k]).trim();
+    }
+    return null;
+  }
+  function bool(names) { const v = col(names); return v && v.toUpperCase() !== 'NO' && v !== '0' && v !== 'FALSE'; }
+
+  return {
+    nombre:          col(['NOMBRE']),
+    apellidos:       col(['APELLIDOS']),
+    email:           col(['DIRECCIÓN DE CORREO ELECTRÓNICO','EMAIL','E-MAIL','CORREO']),
+    dni:             col(['DNI DEL ALUMNO/A CON LETRA (SI NO TIENE DNI CONTESTAR NO TIENE)','DNI DEL ALUMNO/A','DNI']),
+    fecha_nacimiento:col(['FECHA DE NACIMIENTO']),
+    domicilio:       col(['DOMICILIO']),
+    localidad:       col(['LOCALIDAD']),
+    codigo_postal:   col(['CÓDIGO POSTAL','CODIGO POSTAL','CP']),
+    telefono:        col(['TELÉFONO DEL ALUMNO/A  (SI NO TIENE TELÉFONO CONTESTAR NO TIENE)','TELÉFONO DEL ALUMNO/A','TELÉFONO','TELEFONO']),
+    act_atletismo:   bool(['ATLETISMO']),
+    act_baloncesto:  bool(['BALONCESTO']),
+    act_f7:          bool(['F7']),
+    act_futbol:      bool(['FUTBOL','FÚTBOL']),
+    act_fs:          bool(['FS','FÚTBOL SALA','FUTBOL SALA']),
+    act_g_ritmica:   bool(['G.RITMICA','G. RÍTMICA','GIMNASIA RÍTMICA']),
+    act_kenpo:       bool(['KENPO']),
+    act_kickboxing:  bool(['KICKBOXING']),
+    act_patinaje:    bool(['PATINAJE']),
+    act_trail:       bool(['TRAIL']),
+    act_voleibol:    bool(['VOLEIBOL']),
+    act_dirigidas:   bool(['ACTIVIDADES DIRIGIDAS']),
+    apellidos_tutor: col(['APELLIDOS DEL O DE LA TITULAR DE LA CUENTA','APELLIDOS TUTOR']),
+    dni_tutor:       col(['DNI TUTOR','DNI DEL TUTOR']),
+    telefono_tutor:  col(['TELÉFONOS TUTOR','TELEFONO TUTOR']),
+    numero_cuenta:   col(['NUMERODECUENTA','NÚMERO DE CUENTA','IBAN']),
+    rol:             'socio',
+  };
 }
 
-function parseCsv(text) {
-  const lines = text.trim().split(/\r?\n/);
-  if (lines.length < 2) return [];
-  const headers = lines[0].split(',').map(h => h.trim().toLowerCase());
-  return lines.slice(1).map(line => {
-    const vals = line.split(',').map(v => v.trim());
-    const obj = {};
-    headers.forEach((h, i) => { obj[h] = vals[i] || ''; });
-    return obj;
-  }).filter(o => o.nombre || o.email);
-}
+async function importarFilas(filas) {
+  const socios = filas.map(mapearFila).filter(s => s.nombre || s.email);
+  if (!socios.length) { mostrarAvisoSocios('Archivo vacío o sin filas válidas.', true); return; }
 
-async function importarCsv(text) {
-  const socios = parseCsv(text);
-  if (!socios.length) { mostrarAvisoSocios('CSV vacío o sin filas válidas.', true); return; }
+  document.getElementById('csvResultado').style.display = 'none';
   try {
     const r = await window.api('/api/socios/importar', {
       method: 'POST',
       body: JSON.stringify({ socios }),
     });
-    const msg = `Importados: ${r.insertados} | Duplicados omitidos: ${r.duplicados}` +
-      (r.errores.length ? ` | Errores: ${r.errores.length}` : '');
+    const msg = `Importados/actualizados: ${r.insertados + r.actualizados}` +
+      (r.errores.length ? ` | Con errores: ${r.errores.length}` : '');
     mostrarAvisoSocios(msg, r.errores.length > 0);
-    const res = document.getElementById('csvResultado');
-    res.style.display = 'block';
-    res.innerHTML = `<strong>${msg}</strong>` +
-      (r.errores.length ? '<br>' + r.errores.map(e => escHtml(e.email + ': ' + e.motivo)).join('<br>') : '');
+    const el = document.getElementById('csvResultado');
+    el.style.display = 'block';
+    el.innerHTML = `<strong>${msg}</strong>` +
+      (r.errores.length ? '<br>' + r.errores.map(e => escHtml(e.ref + ': ' + e.motivo)).join('<br>') : '');
     await cargarSocios();
   } catch (err) {
     mostrarAvisoSocios('Error al importar: ' + err.message, true);
+  }
+}
+
+function procesarArchivo(file) {
+  const ext = file.name.split('.').pop().toLowerCase();
+  if (ext === 'csv') {
+    const r = new FileReader();
+    r.onload = ev => {
+      const wb = XLSX.read(ev.target.result, { type: 'string' });
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      importarFilas(XLSX.utils.sheet_to_json(ws, { defval: null }));
+    };
+    r.readAsText(file);
+  } else {
+    const r = new FileReader();
+    r.onload = ev => {
+      const wb = XLSX.read(ev.target.result, { type: 'array' });
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      importarFilas(XLSX.utils.sheet_to_json(ws, { defval: null }));
+    };
+    r.readAsArrayBuffer(file);
   }
 }
 
@@ -603,11 +798,12 @@ window.csvDrop = e => {
   e.preventDefault();
   document.getElementById('csvArea').classList.remove('drag-over');
   const file = e.dataTransfer.files[0];
-  if (file) { const r = new FileReader(); r.onload = ev => importarCsv(ev.target.result); r.readAsText(file); }
+  if (file) procesarArchivo(file);
 };
 window.csvFileSelected = input => {
   const file = input.files[0];
-  if (file) { const r = new FileReader(); r.onload = ev => importarCsv(ev.target.result); r.readAsText(file); }
+  if (file) procesarArchivo(file);
+  input.value = '';
 };
 
 // ── Inicializar ──────────────────────────────────────────────────────────────
