@@ -37,6 +37,7 @@ app.use('/api/auth',          require('./routes/auth'));
 app.use('/api/inscripciones', require('./routes/inscripciones'));
 app.use('/api/dashboard', checkJwt, canRead,   require('./routes/dashboard'));
 app.use('/api/socios',    checkJwt, checkRole, require('./routes/socios'));
+app.use('/api/precios',   checkJwt, checkRole, require('./routes/precios'));
 app.use('/api/pagos',     checkJwt, checkRole, require('./routes/pagos'));
 app.use('/api/stripe',                         require('./routes/stripe'));
 

@@ -17,7 +17,7 @@ const SELECT_FIELDS = `
   act_trail, act_voleibol, act_dirigidas,
   apellidos_tutor, dni_tutor, telefono_tutor, numero_cuenta,
   cuota, pagado, pagado_metodo, pagado_fecha,
-  rol, activo, created_at
+  es_jjee, rol, activo, created_at
 `;
 
 router.get('/', async (_req, res) => {

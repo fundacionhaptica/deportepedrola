@@ -232,6 +232,7 @@
     <nav class="nav-tabs">
       <button class="nav-tab activa" data-tab="dashboard" onclick="cambiarTab('dashboard')">Dashboard</button>
       <button class="nav-tab"        data-tab="socios"    onclick="cambiarTab('socios')">Socios</button>
+      <button class="nav-tab"        data-tab="precios"   onclick="cambiarTab('precios')">Precios actividades</button>
     </nav>
 
     <!-- ── PESTAÑA DASHBOARD ─────────────────────────────────────── -->
@@ -384,6 +385,54 @@
 
     </div><!-- /tab-socios -->
 
+    <!-- ── PESTAÑA PRECIOS ──────────────────────────────────────── -->
+    <div id="tab-precios" style="display:none">
+
+      <div class="aviso" id="avisoPrecios"></div>
+
+      <div style="max-width:700px">
+        <div class="card">
+          <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:1rem;gap:1rem;flex-wrap:wrap">
+            <div>
+              <h2 style="margin:0 0 .3rem">Tarifas por actividad</h2>
+              <p style="font-size:.8rem;color:#666;margin:0">
+                <strong>JJEE</strong> (Juegos Escolares de Aragón) se aplica a menores de 16 años
+                en las actividades que participan en el programa escolar.<br>
+                Deja el precio JJEE en blanco si la actividad no tiene esa modalidad.<br>
+                Al guardar se <strong>recalculan todas las cuotas</strong> automáticamente.
+              </p>
+            </div>
+            <button class="btn-primary" style="width:auto;white-space:nowrap" onclick="guardarPrecios()">
+              Guardar y recalcular cuotas
+            </button>
+          </div>
+
+          <div id="spinnerPrecios" class="spinner"></div>
+
+          <table id="tablaPrecios" style="width:100%">
+            <thead>
+              <tr>
+                <th>Actividad</th>
+                <th>Precio regular (€)</th>
+                <th>Precio JJEE (€)</th>
+                <th style="font-size:.7rem;color:#aaa">¿JJEE?</th>
+              </tr>
+            </thead>
+            <tbody id="bodyPrecios"></tbody>
+          </table>
+        </div>
+
+        <div class="card" style="margin-top:1.2rem;font-size:.85rem;color:#555">
+          <h2>¿Cuándo se aplica el precio JJEE?</h2>
+          <ul style="padding-left:1.2rem;line-height:1.8">
+            <li>El socio tiene <strong>menos de 16 años</strong> (calculado desde su fecha de nacimiento).</li>
+            <li>O se marca manualmente el campo <em>«Es JJEE»</em> en la ficha del socio.</li>
+            <li>Si la actividad no tiene precio JJEE configurado, siempre se usa el precio regular.</li>
+          </ul>
+        </div>
+      </div>
+    </div><!-- /tab-precios -->
+
   </div><!-- /contenido -->
 </div>
 
@@ -513,10 +562,12 @@ window.cargarDashboard = async function () {
 window.cambiarTab = function (tab) {
   document.getElementById('tab-dashboard').style.display = tab === 'dashboard' ? '' : 'none';
   document.getElementById('tab-socios').style.display    = tab === 'socios'    ? '' : 'none';
+  document.getElementById('tab-precios').style.display   = tab === 'precios'   ? '' : 'none';
   document.querySelectorAll('.nav-tab').forEach(btn => {
     btn.classList.toggle('activa', btn.dataset.tab === tab);
   });
-  if (tab === 'socios') cargarSocios();
+  if (tab === 'socios')  cargarSocios();
+  if (tab === 'precios') cargarPrecios();
 };
 
 // ── Socios ───────────────────────────────────────────────────────────────────
@@ -804,6 +855,76 @@ window.csvFileSelected = input => {
   const file = input.files[0];
   if (file) procesarArchivo(file);
   input.value = '';
+};
+
+// ── Precios actividades ──────────────────────────────────────────────────────
+const ACTS_NOMBRE = {
+  atletismo:'Atletismo', baloncesto:'Baloncesto', f7:'Fútbol 7',
+  futbol:'Fútbol', fs:'Fútbol Sala', g_ritmica:'Gimnasia Rítmica',
+  kenpo:'Kenpo', kickboxing:'Kickboxing', patinaje:'Patinaje',
+  trail:'Trail', voleibol:'Voleibol', dirigidas:'Act. Dirigidas',
+};
+
+function mostrarAvisoPrecios(msg, esError) {
+  const el = document.getElementById('avisoPrecios');
+  el.textContent = msg;
+  el.className = 'aviso ' + (esError ? 'aviso-err' : 'aviso-ok');
+  setTimeout(() => { el.className = 'aviso'; }, 5000);
+}
+
+window.cargarPrecios = async function () {
+  document.getElementById('spinnerPrecios').style.display = 'block';
+  try {
+    const precios = await window.api('/api/precios');
+    if (!precios) return;
+    const tbody = document.getElementById('bodyPrecios');
+    const mapa = {};
+    precios.forEach(p => { mapa[p.actividad] = p; });
+
+    tbody.innerHTML = Object.keys(ACTS_NOMBRE).map(act => {
+      const p = mapa[act] || { precio_regular: 0, precio_jjee: null };
+      const tieneJjee = p.precio_jjee != null;
+      return `<tr>
+        <td style="font-weight:600">${ACTS_NOMBRE[act]}</td>
+        <td>
+          <input type="number" step="0.01" min="0" style="width:100px;padding:.3rem .4rem;border:1px solid var(--borde);border-radius:4px"
+            id="preg_${act}" value="${p.precio_regular || 0}">
+        </td>
+        <td>
+          <input type="number" step="0.01" min="0" style="width:100px;padding:.3rem .4rem;border:1px solid var(--borde);border-radius:4px"
+            id="pjjee_${act}" value="${tieneJjee ? p.precio_jjee : ''}" placeholder="—">
+        </td>
+        <td style="text-align:center">
+          ${tieneJjee ? '<span class="badge badge-verde">Sí</span>' : '<span style="color:#ccc;font-size:.75rem">No</span>'}
+        </td>
+      </tr>`;
+    }).join('');
+  } catch (e) {
+    mostrarAvisoPrecios('Error al cargar precios: ' + e.message, true);
+  } finally {
+    document.getElementById('spinnerPrecios').style.display = 'none';
+  }
+};
+
+window.guardarPrecios = async function () {
+  const precios = Object.keys(ACTS_NOMBRE).map(act => {
+    const reg  = parseFloat(document.getElementById('preg_' + act).value) || 0;
+    const jval = document.getElementById('pjjee_' + act).value.trim();
+    const jjee = jval === '' ? null : (parseFloat(jval) || 0);
+    return { actividad: act, precio_regular: reg, precio_jjee: jjee };
+  });
+
+  try {
+    const r = await window.api('/api/precios', {
+      method: 'PUT',
+      body: JSON.stringify({ precios }),
+    });
+    mostrarAvisoPrecios(`Precios guardados. Cuotas recalculadas para ${r.socios_actualizados} socios.`, false);
+    // Refrescar tabla socios si está en caché
+    if (_sociosCache.length) await cargarSocios();
+  } catch (e) {
+    mostrarAvisoPrecios('Error al guardar: ' + e.message, true);
+  }
 };
 
 // ── Inicializar ──────────────────────────────────────────────────────────────

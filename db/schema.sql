@@ -38,11 +38,28 @@ CREATE TABLE IF NOT EXISTS socios (
     pagado           BOOLEAN       NOT NULL DEFAULT false,
     pagado_metodo    TEXT,          -- stripe | remesa | efectivo
     pagado_fecha     DATE,
+    -- JJEE (Juegos Escolares de Aragón) — calculado por edad (<16) o flag manual
+    es_jjee          BOOLEAN       NOT NULL DEFAULT false,
     -- Admin
     rol              TEXT          NOT NULL DEFAULT 'socio',   -- socio | junta | admin
     activo           BOOLEAN       NOT NULL DEFAULT true,
     created_at       TIMESTAMPTZ   NOT NULL DEFAULT NOW()
 );
+
+-- Tabla de precios por actividad (regular + JJEE)
+CREATE TABLE IF NOT EXISTS precios_actividades (
+    actividad       TEXT          PRIMARY KEY,   -- mismo nombre que la columna act_* sin prefijo
+    precio_regular  NUMERIC(10,2) NOT NULL DEFAULT 0,
+    precio_jjee     NUMERIC(10,2),               -- NULL = esa actividad no tiene modalidad JJEE
+    updated_at      TIMESTAMPTZ   NOT NULL DEFAULT NOW()
+);
+
+-- Seed inicial de actividades (si la tabla está vacía)
+INSERT INTO precios_actividades (actividad) VALUES
+  ('atletismo'),('baloncesto'),('f7'),('futbol'),('fs'),
+  ('g_ritmica'),('kenpo'),('kickboxing'),('patinaje'),
+  ('trail'),('voleibol'),('dirigidas')
+ON CONFLICT DO NOTHING;
 
 -- Añadir columnas nuevas a instalaciones existentes (idempotente)
 ALTER TABLE socios ADD COLUMN IF NOT EXISTS apellidos        TEXT;
@@ -72,6 +89,7 @@ ALTER TABLE socios ADD COLUMN IF NOT EXISTS cuota            NUMERIC(10,2);
 ALTER TABLE socios ADD COLUMN IF NOT EXISTS pagado           BOOLEAN NOT NULL DEFAULT false;
 ALTER TABLE socios ADD COLUMN IF NOT EXISTS pagado_metodo    TEXT;
 ALTER TABLE socios ADD COLUMN IF NOT EXISTS pagado_fecha     DATE;
+ALTER TABLE socios ADD COLUMN IF NOT EXISTS es_jjee          BOOLEAN NOT NULL DEFAULT false;
 
 CREATE TABLE IF NOT EXISTS pagos (
     id              SERIAL        PRIMARY KEY,
