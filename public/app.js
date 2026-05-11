@@ -1,5 +1,5 @@
 // Helper centralizado para llamadas autenticadas al API.
-// Si el servidor responde 401 (expirado), redirige automáticamente a /auth/logout.
+// Si el servidor responde 401 (token expirado), limpia la sesión y muestra el login.
 // Expone: window.setToken(jwt), window.api(path, options)
 
 (function () {
@@ -11,9 +11,11 @@
     _bearer = jwt;
   };
 
-  async function _doLogout() {
+  function _doLogout() {
     _bearer = null;
-    window.location.href = '/auth/logout';
+    sessionStorage.clear();
+    // Recarga la página para que initAuth() muestre el formulario de login
+    window.location.reload();
   }
 
   window.api = async function (path, options) {
@@ -28,7 +30,7 @@
     var res = await fetch(path, Object.assign({}, opts, { headers: headers }));
 
     if (res.status === 401) {
-      await _doLogout();
+      _doLogout();
       return null;
     }
 

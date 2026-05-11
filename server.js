@@ -5,15 +5,14 @@ const path    = require('path');
 
 const { checkJwt, checkPermission } = require('./middleware/auth');
 
-// Permisos definidos en Auth0 API → DeportePedrola → Permissions:
-//   read:datos   → socios, junta, admin  (ver)
-//   write:datos  → junta, admin          (crear y modificar)
-//   delete:datos → solo admin            (borrar)
+// Permisos:
+//   read:datos   → socio, junta, admin  (GET)
+//   write:datos  → junta, admin         (POST/PUT/PATCH)
+//   delete:datos → solo admin           (DELETE)
 const canRead   = checkPermission('read:datos');
 const canWrite  = checkPermission('write:datos');
 const canDelete = checkPermission('delete:datos');
 
-// Aplica el permiso correcto según el método HTTP de la petición.
 function byMethod({ read, write, del }) {
   return (req, res, next) => {
     if (req.method === 'GET' || req.method === 'HEAD') return read(req, res, next);
@@ -33,24 +32,15 @@ app.use('/api/stripe/webhook', express.raw({ type: 'application/json' }));
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Config pública de Auth0 (dominio, clientId y audience no son secretos)
-app.get('/api/config', (_req, res) => {
-  res.json({
-    auth0Domain:   process.env.AUTH0_DOMAIN   || '',
-    auth0Client:   process.env.AUTH0_CLIENT_ID || '',
-    auth0Audience: process.env.AUTH0_AUDIENCE  || '',
-  });
-});
-
 // Rutas
-app.use('/api/inscripciones',      require('./routes/inscripciones'));
-app.use('/api/dashboard', checkJwt, canRead,    require('./routes/dashboard'));
-app.use('/api/socios',    checkJwt, checkRole,  require('./routes/socios'));
-app.use('/api/pagos',     checkJwt, checkRole,  require('./routes/pagos'));
-app.use('/api/stripe',             require('./routes/stripe'));
-app.use('/auth',                   require('./routes/auth'));
+app.use('/api/auth',          require('./routes/auth'));
+app.use('/api/inscripciones', require('./routes/inscripciones'));
+app.use('/api/dashboard', checkJwt, canRead,   require('./routes/dashboard'));
+app.use('/api/socios',    checkJwt, checkRole, require('./routes/socios'));
+app.use('/api/pagos',     checkJwt, checkRole, require('./routes/pagos'));
+app.use('/api/stripe',                         require('./routes/stripe'));
 
-// Páginas públicas de inscripciones (sin Auth0)
+// Páginas públicas de inscripciones (sin autenticación)
 var EVENTOS_PUBLICOS = ['cuotas', '10k', 'donacion', 'maraton-futbolsala', 'copa-futbol', 'san-silvestre'];
 app.get('/inscripciones', function (_req, res) {
   res.sendFile(path.join(__dirname, 'public', 'inscripciones', 'index.html'));
