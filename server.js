@@ -32,6 +32,14 @@ app.use('/api/stripe/webhook', express.raw({ type: 'application/json' }));
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
+// Logger temporal: muestra qué rutas protegidas llegan sin Authorization
+app.use('/api', (req, _res, next) => {
+  if (!req.headers.authorization) {
+    console.log(`[auth-debug] SIN TOKEN: ${req.method} ${req.path}`);
+  }
+  next();
+});
+
 // Rutas
 app.use('/api/auth',          require('./routes/auth'));
 app.use('/api/inscripciones', require('./routes/inscripciones'));
