@@ -32,11 +32,10 @@ app.use('/api/stripe/webhook', express.raw({ type: 'application/json' }));
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Logger temporal: muestra qué rutas protegidas llegan sin Authorization
+// Logger temporal: todas las peticiones a /api con su header de auth
 app.use('/api', (req, _res, next) => {
-  if (!req.headers.authorization) {
-    console.log(`[auth-debug] SIN TOKEN: ${req.method} ${req.path}`);
-  }
+  const auth = req.headers.authorization;
+  console.log(`[req] ${req.method} ${req.path} | auth: ${auth ? auth.slice(0, 15) + '...' : 'MISSING'}`);
   next();
 });
 
@@ -72,6 +71,15 @@ app.get('/facturas', (_req, res) => {
 // Todas las rutas no-API y no-inscripciones devuelven el SPA
 app.get(/^(?!\/api|\/inscripciones).*/, (_req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
+// Manejador de errores JWT — convierte UnauthorizedError en 401 limpio
+app.use((err, req, res, next) => {
+  if (err.name === 'UnauthorizedError') {
+    console.log(`[jwt-error] ${req.method} ${req.path} | header: ${req.headers.authorization || 'MISSING'} | msg: ${err.message}`);
+    return res.status(401).json({ error: 'No autenticado.' });
+  }
+  next(err);
 });
 
 app.listen(PORT, () => {
