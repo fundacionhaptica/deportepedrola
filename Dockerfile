@@ -9,4 +9,4 @@ COPY . .
 
 RUN mkdir -p /app/uploads/facturas /app/uploads/certificados-donacion
 
-CMD ["node", "server.js"]
+CMD ["sh", "-c", "npm run migrate && node server.js"]
