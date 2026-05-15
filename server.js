@@ -3,7 +3,7 @@
 const express = require('express');
 const path    = require('path');
 
-const { checkJwt, checkPermission } = require('./middleware/auth');
+const { checkJwt, checkPermission, normalizarAuthHeader } = require('./middleware/auth');
 
 // Permisos:
 //   read:datos   → socio, junta, admin  (GET)
@@ -38,6 +38,9 @@ app.use('/api', (req, _res, next) => {
   console.log(`[req] ${req.method} ${req.path} | auth: ${auth ? auth.slice(0, 15) + '...' : 'MISSING'}`);
   next();
 });
+
+// normalizarAuthHeader copia X-Club-Token → Authorization cuando Cloudflare lo elimina
+app.use('/api', normalizarAuthHeader);
 
 // Rutas
 app.use('/api/auth',          require('./routes/auth'));
