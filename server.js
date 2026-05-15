@@ -3,7 +3,7 @@
 const express = require('express');
 const path    = require('path');
 
-const { checkJwt, checkPermission } = require('./middleware/auth');
+const { checkJwt, checkPermission, normalizarAuthHeader } = require('./middleware/auth');
 
 // Permisos:
 //   read:datos   → socio, junta, admin  (GET)
@@ -38,6 +38,9 @@ app.use('/api', (req, _res, next) => {
   console.log(`[req] ${req.method} ${req.path} | auth: ${auth ? auth.slice(0, 15) + '...' : 'MISSING'}`);
   next();
 });
+
+// normalizarAuthHeader copia X-Club-Token → Authorization cuando Cloudflare lo elimina
+app.use('/api', normalizarAuthHeader);
 
 // Rutas
 app.use('/api/auth',          require('./routes/auth'));
@@ -76,7 +79,7 @@ app.get(/^(?!\/api|\/inscripciones).*/, (_req, res) => {
 // Manejador de errores JWT — convierte UnauthorizedError en 401 limpio
 app.use((err, req, res, next) => {
   if (err.name === 'UnauthorizedError') {
-    console.log(`[jwt-error] ${req.method} ${req.path} | header: ${req.headers.authorization || 'MISSING'} | msg: ${err.message}`);
+    console.log(`[jwt-error] ${req.method} ${req.path} | auth: ${req.headers.authorization || 'MISSING'} | x-club-token: ${req.headers['x-club-token'] ? 'presente' : 'MISSING'} | msg: ${err.message}`);
     return res.status(401).json({ error: 'No autenticado.' });
   }
   next(err);

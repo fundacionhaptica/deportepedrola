@@ -20,7 +20,12 @@
 
   window.api = async function (path, options) {
     var opts = options || {};
-    var authHeader = _bearer ? { Authorization: 'Bearer ' + _bearer } : {};
+    // Usar _bearer en memoria; si es nulo (p.ej. tras recarga), leer de sessionStorage.
+    // También se envía X-Club-Token porque Cloudflare Access elimina el header Authorization.
+    var portador = _bearer || sessionStorage.getItem('token');
+    var authHeader = portador
+      ? { Authorization: 'Bearer ' + portador, 'X-Club-Token': portador }
+      : {};
     var headers = Object.assign(
       { 'Content-Type': 'application/json' },
       opts.headers || {},

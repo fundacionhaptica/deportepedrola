@@ -9,6 +9,15 @@ const checkJwt = jwt({
   algorithms: ['HS256'],
 });
 
+// Cloudflare Access elimina el header Authorization antes de llegar al servidor.
+// Este middleware copia X-Club-Token → Authorization para que checkJwt lo encuentre.
+function normalizarAuthHeader(req, _res, next) {
+  if (!req.headers.authorization && req.headers['x-club-token']) {
+    req.headers.authorization = 'Bearer ' + req.headers['x-club-token'];
+  }
+  next();
+}
+
 function checkPermission(permission) {
   return (req, res, next) => {
     const permissions = req.auth && req.auth.permissions;
@@ -19,4 +28,4 @@ function checkPermission(permission) {
   };
 }
 
-module.exports = { checkJwt, checkPermission };
+module.exports = { checkJwt, checkPermission, normalizarAuthHeader };
