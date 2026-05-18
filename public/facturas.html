@@ -86,6 +86,8 @@
       font-size: .72rem; font-weight: 700; padding: .15rem .5rem; border-radius: 3px;
     }
     .badge-ocr       { background: #fff3cd; color: #856404; }
+    .ocr-proveedor   { font-size: .7rem; color: #aaa; padding: .1rem .4rem; border: 1px solid #e0e0e0; border-radius: 3px; }
+    .ocr-proveedor.ocr-fallback { color: #856404; border-color: #ffc107; background: #fff8e1; cursor: help; }
     .badge-revisada  { background: #d4edda; color: var(--verde); }
     .badge-error     { background: #f8d7da; color: var(--rojo); }
 
@@ -464,6 +466,10 @@ function rellenarTarjetaOCR(tarjeta, r) {
     ? `<div class="ocr-error-aviso">⚠ El OCR no pudo leer este archivo: ${escHtml(r.ocr_error)}. Rellena los campos manualmente.</div>`
     : '';
 
+  const ocrProveedorTag = r.proveedor_ocr
+    ? `<span class="ocr-proveedor${r.ocr_fallback ? ' ocr-fallback' : ''}" title="${r.ocr_fallback ? 'Kimi falló, usado como alternativa: ' + escHtml(r.ocr_fallback_motivo || '') : ''}">via ${escHtml(r.proveedor_ocr)}${r.ocr_fallback ? ' ⚠' : ''}</span>`
+    : '';
+
   tarjeta.className = 'revision-card';
   tarjeta.dataset.id = id;
   tarjeta.innerHTML = `
@@ -471,6 +477,7 @@ function rellenarTarjetaOCR(tarjeta, r) {
       <span class="icono">📄</span>
       <span class="nombre">${escHtml(nombre)}</span>
       <span class="resumen">${escHtml(resumen)}</span>
+      ${ocrProveedorTag}
       <span class="badge ${r.ocr_error ? 'badge-error' : 'badge-ocr'}">${r.ocr_error ? 'OCR fallido' : 'Revisar OCR'}</span>
     </div>
     <div class="revision-body abierto" id="rb-${id}">

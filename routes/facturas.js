@@ -89,8 +89,13 @@ router.post('/upload', upload.array('archivos', 20), async (req, res) => {
     let extraido   = {};
 
     let ocrError = null;
+    let proveedorOcr = null;
+    let ocrFallback = false;
+    let ocrFallbackMotivo = null;
     try {
-      ({ ocrRawJson, extraido } = await extraerDatosFactura(file.path, file.mimetype));
+      ({ ocrRawJson, extraido, proveedor_ocr: proveedorOcr,
+         ocr_fallback: ocrFallback, ocr_fallback_motivo: ocrFallbackMotivo
+       } = await extraerDatosFactura(file.path, file.mimetype));
     } catch (e) {
       console.error(`[facturas] OCR fallido para ${file.filename}:`, e.message);
       ocrError = e.message;
@@ -124,7 +129,9 @@ router.post('/upload', upload.array('archivos', 20), async (req, res) => {
           ocrRawJson ? JSON.stringify(ocrRawJson) : null,
         ]
       );
-      resultados.push({ ok: true, ocr_error: ocrError || null, ...factura });
+      resultados.push({ ok: true, ocr_error: ocrError || null,
+        proveedor_ocr: proveedorOcr, ocr_fallback: ocrFallback,
+        ocr_fallback_motivo: ocrFallbackMotivo, ...factura });
     } catch (e) {
       console.error(`[facturas] DB error para ${file.filename}:`, e.message);
       resultados.push({ ok: false, nombre: file.originalname, error: e.message });
