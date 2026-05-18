@@ -134,11 +134,23 @@ router.post('/upload', upload.array('archivos', 20), async (req, res) => {
 
 // PATCH /api/facturas/:id — corrige campos tras revisión OCR
 router.patch('/:id', async (req, res) => {
+  const client = await db.connect();
   try {
     const { tipo, proveedor, nif_proveedor, numero_factura, fecha_factura,
             concepto, deporte, equipo_categoria,
-            base_imponible, iva_porcentaje, iva_importe, importe } = req.body;
-    const { rows: [factura] } = await db.query(
+            base_imponible, iva_porcentaje, iva_importe, importe,
+            distribuciones } = req.body;
+
+    // Determinar deporte efectivo en factura principal
+    let deportePrincipal = deporte || null;
+    if (Array.isArray(distribuciones) && distribuciones.length > 0) {
+      const deportesUnicos = [...new Set(distribuciones.map(d => d.deporte).filter(Boolean))];
+      deportePrincipal = deportesUnicos.length === 1 ? deportesUnicos[0] : 'Múltiple';
+    }
+
+    await client.query('BEGIN');
+
+    const { rows: [factura] } = await client.query(
       `UPDATE facturas SET
          tipo             = COALESCE($1,  tipo),
          proveedor        = COALESCE($2,  proveedor),
@@ -158,18 +170,37 @@ router.patch('/:id', async (req, res) => {
                  concepto, deporte, equipo_categoria,
                  base_imponible, iva_porcentaje, iva_importe, importe`,
       [tipo || null, proveedor || null, nif_proveedor || null, numero_factura || null,
-       fecha_factura || null, concepto || null, deporte || null, equipo_categoria || null,
+       fecha_factura || null, concepto || null, deportePrincipal,
+       equipo_categoria || null,
        base_imponible != null ? base_imponible : null,
        iva_porcentaje != null ? iva_porcentaje : null,
        iva_importe    != null ? iva_importe    : null,
        importe        != null ? importe        : null,
        req.params.id]
     );
-    if (!factura) return res.status(404).json({ error: 'Factura no encontrada.' });
+    if (!factura) { await client.query('ROLLBACK'); return res.status(404).json({ error: 'Factura no encontrada.' }); }
+
+    // Guardar distribuciones
+    await client.query('DELETE FROM factura_distribuciones WHERE factura_id = $1', [req.params.id]);
+    if (Array.isArray(distribuciones) && distribuciones.length > 0) {
+      for (const d of distribuciones) {
+        if (d.importe == null || isNaN(Number(d.importe))) continue;
+        await client.query(
+          `INSERT INTO factura_distribuciones (factura_id, deporte, equipo_categoria, concepto, importe)
+           VALUES ($1, $2, $3, $4, $5)`,
+          [req.params.id, d.deporte || null, d.equipo_categoria || null, d.concepto || null, Number(d.importe)]
+        );
+      }
+    }
+
+    await client.query('COMMIT');
     res.json(factura);
   } catch (e) {
+    await client.query('ROLLBACK');
     console.error('[facturas] PATCH /:id', e.message);
     res.status(500).json({ error: 'Error interno del servidor' });
+  } finally {
+    client.release();
   }
 });
 
@@ -180,6 +211,12 @@ router.get('/:id', async (req, res) => {
       'SELECT * FROM facturas WHERE id = $1', [req.params.id]
     );
     if (!factura) return res.status(404).json({ error: 'Factura no encontrada.' });
+
+    const { rows: distribuciones } = await db.query(
+      'SELECT id, deporte, equipo_categoria, concepto, importe FROM factura_distribuciones WHERE factura_id = $1 ORDER BY id',
+      [req.params.id]
+    );
+    factura.distribuciones = distribuciones;
     res.json(factura);
   } catch (e) {
     res.status(500).json({ error: 'Error interno del servidor' });
