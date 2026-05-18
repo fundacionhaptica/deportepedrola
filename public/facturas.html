@@ -207,7 +207,13 @@
     .modal-footer { margin-top: 1rem; display: flex; gap: .5rem; }
 
     .aviso { padding: .6rem .9rem; border-radius: 5px; font-size: .85rem; margin-bottom: 1rem; display: none; }
-    .aviso-err { background: #ffebee; color: var(--rojo); display: block; }
+    .aviso-err  { background: #ffebee; color: var(--rojo); display: block; }
+    .aviso-warn { background: #fff8e1; color: #7a5800; border: 1px solid #ffe082; display: block; }
+    .tr-duplicado td { background: #fff8e1; }
+    .badge-dup { display: inline-block; background: #ffe082; color: #7a5800; font-size: .7rem;
+                 font-weight: 700; padding: .1rem .35rem; border-radius: 3px; margin-left: .3rem;
+                 vertical-align: middle; cursor: default; }
+    .num-factura { font-size: .78rem; color: #555; }
 
     /* Modal editar */
     .modal-editar { max-width: 700px; }
@@ -304,11 +310,11 @@
         <thead>
           <tr>
             <th>#</th><th>Fecha</th><th>Tipo</th><th>Deporte</th><th>Proveedor</th>
-            <th>Concepto</th><th class="importe">Importe+IVA</th><th></th>
+            <th>Nº Factura</th><th>Concepto</th><th class="importe">Importe+IVA</th><th></th>
           </tr>
         </thead>
         <tbody id="tablaFacturas">
-          <tr><td colspan="8" class="sin-datos">Cargando...</td></tr>
+          <tr><td colspan="9" class="sin-datos">Cargando...</td></tr>
         </tbody>
       </table>
     </div>
@@ -751,26 +757,43 @@ async function cargarFacturas(pagina) {
   if (deporte) params.set('deporte', deporte);
 
   try {
-    const data = await window.api(`/api/facturas?${params}`);
+    const [data, dupData] = await Promise.all([
+      window.api(`/api/facturas?${params}`),
+      window.api('/api/facturas/duplicados'),
+    ]);
     if (!data) return;
+
+    const idsDup = new Set((dupData?.ids) || []);
+    const aviso = document.getElementById('avisoGlobal');
+    if (dupData?.grupos?.length) {
+      const total = dupData.grupos.reduce((s, g) => s + g.ids.length, 0);
+      aviso.textContent = `⚠ Se han detectado ${total} facturas posiblemente duplicadas. Revisa las filas marcadas en amarillo.`;
+      aviso.className = 'aviso aviso-warn';
+    } else if (!aviso.classList.contains('aviso-err')) {
+      aviso.className = 'aviso';
+    }
 
     const tbody = document.getElementById('tablaFacturas');
     tbody.innerHTML = data.facturas.length
-      ? data.facturas.map(f => `
-          <tr>
+      ? data.facturas.map(f => {
+          const esDup = idsDup.has(f.id);
+          return `
+          <tr${esDup ? ' class="tr-duplicado"' : ''}>
             <td style="color:#aaa;font-size:.78rem">#${f.id}</td>
             <td>${fmtFecha(f.fecha_factura)}</td>
             <td>${f.tipo ? `<span class="badge-tipo">${escHtml(f.tipo)}</span>` : '<span style="color:#aaa">—</span>'}</td>
             <td>${f.deporte ? `<span class="badge-deporte">${escHtml(f.deporte)}</span>` : '<span style="color:#aaa">—</span>'}</td>
             <td>${escHtml(f.proveedor) || '<span style="color:#aaa">—</span>'}</td>
+            <td class="num-factura">${escHtml(f.numero_factura) || '<span style="color:#aaa">—</span>'}${esDup ? '<span class="badge-dup" title="Posible duplicado">DUP</span>' : ''}</td>
             <td style="font-size:.82rem;color:#555">${escHtml(f.concepto) || '—'}</td>
             <td class="importe">${fmt(f.importe)}</td>
             <td>
               <button class="btn-outline" onclick="verDetalle(${f.id})">Ver</button>
               <button class="btn-outline btn-small" onclick="editarFactura(${f.id})" style="margin-left:.3rem">Editar</button>
             </td>
-          </tr>`).join('')
-      : '<tr><td colspan="8" class="sin-datos">No hay facturas.</td></tr>';
+          </tr>`;
+        }).join('')
+      : '<tr><td colspan="9" class="sin-datos">No hay facturas.</td></tr>';
 
     const paginas = Math.ceil(data.total / data.limit);
     const pag = document.getElementById('paginacion');
