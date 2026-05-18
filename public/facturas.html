@@ -27,7 +27,7 @@
     }
     nav a:hover { background: #333; color: #fff; }
     nav a.activa { background: var(--amarillo); color: var(--negro); }
-    .wrap { max-width: 1100px; margin: 0 auto; padding: 1.5rem 1rem; }
+    .wrap { max-width: 1200px; margin: 0 auto; padding: 1.5rem 1rem; }
     .card { background: #fff; border: 1px solid var(--borde); border-radius: 8px; padding: 1.2rem; margin-bottom: 1.5rem; }
     .card h2 { font-size: .9rem; text-transform: uppercase; letter-spacing: .5px; color: #555; margin-bottom: 1rem; }
 
@@ -96,11 +96,21 @@
       display: grid; grid-template-columns: 1fr 1fr; gap: .6rem 1rem;
     }
     @media (max-width: 600px) { .campos-ocr { grid-template-columns: 1fr; } }
-    .campos-ocr .campo-full { grid-column: 1 / -1; }
+    .campos-ocr .campo-full  { grid-column: 1 / -1; }
     .campo-ocr label { display: flex; flex-direction: column; gap: .2rem; font-size: .8rem; font-weight: 600; color: #555; }
-    .campo-ocr input { padding: .35rem .5rem; border: 1px solid var(--borde); border-radius: 4px; font-size: .9rem; font-family: inherit; width: 100%; }
-    .campo-ocr input:focus { outline: none; border-color: var(--amarillo); }
-    .campo-ocr .ocr-val { font-size: .72rem; color: #aaa; margin-top: .1rem; }
+    .campo-ocr input,
+    .campo-ocr select {
+      padding: .35rem .5rem; border: 1px solid var(--borde); border-radius: 4px;
+      font-size: .9rem; font-family: inherit; width: 100%; background: #fff;
+    }
+    .campo-ocr input:focus,
+    .campo-ocr select:focus { outline: none; border-color: var(--amarillo); }
+    .campo-ocr .ocr-hint { font-size: .72rem; color: #aaa; margin-top: .1rem; }
+
+    .seccion-label {
+      font-size: .72rem; font-weight: 700; text-transform: uppercase; letter-spacing: .5px;
+      color: #aaa; margin: .8rem 0 .4rem; grid-column: 1 / -1; border-bottom: 1px solid var(--borde); padding-bottom: .3rem;
+    }
 
     .revision-footer {
       display: flex; gap: .5rem; margin-top: 1rem; padding-top: .8rem; border-top: 1px solid var(--borde); align-items: center;
@@ -112,19 +122,32 @@
     /* Filtros */
     .filtros { display: flex; gap: .8rem; flex-wrap: wrap; align-items: flex-end; margin-bottom: 1.2rem; }
     .filtros label { font-size: .8rem; font-weight: 600; color: #555; display: flex; flex-direction: column; gap: .2rem; }
-    .filtros input { padding: .35rem .5rem; border: 1px solid var(--borde); border-radius: 4px; font-size: .9rem; font-family: inherit; }
+    .filtros input,
+    .filtros select {
+      padding: .35rem .5rem; border: 1px solid var(--borde); border-radius: 4px;
+      font-size: .9rem; font-family: inherit; background: #fff;
+    }
 
     /* Tabla */
-    table { width: 100%; border-collapse: collapse; font-size: .86rem; }
+    .tabla-scroll { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; font-size: .86rem; min-width: 750px; }
     th { text-align: left; padding: .4rem .6rem; font-size: .72rem; color: #888;
-         text-transform: uppercase; border-bottom: 2px solid var(--borde); }
+         text-transform: uppercase; border-bottom: 2px solid var(--borde); white-space: nowrap; }
     td { padding: .5rem .6rem; border-bottom: 1px solid var(--borde); }
     tr:last-child td { border-bottom: none; }
     .importe { font-weight: 700; text-align: right; }
     .sin-datos { color: #aaa; text-align: center; padding: 2rem; }
+    .badge-tipo {
+      font-size: .7rem; font-weight: 700; padding: .1rem .4rem; border-radius: 3px;
+      background: #e8f4fd; color: #1565c0;
+    }
+    .badge-deporte {
+      font-size: .7rem; font-weight: 700; padding: .1rem .4rem; border-radius: 3px;
+      background: #f3e5f5; color: #6a1b9a;
+    }
 
     /* Paginación */
-    .paginacion { display: flex; gap: .5rem; justify-content: center; margin-top: 1rem; }
+    .paginacion { display: flex; gap: .5rem; justify-content: center; margin-top: 1rem; flex-wrap: wrap; }
     .paginacion button { padding: .3rem .8rem; border: 1px solid var(--borde); background: #fff;
                          border-radius: 4px; cursor: pointer; font-size: .85rem; }
     .paginacion button.activa { background: var(--amarillo); border-color: var(--amarillo); font-weight: 700; }
@@ -132,11 +155,13 @@
     /* Modal detalle */
     .modal-bg { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.5); z-index: 100; align-items: center; justify-content: center; }
     .modal-bg.open { display: flex; }
-    .modal { background: #fff; border-radius: 8px; padding: 1.5rem; max-width: 540px; width: 95%; max-height: 90vh; overflow-y: auto; }
+    .modal { background: #fff; border-radius: 8px; padding: 1.5rem; max-width: 560px; width: 95%; max-height: 90vh; overflow-y: auto; }
     .modal h3 { margin-bottom: 1rem; font-size: 1rem; }
     .campo { display: flex; justify-content: space-between; padding: .4rem 0; border-bottom: 1px solid var(--borde); font-size: .88rem; }
     .campo .etiq { color: #777; }
     .campo .val  { font-weight: 600; text-align: right; }
+    .modal-seccion { font-size: .72rem; font-weight: 700; text-transform: uppercase; letter-spacing: .5px;
+                     color: #aaa; margin: .8rem 0 .2rem; }
     .modal-footer { margin-top: 1rem; display: flex; gap: .5rem; }
 
     .aviso { padding: .6rem .9rem; border-radius: 5px; font-size: .85rem; margin-bottom: 1rem; display: none; }
@@ -188,18 +213,45 @@
     <div class="filtros">
       <label>Desde <input type="date" id="desde"></label>
       <label>Hasta <input type="date" id="hasta"></label>
+      <label>Tipo
+        <select id="filtroTipo">
+          <option value="">— todos —</option>
+          <option>Factura</option>
+          <option>Recibo</option>
+          <option>Remesa</option>
+          <option>Ingreso</option>
+        </select>
+      </label>
+      <label>Deporte
+        <select id="filtroDeporte">
+          <option value="">— todos —</option>
+          <option>Atletismo</option>
+          <option>Trail</option>
+          <option>Baloncesto</option>
+          <option>Fútbol 7</option>
+          <option>Fútbol 8</option>
+          <option>Fútbol 11</option>
+          <option>Fútbol Sala</option>
+          <option>Voleibol</option>
+          <option>Gimnasia Rítmica</option>
+          <option>Patinaje</option>
+          <option>Kenpo</option>
+          <option>Kickboxing</option>
+        </select>
+      </label>
       <label>Proveedor <input type="text" id="proveedor" placeholder="Buscar..."></label>
       <button class="btn btn-small" onclick="cargarFacturas(1)">Filtrar</button>
     </div>
-    <div id="tablaWrap">
+    <div class="tabla-scroll">
       <table>
         <thead>
           <tr>
-            <th>#</th><th>Fecha</th><th>Proveedor</th><th>Concepto</th><th>Nº Factura</th><th class="importe">Importe</th><th></th>
+            <th>#</th><th>Fecha</th><th>Tipo</th><th>Deporte</th><th>Proveedor</th>
+            <th>Concepto</th><th class="importe">Importe+IVA</th><th></th>
           </tr>
         </thead>
         <tbody id="tablaFacturas">
-          <tr><td colspan="7" class="sin-datos">Cargando...</td></tr>
+          <tr><td colspan="8" class="sin-datos">Cargando...</td></tr>
         </tbody>
       </table>
     </div>
@@ -227,7 +279,20 @@ const fmt = n => n != null
   : '—';
 const fmtFecha = f => f ? f.slice(0, 10) : '—';
 
+const TIPOS      = ['Factura', 'Recibo', 'Remesa', 'Ingreso'];
+const CONCEPTOS  = ['Federación', 'autobuses', 'hotel', 'Fichas', 'arbitrajes', 'ropa', 'gestoría', 'sanciones'];
+const DEPORTES   = ['Atletismo', 'Trail', 'Baloncesto', 'Fútbol 7', 'Fútbol 8', 'Fútbol 11',
+                    'Fútbol Sala', 'Voleibol', 'Gimnasia Rítmica', 'Patinaje', 'Kenpo', 'Kickboxing'];
+
 let paginaActual = 1;
+
+function opcionesSelect(lista, valorActual) {
+  const val = (valorActual || '').toLowerCase();
+  return ['', ...lista].map(o => {
+    const sel = o && o.toLowerCase() === val ? ' selected' : '';
+    return `<option value="${escAttr(o)}"${sel}>${o || '— elegir —'}</option>`;
+  }).join('');
+}
 
 // ── Subida ────────────────────────────────────────────────────────────────────
 const dropzone   = document.getElementById('dropzone');
@@ -252,7 +317,6 @@ async function subirArchivos(fileList) {
   for (let i = 0; i < archivos.length; i += LOTE) {
     const lote = archivos.slice(i, i + LOTE);
 
-    // Crear tarjeta pendiente por cada archivo
     const tarjetas = lote.map(f => crearTarjetaPendiente(f.name, zona));
 
     const formData = new FormData();
@@ -293,7 +357,7 @@ function crearTarjetaPendiente(nombre, contenedor) {
     <div class="revision-header">
       <span class="icono"><span class="spin"></span></span>
       <span class="nombre">${escHtml(nombre)}</span>
-      <span class="resumen">Procesando OCR...</span>
+      <span class="resumen">Procesando OCR con Kimi...</span>
     </div>`;
   contenedor.appendChild(div);
   return div;
@@ -311,9 +375,17 @@ function marcarTarjetaError(tarjeta, nombre, msg) {
 }
 
 function rellenarTarjetaOCR(tarjeta, r) {
-  const id = r.id;
+  const id     = r.id;
   const nombre = r.nombre_archivo || `Factura #${id}`;
-  const resumen = [r.proveedor, r.importe != null ? fmt(r.importe) : null].filter(Boolean).join(' · ') || 'Sin datos OCR';
+  const partes = [r.tipo, r.proveedor, r.importe != null ? fmt(r.importe) : null].filter(Boolean);
+  const resumen = partes.join(' · ') || 'Sin datos OCR';
+
+  // Si el concepto OCR no está en la lista predefinida, mostrarlo como pista
+  const conceptoOcr = r.concepto || '';
+  const conceptoEnLista = CONCEPTOS.some(c => c.toLowerCase() === conceptoOcr.toLowerCase());
+  const hintConcepto = conceptoOcr && !conceptoEnLista
+    ? `<span class="ocr-hint">OCR detectó: ${escHtml(conceptoOcr)}</span>`
+    : '';
 
   tarjeta.className = 'revision-card';
   tarjeta.dataset.id = id;
@@ -326,6 +398,33 @@ function rellenarTarjetaOCR(tarjeta, r) {
     </div>
     <div class="revision-body abierto" id="rb-${id}">
       <div class="campos-ocr">
+
+        <div class="seccion-label">Clasificación</div>
+
+        <div class="campo-ocr">
+          <label>Tipo de documento
+            <select id="f-${id}-tipo">${opcionesSelect(TIPOS, r.tipo)}</select>
+          </label>
+        </div>
+        <div class="campo-ocr">
+          <label>Concepto
+            <select id="f-${id}-concepto">${opcionesSelect(CONCEPTOS, conceptoOcr)}</select>
+          </label>
+          ${hintConcepto}
+        </div>
+        <div class="campo-ocr">
+          <label>Deporte
+            <select id="f-${id}-deporte">${opcionesSelect(DEPORTES, r.deporte)}</select>
+          </label>
+        </div>
+        <div class="campo-ocr">
+          <label>Equipo / Categoría
+            <input type="text" id="f-${id}-equipo" value="${escAttr(r.equipo_categoria)}" placeholder="Ej: Infantil A, Senior...">
+          </label>
+        </div>
+
+        <div class="seccion-label">Datos del emisor</div>
+
         <div class="campo-ocr">
           <label>Proveedor
             <input type="text" id="f-${id}-proveedor" value="${escAttr(r.proveedor)}">
@@ -337,22 +436,20 @@ function rellenarTarjetaOCR(tarjeta, r) {
           </label>
         </div>
         <div class="campo-ocr">
-          <label>Nº Factura
+          <label>Nº Factura / Referencia
             <input type="text" id="f-${id}-numero" value="${escAttr(r.numero_factura)}">
           </label>
         </div>
         <div class="campo-ocr">
-          <label>Fecha factura
+          <label>Fecha
             <input type="date" id="f-${id}-fecha" value="${escAttr(r.fecha_factura ? r.fecha_factura.slice(0,10) : '')}">
           </label>
         </div>
-        <div class="campo-ocr campo-full">
-          <label>Concepto
-            <input type="text" id="f-${id}-concepto" value="${escAttr(r.concepto)}">
-          </label>
-        </div>
+
+        <div class="seccion-label">Importes</div>
+
         <div class="campo-ocr">
-          <label>Base imponible (€)
+          <label>Importe (€)
             <input type="number" step="0.01" id="f-${id}-base" value="${r.base_imponible ?? ''}">
           </label>
         </div>
@@ -362,15 +459,16 @@ function rellenarTarjetaOCR(tarjeta, r) {
           </label>
         </div>
         <div class="campo-ocr">
-          <label>IVA importe (€)
+          <label>IVA (€)
             <input type="number" step="0.01" id="f-${id}-ivaimp" value="${r.iva_importe ?? ''}">
           </label>
         </div>
         <div class="campo-ocr">
-          <label>Total factura (€)
+          <label>Importe+IVA (€)
             <input type="number" step="0.01" id="f-${id}-total" value="${r.importe ?? ''}">
           </label>
         </div>
+
       </div>
       <div class="revision-footer">
         <span class="msg" id="fm-${id}"></span>
@@ -399,15 +497,18 @@ async function confirmarRevision(id) {
   };
 
   const payload = {
-    proveedor:      get('proveedor'),
-    nif_proveedor:  get('nif'),
-    numero_factura: get('numero'),
-    fecha_factura:  get('fecha'),
-    concepto:       get('concepto'),
-    base_imponible: getNum('base'),
-    iva_porcentaje: getNum('ivapct'),
-    iva_importe:    getNum('ivaimp'),
-    importe:        getNum('total'),
+    tipo:             get('tipo'),
+    proveedor:        get('proveedor'),
+    nif_proveedor:    get('nif'),
+    numero_factura:   get('numero'),
+    fecha_factura:    get('fecha'),
+    concepto:         get('concepto'),
+    deporte:          get('deporte'),
+    equipo_categoria: get('equipo'),
+    base_imponible:   getNum('base'),
+    iva_porcentaje:   getNum('ivapct'),
+    iva_importe:      getNum('ivaimp'),
+    importe:          getNum('total'),
   };
 
   try {
@@ -427,10 +528,10 @@ async function confirmarRevision(id) {
       tarjeta.className = 'revision-card confirmada';
       const header = tarjeta.querySelector('.revision-header');
       if (header) {
-        const resumen = [data.proveedor, data.importe != null ? fmt(data.importe) : null].filter(Boolean).join(' · ') || '—';
+        const partes = [data.tipo, data.proveedor, data.importe != null ? fmt(data.importe) : null].filter(Boolean);
         header.querySelector('.badge').className = 'badge badge-revisada';
         header.querySelector('.badge').textContent = '✓ Confirmada';
-        header.querySelector('.resumen').textContent = resumen;
+        header.querySelector('.resumen').textContent = partes.join(' · ') || '—';
       }
       const body = document.getElementById(`rb-${id}`);
       if (body) body.classList.remove('abierto');
@@ -452,14 +553,18 @@ function escAttr(s) { return escHtml(s); }
 // ── Listado ───────────────────────────────────────────────────────────────────
 async function cargarFacturas(pagina) {
   paginaActual = pagina || 1;
-  const desde     = document.getElementById('desde').value;
-  const hasta     = document.getElementById('hasta').value;
-  const proveedor = document.getElementById('proveedor').value;
+  const desde    = document.getElementById('desde').value;
+  const hasta    = document.getElementById('hasta').value;
+  const prov     = document.getElementById('proveedor').value;
+  const tipo     = document.getElementById('filtroTipo').value;
+  const deporte  = document.getElementById('filtroDeporte').value;
 
   const params = new URLSearchParams({ page: paginaActual });
-  if (desde)     params.set('desde', desde);
-  if (hasta)     params.set('hasta', hasta);
-  if (proveedor) params.set('proveedor', proveedor);
+  if (desde)   params.set('desde', desde);
+  if (hasta)   params.set('hasta', hasta);
+  if (prov)    params.set('proveedor', prov);
+  if (tipo)    params.set('tipo', tipo);
+  if (deporte) params.set('deporte', deporte);
 
   try {
     const data = await window.api(`/api/facturas?${params}`);
@@ -471,13 +576,14 @@ async function cargarFacturas(pagina) {
           <tr>
             <td style="color:#aaa;font-size:.78rem">#${f.id}</td>
             <td>${fmtFecha(f.fecha_factura)}</td>
-            <td>${f.proveedor || '<span style="color:#aaa">—</span>'}</td>
-            <td style="font-size:.82rem;color:#555">${f.concepto || '—'}</td>
-            <td style="font-size:.82rem">${f.numero_factura || '—'}</td>
+            <td>${f.tipo ? `<span class="badge-tipo">${escHtml(f.tipo)}</span>` : '<span style="color:#aaa">—</span>'}</td>
+            <td>${f.deporte ? `<span class="badge-deporte">${escHtml(f.deporte)}</span>` : '<span style="color:#aaa">—</span>'}</td>
+            <td>${escHtml(f.proveedor) || '<span style="color:#aaa">—</span>'}</td>
+            <td style="font-size:.82rem;color:#555">${escHtml(f.concepto) || '—'}</td>
             <td class="importe">${fmt(f.importe)}</td>
             <td><button class="btn-outline" onclick="verDetalle(${f.id})">Ver</button></td>
           </tr>`).join('')
-      : '<tr><td colspan="7" class="sin-datos">No hay facturas.</td></tr>';
+      : '<tr><td colspan="8" class="sin-datos">No hay facturas.</td></tr>';
 
     const paginas = Math.ceil(data.total / data.limit);
     const pag = document.getElementById('paginacion');
@@ -503,19 +609,30 @@ async function verDetalle(id) {
   document.getElementById('modalTitulo').textContent =
     data.proveedor || data.nombre_archivo;
 
-  document.getElementById('modalCuerpo').innerHTML = [
-    ['Proveedor',      data.proveedor      || '—'],
-    ['NIF/CIF',        data.nif_proveedor  || '—'],
-    ['Nº Factura',     data.numero_factura || '—'],
-    ['Fecha',          fmtFecha(data.fecha_factura)],
-    ['Concepto',       data.concepto       || '—'],
-    ['Base imponible', fmt(data.base_imponible)],
-    ['IVA %',          data.iva_porcentaje != null ? `${data.iva_porcentaje}%` : '—'],
-    ['IVA importe',    fmt(data.iva_importe)],
-    ['Total',          fmt(data.importe)],
-    ['Revisada',       data.ocr_revisado ? '✓ Sí' : 'Pendiente'],
-    ['Archivo',        data.nombre_archivo],
-  ].map(([e, v]) => `<div class="campo"><span class="etiq">${e}</span><span class="val">${v}</span></div>`).join('');
+  const campo = (e, v) =>
+    `<div class="campo"><span class="etiq">${e}</span><span class="val">${v}</span></div>`;
+  const sec   = t =>
+    `<div class="modal-seccion">${t}</div>`;
+
+  document.getElementById('modalCuerpo').innerHTML =
+    sec('Clasificación') +
+    campo('Tipo',           data.tipo              || '—') +
+    campo('Concepto',       data.concepto          || '—') +
+    campo('Deporte',        data.deporte           || '—') +
+    campo('Equipo / Cat.',  data.equipo_categoria  || '—') +
+    sec('Emisor') +
+    campo('Proveedor',      data.proveedor         || '—') +
+    campo('NIF/CIF',        data.nif_proveedor     || '—') +
+    campo('Nº Factura',     data.numero_factura    || '—') +
+    campo('Fecha',          fmtFecha(data.fecha_factura)) +
+    sec('Importes') +
+    campo('Importe (€)',    fmt(data.base_imponible)) +
+    campo('IVA %',          data.iva_porcentaje != null ? `${data.iva_porcentaje}%` : '—') +
+    campo('IVA (€)',        fmt(data.iva_importe)) +
+    campo('Importe+IVA',   fmt(data.importe)) +
+    sec('Info') +
+    campo('Revisada',       data.ocr_revisado ? '✓ Sí' : 'Pendiente') +
+    campo('Archivo',        data.nombre_archivo);
 
   document.getElementById('btnDescargar').href = `/api/facturas/${id}/archivo`;
   document.getElementById('modalBg').classList.add('open');

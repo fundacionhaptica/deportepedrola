@@ -130,7 +130,10 @@ CREATE TABLE IF NOT EXISTS facturas (
     ocr_revisado    BOOLEAN       NOT NULL DEFAULT FALSE,
     created_at      TIMESTAMPTZ   NOT NULL DEFAULT NOW()
 );
-ALTER TABLE facturas ADD COLUMN IF NOT EXISTS ocr_revisado BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE facturas ADD COLUMN IF NOT EXISTS ocr_revisado    BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE facturas ADD COLUMN IF NOT EXISTS tipo             TEXT;
+ALTER TABLE facturas ADD COLUMN IF NOT EXISTS deporte          TEXT;
+ALTER TABLE facturas ADD COLUMN IF NOT EXISTS equipo_categoria TEXT;
 
 -- Vista balance mensual — los adelantos del presidente (es_tesoreria=true) no computan
 CREATE OR REPLACE VIEW v_balance_mensual AS

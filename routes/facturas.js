@@ -40,22 +40,24 @@ const upload = multer({
 // GET /api/facturas — lista paginada con filtros
 router.get('/', async (req, res) => {
   try {
-    const { desde, hasta, proveedor, page = 1 } = req.query;
+    const { desde, hasta, proveedor, tipo, deporte, page = 1 } = req.query;
     const limit  = 30;
     const offset = (Number(page) - 1) * limit;
     const params = [];
     const conds  = [];
 
-    if (desde) { params.push(desde); conds.push(`fecha_factura >= $${params.length}`); }
-    if (hasta) { params.push(hasta); conds.push(`fecha_factura <= $${params.length}`); }
-    if (proveedor) { params.push(`%${proveedor}%`); conds.push(`proveedor ILIKE $${params.length}`); }
+    if (desde)    { params.push(desde);            conds.push(`fecha_factura >= $${params.length}`); }
+    if (hasta)    { params.push(hasta);             conds.push(`fecha_factura <= $${params.length}`); }
+    if (proveedor){ params.push(`%${proveedor}%`);  conds.push(`proveedor ILIKE $${params.length}`); }
+    if (tipo)     { params.push(tipo);              conds.push(`tipo = $${params.length}`); }
+    if (deporte)  { params.push(deporte);           conds.push(`deporte = $${params.length}`); }
 
     const where = conds.length ? `WHERE ${conds.join(' AND ')}` : '';
     params.push(limit, offset);
 
     const { rows } = await db.query(
-      `SELECT id, nombre_archivo, proveedor, nif_proveedor, numero_factura,
-              fecha_factura, concepto, importe, created_at
+      `SELECT id, nombre_archivo, tipo, proveedor, nif_proveedor, numero_factura,
+              fecha_factura, concepto, deporte, equipo_categoria, importe, created_at
        FROM facturas ${where}
        ORDER BY COALESCE(fecha_factura, created_at::date) DESC
        LIMIT $${params.length - 1} OFFSET $${params.length}`,
@@ -97,14 +99,17 @@ router.post('/upload', upload.array('archivos', 20), async (req, res) => {
     try {
       const { rows: [factura] } = await db.query(
         `INSERT INTO facturas
-           (nombre_archivo, ruta_archivo, proveedor, nif_proveedor, numero_factura,
+           (nombre_archivo, ruta_archivo, tipo, proveedor, nif_proveedor, numero_factura,
             fecha_factura, concepto, base_imponible, iva_porcentaje, iva_importe,
             importe, ocr_raw_json)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
-         RETURNING id, proveedor, fecha_factura, importe, nombre_archivo`,
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
+         RETURNING id, tipo, proveedor, nif_proveedor, numero_factura,
+                   fecha_factura, concepto, base_imponible, iva_porcentaje,
+                   iva_importe, importe, nombre_archivo, deporte, equipo_categoria`,
         [
           file.originalname,
           file.path,
+          extraido.tipo            || null,
           extraido.proveedor       || null,
           extraido.nif_proveedor   || null,
           extraido.numero_factura  || null,
@@ -130,25 +135,30 @@ router.post('/upload', upload.array('archivos', 20), async (req, res) => {
 // PATCH /api/facturas/:id — corrige campos tras revisión OCR
 router.patch('/:id', async (req, res) => {
   try {
-    const { proveedor, nif_proveedor, numero_factura, fecha_factura,
-            concepto, base_imponible, iva_porcentaje, iva_importe, importe } = req.body;
+    const { tipo, proveedor, nif_proveedor, numero_factura, fecha_factura,
+            concepto, deporte, equipo_categoria,
+            base_imponible, iva_porcentaje, iva_importe, importe } = req.body;
     const { rows: [factura] } = await db.query(
       `UPDATE facturas SET
-         proveedor       = COALESCE($1, proveedor),
-         nif_proveedor   = COALESCE($2, nif_proveedor),
-         numero_factura  = COALESCE($3, numero_factura),
-         fecha_factura   = COALESCE($4::date, fecha_factura),
-         concepto        = COALESCE($5, concepto),
-         base_imponible  = COALESCE($6, base_imponible),
-         iva_porcentaje  = COALESCE($7, iva_porcentaje),
-         iva_importe     = COALESCE($8, iva_importe),
-         importe         = COALESCE($9, importe),
-         ocr_revisado    = true
-       WHERE id = $10
-       RETURNING id, proveedor, nif_proveedor, numero_factura, fecha_factura,
-                 concepto, base_imponible, iva_porcentaje, iva_importe, importe`,
-      [proveedor || null, nif_proveedor || null, numero_factura || null,
-       fecha_factura || null, concepto || null,
+         tipo             = COALESCE($1,  tipo),
+         proveedor        = COALESCE($2,  proveedor),
+         nif_proveedor    = COALESCE($3,  nif_proveedor),
+         numero_factura   = COALESCE($4,  numero_factura),
+         fecha_factura    = COALESCE($5::date, fecha_factura),
+         concepto         = COALESCE($6,  concepto),
+         deporte          = COALESCE($7,  deporte),
+         equipo_categoria = COALESCE($8,  equipo_categoria),
+         base_imponible   = COALESCE($9,  base_imponible),
+         iva_porcentaje   = COALESCE($10, iva_porcentaje),
+         iva_importe      = COALESCE($11, iva_importe),
+         importe          = COALESCE($12, importe),
+         ocr_revisado     = true
+       WHERE id = $13
+       RETURNING id, tipo, proveedor, nif_proveedor, numero_factura, fecha_factura,
+                 concepto, deporte, equipo_categoria,
+                 base_imponible, iva_porcentaje, iva_importe, importe`,
+      [tipo || null, proveedor || null, nif_proveedor || null, numero_factura || null,
+       fecha_factura || null, concepto || null, deporte || null, equipo_categoria || null,
        base_imponible != null ? base_imponible : null,
        iva_porcentaje != null ? iva_porcentaje : null,
        iva_importe    != null ? iva_importe    : null,
