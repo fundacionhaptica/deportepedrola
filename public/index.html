@@ -802,7 +802,16 @@ function mapearFila(row) {
           return d.toISOString().slice(0, 10);
         }
         const s = String(v).trim();
-        return s || null;
+        if (!s) return null;
+        // Serial numérico de Excel como string (ej: "42088") — fallback por si cellDates no actúa
+        if (/^\d{4,6}$/.test(s)) {
+          const n = parseInt(s, 10);
+          if (n > 25000 && n < 60000) {
+            const d = new Date(Math.round((n - 25569) * 86400 * 1000));
+            return d.toISOString().slice(0, 10);
+          }
+        }
+        return s;
       }
     }
     return null;
@@ -876,17 +885,17 @@ function procesarArchivo(file) {
   if (ext === 'csv') {
     const r = new FileReader();
     r.onload = ev => {
-      const wb = XLSX.read(ev.target.result, { type: 'string' });
+      const wb = XLSX.read(ev.target.result, { type: 'string', cellDates: true });
       const ws = wb.Sheets[wb.SheetNames[0]];
-      importarFilas(XLSX.utils.sheet_to_json(ws, { defval: null, cellDates: true }));
+      importarFilas(XLSX.utils.sheet_to_json(ws, { defval: null }));
     };
     r.readAsText(file);
   } else {
     const r = new FileReader();
     r.onload = ev => {
-      const wb = XLSX.read(ev.target.result, { type: 'array' });
+      const wb = XLSX.read(ev.target.result, { type: 'array', cellDates: true });
       const ws = wb.Sheets[wb.SheetNames[0]];
-      importarFilas(XLSX.utils.sheet_to_json(ws, { defval: null, cellDates: true }));
+      importarFilas(XLSX.utils.sheet_to_json(ws, { defval: null }));
     };
     r.readAsArrayBuffer(file);
   }
