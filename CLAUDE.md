@@ -78,29 +78,31 @@ uploads/            → PDFs subidos (gitignored salvo .gitkeep)
 
 **NUNCA usar `docker stop`, `docker rm` ni `docker restart` directamente sobre contenedores individuales.** Esto crea contenedores huérfanos que el Container Manager no puede gestionar.
 
-Siempre operar desde el directorio del proyecto con `docker compose`:
+El nombre del proyecto Docker Compose es **`club`** (flag `-p club`). Sin él, compose deriva el nombre del directorio (`new`) y crea contenedores distintos a los del Container Manager.
+
+Siempre operar con `-p club`:
 
 ```bash
 # Tras cambios de código (sin tocar package.json):
-docker compose -f /volume1/docker/club/new/docker-compose.yml up -d
+docker compose -p club -f /volume1/docker/club/new/docker-compose.yml up -d
 
 # Tras cambios en package.json o Dockerfile:
-docker compose -f /volume1/docker/club/new/docker-compose.yml up -d --build
+docker compose -p club -f /volume1/docker/club/new/docker-compose.yml up -d --build
 
-# Tras cambios en db/schema.sql (la migración también corre al arrancar, pero para forzarla):
-docker compose -f /volume1/docker/club/new/docker-compose.yml exec app npm run migrate
+# Tras cambios en db/schema.sql (la migración también corre al arrancar):
+docker compose -p club -f /volume1/docker/club/new/docker-compose.yml exec app npm run migrate
 ```
 
 ### Secuencia de deploy tras merge a main
 
 1. `git pull origin main` (cwd: `/volume1/docker/club/new`)
-2. `docker compose -f /volume1/docker/club/new/docker-compose.yml up -d --build`
-3. Verificar logs: `docker compose -f /volume1/docker/club/new/docker-compose.yml logs app --tail 20`
+2. `docker compose -p club -f /volume1/docker/club/new/docker-compose.yml up -d --build`
+3. Verificar logs: `docker logs club-app-1 2>&1 | tail -20`
 
 ### Vía SSH desde PowerShell
 
 ```powershell
-ssh jaime@MaJaNAS "cd /volume1/docker/club/new && git pull origin main && docker compose up -d --build"
+ssh jaime@MaJaNAS "cd /volume1/docker/club/new && git pull origin main && docker compose -p club up -d --build"
 ```
 
 ## Idioma
