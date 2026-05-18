@@ -88,10 +88,12 @@ router.post('/upload', upload.array('archivos', 20), async (req, res) => {
     let ocrRawJson = null;
     let extraido   = {};
 
+    let ocrError = null;
     try {
       ({ ocrRawJson, extraido } = await extraerDatosFactura(file.path, file.mimetype));
     } catch (e) {
       console.error(`[facturas] OCR fallido para ${file.filename}:`, e.message);
+      ocrError = e.message;
     }
 
     const fechaFactura = extraido.fecha_factura || null;
@@ -122,7 +124,7 @@ router.post('/upload', upload.array('archivos', 20), async (req, res) => {
           ocrRawJson ? JSON.stringify(ocrRawJson) : null,
         ]
       );
-      resultados.push({ ok: true, ...factura });
+      resultados.push({ ok: true, ocr_error: ocrError || null, ...factura });
     } catch (e) {
       console.error(`[facturas] DB error para ${file.filename}:`, e.message);
       resultados.push({ ok: false, nombre: file.originalname, error: e.message });
@@ -220,6 +222,75 @@ router.get('/:id', async (req, res) => {
     res.json(factura);
   } catch (e) {
     res.status(500).json({ error: 'Error interno del servidor' });
+  }
+});
+
+// DELETE /api/facturas/:id — borra la factura y su archivo físico
+router.delete('/:id', async (req, res) => {
+  try {
+    const { rows: [f] } = await db.query(
+      'DELETE FROM facturas WHERE id = $1 RETURNING ruta_archivo', [req.params.id]
+    );
+    if (!f) return res.status(404).json({ error: 'Factura no encontrada.' });
+    if (f.ruta_archivo) {
+      try { fs.unlinkSync(f.ruta_archivo); } catch (_) {}
+    }
+    res.json({ ok: true });
+  } catch (e) {
+    console.error('[facturas] DELETE /:id', e.message);
+    res.status(500).json({ error: 'Error interno del servidor' });
+  }
+});
+
+// POST /api/facturas/:id/reocr — vuelve a ejecutar el OCR sobre el archivo ya almacenado
+router.post('/:id/reocr', async (req, res) => {
+  try {
+    const { rows: [f] } = await db.query(
+      'SELECT id, ruta_archivo, nombre_archivo FROM facturas WHERE id = $1', [req.params.id]
+    );
+    if (!f) return res.status(404).json({ error: 'Factura no encontrada.' });
+
+    const ext = path.extname(f.ruta_archivo).toLowerCase();
+    const mimeMap = {
+      '.pdf':  'application/pdf',
+      '.jpg':  'image/jpeg',
+      '.jpeg': 'image/jpeg',
+      '.png':  'image/png',
+      '.webp': 'image/webp',
+    };
+    const mime = mimeMap[ext] || 'application/octet-stream';
+
+    const { ocrRawJson, extraido } = await extraerDatosFactura(f.ruta_archivo, mime);
+
+    const { rows: [updated] } = await db.query(
+      `UPDATE facturas SET
+         tipo           = $1, proveedor      = $2, nif_proveedor  = $3,
+         numero_factura = $4, fecha_factura  = $5::date, concepto = $6,
+         base_imponible = $7, iva_porcentaje = $8, iva_importe    = $9,
+         importe        = $10, ocr_raw_json  = $11, ocr_revisado  = false
+       WHERE id = $12
+       RETURNING id, tipo, proveedor, nif_proveedor, numero_factura, fecha_factura,
+                 concepto, deporte, equipo_categoria,
+                 base_imponible, iva_porcentaje, iva_importe, importe, nombre_archivo`,
+      [
+        extraido.tipo            || null,
+        extraido.proveedor       || null,
+        extraido.nif_proveedor   || null,
+        extraido.numero_factura  || null,
+        extraido.fecha_factura   || null,
+        extraido.concepto        || null,
+        extraido.base_imponible  || null,
+        extraido.iva_porcentaje  || null,
+        extraido.iva_importe     || null,
+        extraido.importe_total   || null,
+        ocrRawJson ? JSON.stringify(ocrRawJson) : null,
+        req.params.id,
+      ]
+    );
+    res.json({ ok: true, ...updated });
+  } catch (e) {
+    console.error('[facturas] POST /:id/reocr', e.message);
+    res.status(500).json({ error: e.message });
   }
 });
 
