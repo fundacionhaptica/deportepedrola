@@ -187,4 +187,26 @@ router.patch('/:id', async (req, res) => {
   res.json(rows[0]);
 });
 
+// DELETE /api/socios/:id — baja física (solo admin)
+router.delete('/:id', async (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  const { rowCount } = await pool.query('DELETE FROM socios WHERE id=$1', [id]);
+  if (!rowCount) return res.status(404).json({ error: 'Socio no encontrado' });
+  res.json({ ok: true });
+});
+
+// DELETE /api/socios — borrado múltiple: body { ids: [1,2,3] }
+router.delete('/', async (req, res) => {
+  const { ids } = req.body;
+  if (!Array.isArray(ids) || !ids.length) {
+    return res.status(400).json({ error: 'Se esperaba { ids: [...] }' });
+  }
+  const params = ids.map((_, i) => `$${i + 1}`).join(',');
+  const { rowCount } = await pool.query(
+    `DELETE FROM socios WHERE id IN (${params})`,
+    ids.map(Number)
+  );
+  res.json({ ok: true, eliminados: rowCount });
+});
+
 module.exports = router;
