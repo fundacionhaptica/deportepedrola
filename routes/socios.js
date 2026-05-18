@@ -10,7 +10,8 @@ const ACTIVIDADES = [
 ];
 
 const SELECT_FIELDS = `
-  id, nombre, apellidos, email, dni, fecha_nacimiento,
+  id, numero_socio, socio_desde,
+  nombre, apellidos, email, dni, fecha_nacimiento,
   domicilio, localidad, codigo_postal, telefono,
   act_atletismo, act_baloncesto, act_f7, act_futbol, act_fs,
   act_g_ritmica, act_kenpo, act_kickboxing, act_patinaje,
@@ -27,14 +28,15 @@ router.get('/', async (_req, res) => {
 
 router.post('/', async (req, res) => {
   const {
+    numero_socio, socio_desde,
     nombre, apellidos, email, dni, fecha_nacimiento,
     domicilio, localidad, codigo_postal, telefono,
     apellidos_tutor, dni_tutor, telefono_tutor, numero_cuenta,
     cuota, rol,
   } = req.body;
 
-  if (!nombre || !email) {
-    return res.status(400).json({ error: 'nombre y email son obligatorios' });
+  if (!nombre) {
+    return res.status(400).json({ error: 'nombre es obligatorio' });
   }
   const rolFinal = ['socio','junta','admin'].includes(rol) ? rol : 'socio';
 
@@ -44,19 +46,21 @@ router.post('/', async (req, res) => {
   try {
     const { rows } = await pool.query(`
       INSERT INTO socios (
+        numero_socio, socio_desde,
         nombre, apellidos, email, dni, fecha_nacimiento,
         domicilio, localidad, codigo_postal, telefono,
         ${ACTIVIDADES.join(', ')},
         apellidos_tutor, dni_tutor, telefono_tutor, numero_cuenta,
         cuota, rol
       ) VALUES (
-        $1,$2,$3,$4,$5,$6,$7,$8,$9,
-        $10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,
-        $22,$23,$24,$25,$26,$27
+        $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,
+        $12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,
+        $24,$25,$26,$27,$28,$29
       )
       RETURNING ${SELECT_FIELDS}`,
       [
-        nombre.trim(), apellidos || null, email.trim().toLowerCase(),
+        numero_socio || null, socio_desde || 2025,
+        nombre.trim(), apellidos || null, email ? email.trim().toLowerCase() : null,
         dni || null, fecha_nacimiento || null,
         domicilio || null, localidad || null, codigo_postal || null, telefono || null,
         ...ACTIVIDADES.map(a => acts[a]),
@@ -66,7 +70,7 @@ router.post('/', async (req, res) => {
     );
     res.status(201).json(rows[0]);
   } catch (err) {
-    if (err.code === '23505') return res.status(409).json({ error: 'Ya existe un socio con ese email' });
+    if (err.code === '23505') return res.status(409).json({ error: 'Ya existe un socio con ese número de socio' });
     throw err;
   }
 });
@@ -81,29 +85,32 @@ router.post('/importar', async (req, res) => {
   const resultados = { insertados: 0, actualizados: 0, errores: [] };
 
   for (const s of socios) {
-    if (!s.nombre || !s.email) {
-      resultados.errores.push({ ref: s.email || s.nombre || '?', motivo: 'nombre o email vacío' });
+    if (!s.nombre) {
+      resultados.errores.push({ ref: s.numero_socio || s.email || '?', motivo: 'nombre vacío' });
       continue;
     }
     const rolFinal = ['socio','junta','admin'].includes(s.rol) ? s.rol : 'socio';
     const acts = ACTIVIDADES.map(a => Boolean(s[a]));
 
     try {
+      // Usar numero_socio como clave (emails pueden repetirse entre hermanos/familia)
       const r = await pool.query(`
         INSERT INTO socios (
+          numero_socio, socio_desde,
           nombre, apellidos, email, dni, fecha_nacimiento,
           domicilio, localidad, codigo_postal, telefono,
           ${ACTIVIDADES.join(', ')},
           apellidos_tutor, dni_tutor, telefono_tutor, numero_cuenta,
           cuota, rol
         ) VALUES (
-          $1,$2,$3,$4,$5,$6,$7,$8,$9,
-          $10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,
-          $22,$23,$24,$25,$26,$27
+          $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,
+          $12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,
+          $24,$25,$26,$27,$28,$29
         )
-        ON CONFLICT (email) DO UPDATE SET
+        ON CONFLICT (numero_socio) WHERE numero_socio IS NOT NULL DO UPDATE SET
           nombre           = EXCLUDED.nombre,
           apellidos        = EXCLUDED.apellidos,
+          email            = EXCLUDED.email,
           dni              = EXCLUDED.dni,
           fecha_nacimiento = EXCLUDED.fecha_nacimiento,
           domicilio        = EXCLUDED.domicilio,
@@ -119,7 +126,9 @@ router.post('/importar', async (req, res) => {
           rol              = EXCLUDED.rol
         `,
         [
-          s.nombre.trim(), s.apellidos || null, s.email.trim().toLowerCase(),
+          s.numero_socio || null, s.socio_desde || 2025,
+          s.nombre.trim(), s.apellidos || null,
+          s.email ? s.email.trim().toLowerCase() : null,
           s.dni || null, s.fecha_nacimiento || null,
           s.domicilio || null, s.localidad || null, s.codigo_postal || null, s.telefono || null,
           ...acts,
@@ -130,7 +139,7 @@ router.post('/importar', async (req, res) => {
       if (r.rowCount) resultados.insertados++;
       else resultados.actualizados++;
     } catch (err) {
-      resultados.errores.push({ ref: s.email, motivo: err.message });
+      resultados.errores.push({ ref: s.numero_socio || s.email, motivo: err.message });
     }
   }
 
@@ -143,6 +152,7 @@ router.patch('/:id', async (req, res) => {
   const vals   = [];
 
   const simples = [
+    'numero_socio','socio_desde',
     'nombre','apellidos','email','dni','fecha_nacimiento',
     'domicilio','localidad','codigo_postal','telefono',
     'apellidos_tutor','dni_tutor','telefono_tutor','numero_cuenta',

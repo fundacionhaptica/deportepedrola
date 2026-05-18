@@ -90,6 +90,70 @@ ALTER TABLE socios ADD COLUMN IF NOT EXISTS pagado           BOOLEAN NOT NULL DE
 ALTER TABLE socios ADD COLUMN IF NOT EXISTS pagado_metodo    TEXT;
 ALTER TABLE socios ADD COLUMN IF NOT EXISTS pagado_fecha     DATE;
 ALTER TABLE socios ADD COLUMN IF NOT EXISTS es_jjee          BOOLEAN NOT NULL DEFAULT false;
+-- Tracking de socio: número de registro (clave natural del Excel) y año de alta
+ALTER TABLE socios ADD COLUMN IF NOT EXISTS numero_socio    INTEGER;
+ALTER TABLE socios ADD COLUMN IF NOT EXISTS socio_desde     INTEGER NOT NULL DEFAULT 2025;
+-- Eliminar restricción UNIQUE en email: familias comparten email (hermanos, padre/hijo)
+ALTER TABLE socios DROP CONSTRAINT IF EXISTS socios_email_key;
+ALTER TABLE socios ALTER COLUMN email DROP NOT NULL;
+-- Índice único sobre numero_socio (excluyendo NULLs para no romper socios existentes sin número)
+CREATE UNIQUE INDEX IF NOT EXISTS socios_numero_socio_idx ON socios(numero_socio) WHERE numero_socio IS NOT NULL;
+
+-- Extensión de precios_actividades: autobús y fichas
+ALTER TABLE precios_actividades ADD COLUMN IF NOT EXISTS requiere_autobus   BOOLEAN       NOT NULL DEFAULT false;
+ALTER TABLE precios_actividades ADD COLUMN IF NOT EXISTS precio_con_autobus NUMERIC(10,2);
+
+-- Marcar deportes que usan autobús para desplazamientos
+UPDATE precios_actividades SET requiere_autobus = true
+WHERE actividad IN ('futbol', 'f7', 'baloncesto', 'fs');
+
+-- Fichas federativas por deporte, temporada y categoría
+-- El club paga la ficha más alta; el socio paga el resto si practica varios deportes
+CREATE TABLE IF NOT EXISTS fichas_deportivas (
+    id          SERIAL        PRIMARY KEY,
+    deporte     TEXT          NOT NULL,
+    temporada   TEXT          NOT NULL DEFAULT '2025/2026',
+    categoria   TEXT          NOT NULL,   -- 'regular' | 'jjee'
+    precio      NUMERIC(10,2) NOT NULL DEFAULT 0,
+    UNIQUE(deporte, temporada, categoria)
+);
+
+-- Seed inicial de fichas (precio 0 para rellenar)
+INSERT INTO fichas_deportivas (deporte, temporada, categoria, precio) VALUES
+  ('atletismo',  '2025/2026', 'regular', 0), ('atletismo',  '2025/2026', 'jjee', 0),
+  ('baloncesto', '2025/2026', 'regular', 0), ('baloncesto', '2025/2026', 'jjee', 0),
+  ('f7',         '2025/2026', 'regular', 0), ('f7',         '2025/2026', 'jjee', 0),
+  ('futbol',     '2025/2026', 'regular', 0), ('futbol',     '2025/2026', 'jjee', 0),
+  ('fs',         '2025/2026', 'regular', 0), ('fs',         '2025/2026', 'jjee', 0),
+  ('g_ritmica',  '2025/2026', 'regular', 0), ('g_ritmica',  '2025/2026', 'jjee', 0),
+  ('kenpo',      '2025/2026', 'regular', 0), ('kenpo',      '2025/2026', 'jjee', 0),
+  ('kickboxing', '2025/2026', 'regular', 0), ('kickboxing', '2025/2026', 'jjee', 0),
+  ('patinaje',   '2025/2026', 'regular', 0), ('patinaje',   '2025/2026', 'jjee', 0),
+  ('trail',      '2025/2026', 'regular', 0),
+  ('voleibol',   '2025/2026', 'regular', 0), ('voleibol',   '2025/2026', 'jjee', 0),
+  ('dirigidas',  '2025/2026', 'regular', 0)
+ON CONFLICT DO NOTHING;
+
+-- Cuotas anuales por socio (multi-año, multi-deporte, multi-concepto)
+CREATE TABLE IF NOT EXISTS cuotas_socio (
+    id                     SERIAL        PRIMARY KEY,
+    socio_id               INTEGER       NOT NULL REFERENCES socios(id) ON DELETE CASCADE,
+    temporada              TEXT          NOT NULL,
+    tipo                   TEXT          NOT NULL,   -- 'cuota_deporte' | 'ficha_adicional'
+    deporte                TEXT          NOT NULL,
+    categoria              TEXT,                     -- 'regular' | 'jjee'
+    concepto               TEXT          NOT NULL,
+    importe                NUMERIC(10,2) NOT NULL,
+    incluye_desplazamiento BOOLEAN       NOT NULL DEFAULT false,
+    pagado                 BOOLEAN       NOT NULL DEFAULT false,
+    pagado_fecha           DATE,
+    pagado_metodo          TEXT,                     -- 'stripe' | 'remesa' | 'efectivo'
+    created_at             TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
+    UNIQUE(socio_id, temporada, tipo, deporte)
+);
+
+CREATE INDEX IF NOT EXISTS cuotas_socio_socio_idx     ON cuotas_socio(socio_id);
+CREATE INDEX IF NOT EXISTS cuotas_socio_temporada_idx ON cuotas_socio(temporada);
 
 CREATE TABLE IF NOT EXISTS pagos (
     id              SERIAL        PRIMARY KEY,
