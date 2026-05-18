@@ -135,6 +135,15 @@ ALTER TABLE facturas ADD COLUMN IF NOT EXISTS tipo             TEXT;
 ALTER TABLE facturas ADD COLUMN IF NOT EXISTS deporte          TEXT;
 ALTER TABLE facturas ADD COLUMN IF NOT EXISTS equipo_categoria TEXT;
 
+CREATE TABLE IF NOT EXISTS factura_distribuciones (
+    id               SERIAL        PRIMARY KEY,
+    factura_id       INTEGER       NOT NULL REFERENCES facturas(id) ON DELETE CASCADE,
+    deporte          TEXT,
+    equipo_categoria TEXT,
+    concepto         TEXT,
+    importe          NUMERIC(10,2) NOT NULL
+);
+
 -- Vista balance mensual — los adelantos del presidente (es_tesoreria=true) no computan
 CREATE OR REPLACE VIEW v_balance_mensual AS
 SELECT
