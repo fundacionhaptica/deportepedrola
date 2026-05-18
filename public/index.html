@@ -771,11 +771,17 @@ window.crearSocio = async function (e) {
 };
 
 // ── Importar Excel / CSV ─────────────────────────────────────────────────────
+// Normaliza un string de cabecera: quita acentos, espacios extra y pasa a mayúsculas
+function normCab(s) {
+  return String(s).normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/\s+/g, ' ').trim().toUpperCase();
+}
+
 // Mapea cabeceras del Excel de inscripción → campos del schema
 function mapearFila(row) {
   function col(names) {
-    for (const n of names) {
-      const k = Object.keys(row).find(k => k.trim().toUpperCase() === n.toUpperCase());
+    const normNames = names.map(normCab);
+    for (const normN of normNames) {
+      const k = Object.keys(row).find(k => normCab(k) === normN);
       if (k && row[k] != null && String(row[k]).trim() !== '') return String(row[k]).trim();
     }
     return null;
@@ -785,7 +791,7 @@ function mapearFila(row) {
   return {
     nombre:          col(['NOMBRE']),
     apellidos:       col(['APELLIDOS']),
-    email:           col(['DIRECCIÓN DE CORREO ELECTRÓNICO','EMAIL','E-MAIL','CORREO']),
+    email:           col(['DIRECCIÓN DE CORREO ELECTRÓNICO','DIRECCION DE CORREO ELECTRONICO','EMAIL','E-MAIL','CORREO','CORREO ELECTRONICO','CORREO ELECTRÓNICO']),
     dni:             col(['DNI DEL ALUMNO/A CON LETRA (SI NO TIENE DNI CONTESTAR NO TIENE)','DNI DEL ALUMNO/A','DNI']),
     fecha_nacimiento:col(['FECHA DE NACIMIENTO']),
     domicilio:       col(['DOMICILIO']),
@@ -807,14 +813,18 @@ function mapearFila(row) {
     apellidos_tutor: col(['APELLIDOS DEL O DE LA TITULAR DE LA CUENTA','APELLIDOS TUTOR']),
     dni_tutor:       col(['DNI TUTOR','DNI DEL TUTOR']),
     telefono_tutor:  col(['TELÉFONOS TUTOR','TELEFONO TUTOR']),
-    numero_cuenta:   col(['NUMERODECUENTA','NÚMERO DE CUENTA','IBAN']),
+    numero_cuenta:   col(['NUMERODECUENTA','NÚMERO DE CUENTA','NUMERO DE CUENTA','IBAN']),
     rol:             'socio',
   };
 }
 
 async function importarFilas(filas) {
   const socios = filas.map(mapearFila).filter(s => s.nombre || s.email);
-  if (!socios.length) { mostrarAvisoSocios('Archivo vacío o sin filas válidas.', true); return; }
+  if (!socios.length) {
+    const cabeceras = filas.length > 0 ? Object.keys(filas[0]).join(', ') : '(sin filas)';
+    mostrarAvisoSocios(`Archivo vacío o sin filas válidas. Columnas detectadas: ${cabeceras}`, true);
+    return;
+  }
 
   document.getElementById('csvResultado').style.display = 'none';
   try {
