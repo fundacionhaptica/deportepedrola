@@ -385,13 +385,13 @@ async function generarCertificado(e) {
   btnText.textContent = 'Generando…';
 
   try {
-    const token = sessionStorage.getItem('token');
-    const res   = await fetch('/api/certificados/donacion', {
+    const jwt = sessionStorage.getItem('token');
+    const res = await fetch('/api/certificados/donacion', {
       method:  'POST',
       headers: {
         'Content-Type':  'application/json',
-        'Authorization': 'Bearer ' + token,
-        'X-Club-Token':  token,
+        'Authorization': 'Bearer ' + jwt,
+        'X-Club-Token':  jwt,
       },
       body: JSON.stringify(datos),
     });
