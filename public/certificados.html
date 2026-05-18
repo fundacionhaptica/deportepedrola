@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Certificados de Donación · CDE Deporte Pedrola</title>
+  <style>
+    :root {
+      --amarillo: #FFD400; --negro: #111; --verde: #2E7D32;
+      --gris: #f4f4f4; --borde: #e0e0e0; --rojo: #c0392b;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+           background: var(--gris); color: var(--negro); line-height: 1.5; }
+
+    header {
+      background: var(--negro); color: var(--amarillo);
+      padding: 1rem 1.5rem; border-bottom: 5px solid var(--amarillo);
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    header h1 { font-size: 1.2rem; }
+    header small { color: #fff; font-weight: 400; font-size: .8rem; display: block; opacity: .8; }
+    header .user { font-size: .8rem; color: #ccc; }
+    header .user a { color: var(--amarillo); text-decoration: none; margin-left: .5rem; }
+
+    nav { background: #1a1a1a; padding: .4rem 1.5rem; display: flex; gap: .3rem; }
+    nav a {
+      color: #ccc; text-decoration: none; font-size: .83rem; font-weight: 600;
+      padding: .35rem .8rem; border-radius: 4px; transition: background .15s;
+    }
+    nav a:hover { background: #333; color: #fff; }
+    nav a.activa { background: var(--amarillo); color: var(--negro); }
+
+    .wrap { max-width: 680px; margin: 0 auto; padding: 1.5rem 1rem; }
+
+    .card {
+      background: #fff; border: 1px solid var(--borde);
+      border-radius: 8px; padding: 1.6rem; margin-bottom: 1.5rem;
+    }
+    .card h2 {
+      font-size: .9rem; text-transform: uppercase; letter-spacing: .5px;
+      color: #555; margin-bottom: 1.2rem;
+    }
+
+    .form-group { margin-bottom: 1rem; }
+    .form-group label {
+      display: block; font-size: .8rem; font-weight: 600;
+      color: #444; margin-bottom: .3rem;
+    }
+    .form-group input, .form-group select {
+      width: 100%; padding: .55rem .75rem;
+      border: 1px solid var(--borde); border-radius: 5px;
+      font-size: .95rem; font-family: inherit; background: #fff;
+    }
+    .form-group input:focus, .form-group select:focus {
+      outline: 2px solid var(--amarillo); border-color: transparent;
+    }
+    .form-group .hint {
+      font-size: .75rem; color: #888; margin-top: .2rem;
+    }
+
+    .row { display: grid; gap: 1rem; }
+    .row-2 { grid-template-columns: 1fr 1fr; }
+    .row-3 { grid-template-columns: auto 1fr; align-items: end; }
+
+    .genero-wrap { display: flex; gap: .5rem; align-items: center; }
+    .genero-wrap select { width: auto; }
+
+    .btn-generar {
+      width: 100%; background: var(--amarillo); color: var(--negro);
+      font-weight: 700; border: none; padding: .75rem 1.2rem;
+      border-radius: 6px; cursor: pointer; font-size: 1rem;
+      margin-top: .5rem; display: flex; align-items: center;
+      justify-content: center; gap: .5rem;
+    }
+    .btn-generar:hover { opacity: .85; }
+    .btn-generar:disabled { opacity: .4; cursor: not-allowed; }
+
+    .aviso {
+      padding: .7rem 1rem; border-radius: 5px; font-size: .88rem;
+      margin-bottom: 1rem; display: none;
+    }
+    .aviso-err { background: #ffebee; color: var(--rojo); display: block; }
+    .aviso-ok  { background: #e8f5e9; color: var(--verde); display: block; }
+
+    /* Sección de tipo de donante */
+    .tipo-radios { display: flex; gap: 1rem; margin-bottom: .8rem; }
+    .tipo-radio { flex: 1; }
+    .tipo-radio input[type=radio] { display: none; }
+    .tipo-radio label {
+      display: block; text-align: center; padding: .65rem;
+      border: 2px solid var(--borde); border-radius: 6px;
+      cursor: pointer; font-weight: 600; font-size: .9rem;
+      transition: border-color .15s, background .15s; color: #555;
+    }
+    .tipo-radio input[type=radio]:checked + label {
+      border-color: var(--amarillo); background: #fffde7; color: var(--negro);
+    }
+
+    /* Campo SWIFT opcional */
+    #wrapSwift { display: none; }
+
+    /* Login overlay */
+    .login-form {
+      background: #fff; border: 1px solid var(--borde); border-radius: 8px;
+      padding: 2rem; max-width: 340px; margin: 4rem auto; text-align: center;
+    }
+    .login-form h2 { font-size: 1.1rem; margin-bottom: 1.5rem; }
+    .login-form input {
+      width: 100%; padding: .6rem .8rem; margin-bottom: .8rem;
+      border: 1px solid var(--borde); border-radius: 5px;
+      font-size: .95rem; font-family: inherit;
+    }
+    .login-form input:focus { outline: 2px solid var(--amarillo); border-color: transparent; }
+    .login-form .btn-login {
+      width: 100%; background: var(--amarillo); color: var(--negro);
+      font-weight: 700; border: none; padding: .65rem; border-radius: 5px;
+      cursor: pointer; font-size: 1rem;
+    }
+    .login-form .btn-login:hover { opacity: .85; }
+    .login-error { color: var(--rojo); font-size: .85rem; margin-top: .5rem; display: none; }
+  </style>
+</head>
+<body>
+
+<header>
+  <div style="display:flex;align-items:center;gap:1rem">
+    <div style="width:44px;height:44px;border-radius:50%;background:var(--amarillo);
+                border:3px solid var(--verde);display:flex;align-items:center;
+                justify-content:center;font-weight:700;color:var(--negro);font-size:1rem;flex:0 0 44px">
+      CDE
+    </div>
+    <h1>Certificados de Donación <small>Club Deportivo Elemental Deporte Pedrola</small></h1>
+  </div>
+  <div class="user" id="userArea" style="display:none">
+    <span id="userName">—</span>
+    <a href="#" id="btnLogout">Cerrar sesión</a>
+  </div>
+</header>
+
+<nav id="navMenu" style="display:none">
+  <a href="/">Panel</a>
+  <a href="/facturas">Facturas</a>
+  <a href="/certificados" class="activa">Certificados</a>
+</nav>
+
+<div class="wrap">
+
+  <!-- Login -->
+  <div id="loginBanner">
+    <div class="login-form">
+      <h2>Acceso al panel</h2>
+      <input type="text"     id="inputUsuario"  placeholder="Usuario"    autocomplete="username">
+      <input type="password" id="inputPassword" placeholder="Contraseña" autocomplete="current-password">
+      <button class="btn-login" id="btnLogin">Entrar</button>
+      <div class="login-error" id="loginError"></div>
+    </div>
+  </div>
+
+  <!-- Contenido -->
+  <div id="contenido" style="display:none">
+
+    <div class="aviso" id="aviso"></div>
+
+    <div class="card">
+      <h2>Nuevo certificado de donación</h2>
+
+      <form id="formCertificado" onsubmit="generarCertificado(event)">
+
+        <!-- Tipo de donante -->
+        <div class="form-group">
+          <label>Tipo de donante</label>
+          <div class="tipo-radios">
+            <div class="tipo-radio">
+              <input type="radio" id="tipoFisica"   name="tipo" value="fisica"   checked onchange="onTipoChange()">
+              <label for="tipoFisica">Persona física</label>
+            </div>
+            <div class="tipo-radio">
+              <input type="radio" id="tipoJuridica" name="tipo" value="juridica"          onchange="onTipoChange()">
+              <label for="tipoJuridica">Persona jurídica</label>
+            </div>
+          </div>
+        </div>
+
+        <!-- Fecha -->
+        <div class="form-group">
+          <label for="fecha">Fecha de la donación *</label>
+          <input type="date" id="fecha" required>
+        </div>
+
+        <!-- Nombre — persona física tiene selector de género -->
+        <div class="form-group" id="wrapNombreFisica">
+          <label>Nombre del donante *</label>
+          <div style="display:flex;gap:.5rem;align-items:center">
+            <select id="genero" style="width:auto;padding:.55rem .5rem;border:1px solid var(--borde);border-radius:5px;font-size:.95rem">
+              <option value="D.">D.</option>
+              <option value="D.ª">D.ª</option>
+            </select>
+            <input type="text" id="nombreFisica" placeholder="NOMBRE APELLIDO APELLIDO" style="flex:1"
+                   autocomplete="off" oninput="this.value=this.value.toUpperCase()">
+          </div>
+        </div>
+
+        <div class="form-group" id="wrapNombreJuridica" style="display:none">
+          <label for="nombreJuridica">Razón social *</label>
+          <input type="text" id="nombreJuridica" placeholder="EMPRESA S.L." autocomplete="off"
+                 oninput="this.value=this.value.toUpperCase()">
+        </div>
+
+        <!-- Documento -->
+        <div class="form-group">
+          <label for="documento" id="labelDocumento">DNI *</label>
+          <input type="text" id="documento" placeholder="12345678A" autocomplete="off"
+                 oninput="this.value=this.value.toUpperCase()">
+        </div>
+
+        <!-- IBAN del donante -->
+        <div class="form-group">
+          <label for="cuentaOrigen">Número de cuenta del donante (IBAN) *</label>
+          <input type="text" id="cuentaOrigen" placeholder="ES00 0000 0000 0000 0000 0000"
+                 autocomplete="off" oninput="formatearCampoIban(this)">
+          <p class="hint">Se puede pegar con o sin espacios.</p>
+        </div>
+
+        <!-- SWIFT (solo jurídica, opcional) -->
+        <div class="form-group" id="wrapSwift">
+          <label for="swift">SWIFT / BIC del banco (opcional)</label>
+          <input type="text" id="swift" placeholder="BBVAESMMXXX" autocomplete="off"
+                 oninput="this.value=this.value.toUpperCase()">
+        </div>
+
+        <!-- Importe -->
+        <div class="form-group">
+          <label for="importe">Importe donado (€) *</label>
+          <input type="number" id="importe" placeholder="350" min="0.01" step="0.01" required>
+        </div>
+
+        <button type="submit" class="btn-generar" id="btnGenerar">
+          <span id="btnTexto">⬇ Generar y descargar PDF</span>
+        </button>
+
+      </form>
+    </div>
+
+    <!-- Información del certificado -->
+    <div class="card" style="font-size:.85rem;color:#555">
+      <h2>Datos fijos del certificado</h2>
+      <ul style="padding-left:1.2rem;line-height:1.9">
+        <li><strong>Presidente firmante:</strong> Jaime Ruiz Herrero — DNI 25480386C</li>
+        <li><strong>CIF del club:</strong> G99528549</li>
+        <li><strong>Cuenta destino (Deporte Pedrola):</strong> ES62 2085 0414 1103 3028 2970</li>
+        <li><strong>Medio de pago:</strong> Transferencia bancaria</li>
+        <li><strong>Marco legal:</strong> Ley 49/2002, art. 24 — Incentivos al mecenazgo</li>
+      </ul>
+    </div>
+
+  </div>
+</div>
+
+<script src="/app.js"></script>
+<script>
+
+// ── Autenticación ────────────────────────────────────────────────────────────
+function mostrarLogin() {
+  document.getElementById('loginBanner').style.display = 'block';
+  document.getElementById('contenido').style.display   = 'none';
+  document.getElementById('userArea').style.display    = 'none';
+  document.getElementById('navMenu').style.display     = 'none';
+}
+
+function mostrarPanel(nombreUsuario) {
+  document.getElementById('loginBanner').style.display = 'none';
+  document.getElementById('contenido').style.display   = 'block';
+  document.getElementById('userArea').style.display    = 'flex';
+  document.getElementById('navMenu').style.display     = 'flex';
+  document.getElementById('userName').textContent      = nombreUsuario;
+}
+
+async function initAuth() {
+  const jwt     = sessionStorage.getItem('token');
+  const usuario = sessionStorage.getItem('usuario');
+  if (jwt && usuario) {
+    window.setToken(jwt);
+    mostrarPanel(usuario);
+    return;
+  }
+  mostrarLogin();
+  document.getElementById('btnLogin').addEventListener('click', doLogin);
+  document.getElementById('inputPassword').addEventListener('keydown', e => {
+    if (e.key === 'Enter') doLogin();
+  });
+}
+
+async function doLogin() {
+  const usuario = document.getElementById('inputUsuario').value.trim();
+  const clave   = document.getElementById('inputPassword').value;
+  const errEl   = document.getElementById('loginError');
+  errEl.style.display = 'none';
+  try {
+    const res  = await fetch('/api/auth/login', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ usuario, clave }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Error de autenticación');
+    sessionStorage.setItem('token', data.jwt);
+    sessionStorage.setItem('usuario', usuario);
+    window.setToken(data.jwt);
+    mostrarPanel(usuario);
+  } catch (e) {
+    errEl.textContent   = e.message;
+    errEl.style.display = 'block';
+  }
+}
+
+document.getElementById('btnLogout').addEventListener('click', e => {
+  e.preventDefault();
+  sessionStorage.clear();
+  window.setToken(null);
+  mostrarLogin();
+});
+
+// ── Lógica del formulario ────────────────────────────────────────────────────
+function onTipoChange() {
+  const esFisica = document.querySelector('input[name=tipo]:checked').value === 'fisica';
+  document.getElementById('wrapNombreFisica').style.display  = esFisica ? '' : 'none';
+  document.getElementById('wrapNombreJuridica').style.display = esFisica ? 'none' : '';
+  document.getElementById('wrapSwift').style.display          = esFisica ? 'none' : '';
+  document.getElementById('labelDocumento').textContent       = esFisica ? 'DNI *' : 'CIF / NIF *';
+  document.getElementById('documento').placeholder           = esFisica ? '12345678A' : 'B12345678';
+}
+
+function formatearCampoIban(input) {
+  const limpio = input.value.replace(/\s/g, '').toUpperCase();
+  const grupos = limpio.match(/.{1,4}/g);
+  input.value  = grupos ? grupos.join(' ') : limpio;
+}
+
+function mostrarAviso(msg, esError) {
+  const el = document.getElementById('aviso');
+  el.textContent = msg;
+  el.className   = 'aviso ' + (esError ? 'aviso-err' : 'aviso-ok');
+}
+
+function limpiarAviso() {
+  const el = document.getElementById('aviso');
+  el.className = 'aviso';
+}
+
+async function generarCertificado(e) {
+  e.preventDefault();
+  limpiarAviso();
+
+  const tipo      = document.querySelector('input[name=tipo]:checked').value;
+  const esFisica  = tipo === 'fisica';
+  const nombre    = esFisica
+    ? document.getElementById('nombreFisica').value.trim()
+    : document.getElementById('nombreJuridica').value.trim();
+
+  if (!nombre) {
+    mostrarAviso(esFisica ? 'Introduce el nombre del donante.' : 'Introduce la razón social.', true);
+    return;
+  }
+
+  const datos = {
+    fecha:        document.getElementById('fecha').value,
+    tipo,
+    genero:       esFisica ? document.getElementById('genero').value : undefined,
+    nombre,
+    documento:    document.getElementById('documento').value.trim().toUpperCase(),
+    cuentaOrigen: document.getElementById('cuentaOrigen').value.trim(),
+    importe:      parseFloat(document.getElementById('importe').value),
+    swift:        !esFisica ? document.getElementById('swift').value.trim() || undefined : undefined,
+  };
+
+  if (!datos.fecha)      { mostrarAviso('Selecciona la fecha.', true); return; }
+  if (!datos.documento)  { mostrarAviso('Introduce el DNI o CIF.', true); return; }
+  if (!datos.cuentaOrigen) { mostrarAviso('Introduce el número de cuenta.', true); return; }
+  if (!datos.importe || datos.importe <= 0) { mostrarAviso('Introduce un importe válido.', true); return; }
+
+  const btn     = document.getElementById('btnGenerar');
+  const btnText = document.getElementById('btnTexto');
+  btn.disabled  = true;
+  btnText.textContent = 'Generando…';
+
+  try {
+    const token = sessionStorage.getItem('token');
+    const res   = await fetch('/api/certificados/donacion', {
+      method:  'POST',
+      headers: {
+        'Content-Type':  'application/json',
+        'Authorization': 'Bearer ' + token,
+        'X-Club-Token':  token,
+      },
+      body: JSON.stringify(datos),
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || 'Error al generar el certificado');
+    }
+
+    const blob     = await res.blob();
+    const url      = URL.createObjectURL(blob);
+    const a        = document.createElement('a');
+    const nombreArchivo = `Certificado_donacion_${nombre.replace(/[^a-zA-Z0-9]/g, '_').slice(0, 40)}.pdf`;
+    a.href         = url;
+    a.download     = nombreArchivo;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+
+    mostrarAviso('Certificado generado correctamente.', false);
+  } catch (err) {
+    mostrarAviso('Error: ' + err.message, true);
+  } finally {
+    btn.disabled    = false;
+    btnText.textContent = '⬇ Generar y descargar PDF';
+  }
+}
+
+// ── Inicializar ──────────────────────────────────────────────────────────────
+document.getElementById('fecha').value = new Date().toISOString().slice(0, 10);
+initAuth();
+</script>
+
+</body>
+</html>
