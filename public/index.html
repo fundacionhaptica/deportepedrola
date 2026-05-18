@@ -353,8 +353,8 @@
               <label>Nombre completo *
                 <input type="text" id="snNombre" placeholder="Ana García López" required>
               </label>
-              <label>Email *
-                <input type="email" id="snEmail" placeholder="ana@example.com" required>
+              <label>Email
+                <input type="email" id="snEmail" placeholder="ana@example.com">
               </label>
               <label>Rol
                 <select id="snRol">
@@ -373,7 +373,8 @@
             <p style="font-size:.8rem;color:#666;margin-bottom:.6rem">
               Sube el Excel de socios (<code>.xlsx</code>) o un CSV.<br>
               Se detectan automáticamente las columnas del Excel de inscripción.<br>
-              Emails duplicados se <strong>actualizan</strong> (no se pierden datos).
+              El número de socio (Nº) es la clave — registros duplicados se <strong>actualizan</strong>.<br>
+              Familias pueden compartir email (hermanos, padre/hijo).
             </p>
             <div class="csv-area" id="csvArea" onclick="document.getElementById('inputCsv').click()"
                  ondragover="csvDragOver(event)" ondragleave="csvDragLeave(event)" ondrop="csvDrop(event)">
@@ -671,7 +672,7 @@ document.getElementById('buscarSocio').addEventListener('input', function () {
   if (!q) { renderFilasSocios(_sociosCache); return; }
   renderFilasSocios(_sociosCache.filter(s =>
     (s.nombre + ' ' + (s.apellidos||'')).toLowerCase().includes(q) ||
-    s.email.toLowerCase().includes(q)
+    (s.email || '').toLowerCase().includes(q)
   ));
 });
 
@@ -790,6 +791,8 @@ function mapearFila(row) {
   function bool(names) { const v = col(names); return v && v.toUpperCase() !== 'NO' && v !== '0' && v !== 'FALSE'; }
 
   return {
+    numero_socio:    col(['Nº','NÚM','NUM','NÚMERO SOCIO','NUMERO SOCIO']) ? parseInt(col(['Nº','NÚM','NUM','NÚMERO SOCIO','NUMERO SOCIO']), 10) || null : null,
+    socio_desde:     2025,
     nombre:          col(['NOMBRE']),
     apellidos:       col(['APELLIDOS']),
     email:           col(['DIRECCIÓN DE CORREO ELECTRÓNICO','DIRECCION DE CORREO ELECTRONICO','EMAIL','E-MAIL','CORREO','CORREO ELECTRONICO','CORREO ELECTRÓNICO']),
@@ -820,7 +823,7 @@ function mapearFila(row) {
 }
 
 async function importarFilas(filas) {
-  const socios = filas.map(mapearFila).filter(s => s.nombre || s.email);
+  const socios = filas.map(mapearFila).filter(s => s.nombre);
   if (!socios.length) {
     const cabeceras = filas.length > 0 ? Object.keys(filas[0]).join(', ') : '(sin filas)';
     mostrarAvisoSocios(`Archivo vacío o sin filas válidas. Columnas detectadas: ${cabeceras}`, true);
