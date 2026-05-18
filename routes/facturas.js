@@ -76,6 +76,44 @@ router.get('/', async (req, res) => {
   }
 });
 
+// GET /api/facturas/duplicados — grupos de facturas que parecen duplicadas
+router.get('/duplicados', async (req, res) => {
+  try {
+    // Duplicados por numero_factura + proveedor (ignorando mayúsculas y espacios)
+    const { rows: porNumero } = await db.query(`
+      SELECT array_agg(id ORDER BY id) AS ids,
+             numero_factura,
+             MAX(proveedor) AS proveedor,
+             'numero_factura' AS motivo
+      FROM facturas
+      WHERE numero_factura IS NOT NULL AND trim(numero_factura) <> ''
+      GROUP BY lower(trim(numero_factura)), lower(trim(coalesce(proveedor, '')))
+      HAVING count(*) > 1
+    `);
+
+    // Duplicados por fecha + importe + proveedor cuando no hay numero_factura
+    const { rows: porFechaImporte } = await db.query(`
+      SELECT array_agg(id ORDER BY id) AS ids,
+             NULL::text AS numero_factura,
+             MAX(proveedor) AS proveedor,
+             'fecha_importe' AS motivo
+      FROM facturas
+      WHERE (numero_factura IS NULL OR trim(numero_factura) = '')
+        AND fecha_factura IS NOT NULL
+        AND importe IS NOT NULL
+      GROUP BY fecha_factura, importe, lower(trim(coalesce(proveedor, '')))
+      HAVING count(*) > 1
+    `);
+
+    const grupos = [...porNumero, ...porFechaImporte];
+    const ids = [...new Set(grupos.flatMap(g => g.ids))];
+    res.json({ grupos, ids });
+  } catch (e) {
+    console.error('[facturas] GET /duplicados', e.message);
+    res.status(500).json({ error: 'Error interno del servidor' });
+  }
+});
+
 // POST /api/facturas/upload — sube una o varias facturas y lanza OCR
 router.post('/upload', upload.array('archivos', 20), async (req, res) => {
   if (!req.files || req.files.length === 0) {
