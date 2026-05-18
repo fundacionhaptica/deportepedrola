@@ -82,6 +82,15 @@ router.post('/upload', upload.array('archivos', 20), async (req, res) => {
     return res.status(400).json({ error: 'No se recibió ningún archivo.' });
   }
 
+  // Obtener ejemplos confirmados para few-shot
+  const { rows: ejemplosOcr } = await db.query(
+    `SELECT tipo, proveedor, nif_proveedor, numero_factura, fecha_factura,
+            concepto, base_imponible, iva_porcentaje, iva_importe, importe
+     FROM facturas
+     WHERE ocr_revisado = true AND proveedor IS NOT NULL
+     ORDER BY created_at DESC LIMIT 6`
+  ).catch(() => ({ rows: [] }));
+
   const resultados = [];
 
   for (const file of req.files) {
@@ -95,7 +104,7 @@ router.post('/upload', upload.array('archivos', 20), async (req, res) => {
     try {
       ({ ocrRawJson, extraido, proveedor_ocr: proveedorOcr,
          ocr_fallback: ocrFallback, ocr_fallback_motivo: ocrFallbackMotivo
-       } = await extraerDatosFactura(file.path, file.mimetype));
+       } = await extraerDatosFactura(file.path, file.mimetype, ejemplosOcr));
     } catch (e) {
       console.error(`[facturas] OCR fallido para ${file.filename}:`, e.message);
       ocrError = e.message;
@@ -267,7 +276,15 @@ router.post('/:id/reocr', async (req, res) => {
     };
     const mime = mimeMap[ext] || 'application/octet-stream';
 
-    const { ocrRawJson, extraido } = await extraerDatosFactura(f.ruta_archivo, mime);
+    const { rows: ejemplosOcr } = await db.query(
+      `SELECT tipo, proveedor, nif_proveedor, numero_factura, fecha_factura,
+              concepto, base_imponible, iva_porcentaje, iva_importe, importe
+       FROM facturas
+       WHERE ocr_revisado = true AND proveedor IS NOT NULL AND id != $1
+       ORDER BY created_at DESC LIMIT 6`, [req.params.id]
+    ).catch(() => ({ rows: [] }));
+
+    const { ocrRawJson, extraido } = await extraerDatosFactura(f.ruta_archivo, mime, ejemplosOcr);
 
     const { rows: [updated] } = await db.query(
       `UPDATE facturas SET
