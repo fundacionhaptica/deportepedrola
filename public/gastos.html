@@ -1,0 +1,570 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboard de Gastos · CDE Deporte Pedrola</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+  <style>
+    :root {
+      --amarillo: #FFD400; --negro: #111; --verde: #2E7D32;
+      --gris: #f4f4f4; --borde: #e0e0e0; --rojo: #c0392b;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+           background: var(--gris); color: var(--negro); line-height: 1.5; }
+
+    header {
+      background: var(--negro); color: var(--amarillo);
+      padding: 1rem 1.5rem; border-bottom: 5px solid var(--amarillo);
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    header h1 { font-size: 1.2rem; }
+    header small { color: #fff; font-weight: 400; font-size: .8rem; display: block; opacity: .8; }
+    header .user { font-size: .8rem; color: #ccc; }
+    header .user a { color: var(--amarillo); text-decoration: none; margin-left: .5rem; }
+
+    nav { background: #1a1a1a; padding: .4rem 1.5rem; display: flex; gap: .3rem; }
+    nav a {
+      color: #ccc; text-decoration: none; font-size: .83rem; font-weight: 600;
+      padding: .35rem .8rem; border-radius: 4px; transition: background .15s;
+    }
+    nav a:hover { background: #333; color: #fff; }
+    nav a.activa { background: var(--amarillo); color: var(--negro); }
+
+    .wrap { max-width: 1200px; margin: 0 auto; padding: 1.5rem 1rem; }
+
+    /* Login */
+    #loginBanner { display: flex; justify-content: center; padding: 3rem 1rem; }
+    .login-form { background: #fff; border: 1px solid var(--borde); border-radius: 10px;
+                  padding: 2rem; width: 320px; }
+    .login-form h2 { font-size: 1rem; margin-bottom: 1.2rem; text-align: center; }
+    .login-form input {
+      width: 100%; padding: .55rem .7rem; border: 1px solid var(--borde);
+      border-radius: 5px; font-size: .9rem; margin-bottom: .8rem; font-family: inherit;
+    }
+    .btn-login {
+      width: 100%; background: var(--amarillo); color: var(--negro);
+      font-weight: 700; border: none; padding: .6rem; border-radius: 5px;
+      cursor: pointer; font-size: .95rem;
+    }
+    .login-error { color: var(--rojo); font-size: .8rem; margin-top: .5rem; text-align: center; min-height: 1.2em; }
+
+    /* Filtros temporada */
+    .filtros {
+      background: #fff; border: 1px solid var(--borde); border-radius: 8px;
+      padding: .8rem 1rem; display: flex; align-items: flex-end; gap: 1rem;
+      flex-wrap: wrap; margin-bottom: 1.5rem;
+    }
+    .filtros label { font-size: .78rem; font-weight: 700; color: #555;
+                     display: flex; flex-direction: column; gap: .25rem; }
+    .filtros select, .filtros input[type="date"] {
+      padding: .38rem .55rem; border: 1px solid var(--borde); border-radius: 4px;
+      font-size: .9rem; font-family: inherit; background: #fff;
+    }
+    .filtros select:focus, .filtros input[type="date"]:focus {
+      outline: 2px solid var(--amarillo); border-color: transparent;
+    }
+    .btn-filtro {
+      background: var(--amarillo); color: var(--negro); font-weight: 700;
+      border: none; padding: .45rem 1.1rem; border-radius: 5px; cursor: pointer;
+      font-size: .88rem;
+    }
+    .btn-filtro:hover { opacity: .85; }
+    #rangoPersonalizado { display: none; gap: 1rem; align-items: flex-end; flex-wrap: wrap; }
+    #rangoPersonalizado.visible { display: flex; }
+
+    /* Cards resumen */
+    .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; margin-bottom: 1.5rem; }
+    @media (max-width: 600px) { .stats { grid-template-columns: 1fr 1fr; } }
+    .stat-card {
+      background: #fff; border: 1px solid var(--borde); border-radius: 8px;
+      padding: 1.1rem 1rem;
+    }
+    .stat-card .etiqueta { font-size: .68rem; font-weight: 700; text-transform: uppercase;
+                           color: #888; margin-bottom: .3rem; }
+    .stat-card .valor { font-size: 1.9rem; font-weight: 700; }
+    .stat-card .valor.rojo { color: var(--rojo); }
+    .stat-card .valor.naranja { color: #e65100; }
+
+    /* Grid de gráficos */
+    .charts-grid {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 1.5rem;
+    }
+    @media (max-width: 860px) { .charts-grid { grid-template-columns: 1fr; } }
+    .charts-grid.full { grid-template-columns: 1fr; }
+
+    .card {
+      background: #fff; border: 1px solid var(--borde); border-radius: 8px; padding: 1.2rem;
+    }
+    .card h2 {
+      font-size: .78rem; text-transform: uppercase; letter-spacing: .5px;
+      color: #888; margin-bottom: 1rem; font-weight: 700;
+    }
+    .chart-wrap { position: relative; height: 280px; }
+    .chart-wrap.tall { height: 340px; }
+
+    /* Tabla equipos */
+    table { width: 100%; border-collapse: collapse; font-size: .86rem; }
+    th {
+      text-align: left; padding: .4rem .6rem; font-size: .68rem; color: #888;
+      text-transform: uppercase; border-bottom: 2px solid var(--borde);
+    }
+    th.r, td.r { text-align: right; }
+    td { padding: .5rem .6rem; border-bottom: 1px solid var(--borde); }
+    tr:last-child td { border-bottom: none; }
+    .barra-inline {
+      display: inline-block; height: 8px; border-radius: 4px;
+      background: var(--amarillo); vertical-align: middle; margin-right: .4rem;
+    }
+
+    /* Spinner */
+    .spinner {
+      display: none; width: 28px; height: 28px;
+      border: 3px solid var(--borde); border-top-color: var(--negro);
+      border-radius: 50%; animation: spin .7s linear infinite; margin: 2rem auto;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .spinner.visible { display: block; }
+
+    /* Aviso error */
+    .aviso-err {
+      background: #ffebee; color: var(--rojo); border-radius: 5px;
+      padding: .6rem .9rem; font-size: .85rem; margin-bottom: 1rem; display: none;
+    }
+    .aviso-err.visible { display: block; }
+
+    #mainContent { display: none; }
+  </style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>Dashboard de Gastos <small>Club Deportivo Elemental Deporte Pedrola</small></h1>
+  </div>
+  <div class="user" id="userArea" style="display:none">
+    <span id="userName">—</span>
+    <a href="#" id="btnLogout">Cerrar sesión</a>
+  </div>
+</header>
+
+<nav>
+  <a href="/">Panel</a>
+  <a href="/facturas">Facturas</a>
+  <a href="/gastos" class="activa">Gastos</a>
+  <a href="/certificados">Certificados</a>
+</nav>
+
+<div class="wrap">
+
+  <!-- Login -->
+  <div id="loginBanner">
+    <div class="login-form">
+      <h2>Acceso al panel</h2>
+      <input type="text"     id="inputUsuario"  placeholder="Usuario"    autocomplete="username">
+      <input type="password" id="inputPassword" placeholder="Contraseña" autocomplete="current-password">
+      <button class="btn-login" id="btnLogin">Entrar</button>
+      <div class="login-error" id="loginError"></div>
+    </div>
+  </div>
+
+  <!-- Contenido principal (visible tras login) -->
+  <div id="mainContent">
+
+    <!-- Filtros -->
+    <div class="filtros">
+      <label>
+        Temporada
+        <select id="selTemporada">
+          <!-- generado por JS -->
+        </select>
+      </label>
+      <div id="rangoPersonalizado">
+        <label>
+          Desde
+          <input type="date" id="inputDesde">
+        </label>
+        <label>
+          Hasta
+          <input type="date" id="inputHasta">
+        </label>
+      </div>
+      <button class="btn-filtro" id="btnAplicar">Aplicar</button>
+    </div>
+
+    <div class="aviso-err" id="avisoErr"></div>
+    <div class="spinner" id="spinner"></div>
+
+    <!-- Tarjetas resumen -->
+    <div class="stats" id="statsArea">
+      <div class="stat-card">
+        <div class="etiqueta">Total gastos</div>
+        <div class="valor rojo" id="statTotal">—</div>
+      </div>
+      <div class="stat-card">
+        <div class="etiqueta">Nº facturas</div>
+        <div class="valor" id="statFacturas">—</div>
+      </div>
+      <div class="stat-card">
+        <div class="etiqueta">Pendientes revisión</div>
+        <div class="valor naranja" id="statPendientes">—</div>
+      </div>
+    </div>
+
+    <!-- Gráficos fila 1: donut deporte + barras tipo -->
+    <div class="charts-grid">
+      <div class="card">
+        <h2>Distribución por deporte</h2>
+        <div class="chart-wrap">
+          <canvas id="chartDeporte"></canvas>
+        </div>
+      </div>
+      <div class="card">
+        <h2>Gasto por tipo de concepto</h2>
+        <div class="chart-wrap">
+          <canvas id="chartTipo"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <!-- Gráfico fila 2: evolución mensual (ancho completo) -->
+    <div class="charts-grid full" style="margin-bottom:1.5rem">
+      <div class="card">
+        <h2>Evolución mensual de gastos</h2>
+        <div class="chart-wrap tall">
+          <canvas id="chartMensual"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <!-- Gráficos fila 3: top proveedores + tabla equipos -->
+    <div class="charts-grid">
+      <div class="card">
+        <h2>Top 10 proveedores</h2>
+        <div class="chart-wrap tall">
+          <canvas id="chartProveedores"></canvas>
+        </div>
+      </div>
+      <div class="card">
+        <h2>Gasto por equipo / categoría</h2>
+        <div id="tablaEquipoWrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Equipo / Categoría</th>
+                <th class="r">Total</th>
+                <th class="r">%</th>
+              </tr>
+            </thead>
+            <tbody id="tablaEquipo">
+              <tr><td colspan="3" style="text-align:center;color:#aaa;padding:1.5rem">—</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /mainContent -->
+</div>
+
+<script>
+'use strict';
+
+/* ─── Auth ────────────────────────────────────────────────── */
+async function apiGet(url) {
+  const jwt = sessionStorage.getItem('token');
+  const r   = await fetch(url, {
+    headers: { 'Authorization': 'Bearer ' + jwt, 'X-Club-Token': jwt },
+  });
+  if (r.status === 401) { doLogout(); throw new Error('No autenticado'); }
+  if (!r.ok) { const e = await r.json().catch(() => ({})); throw new Error(e.error || `HTTP ${r.status}`); }
+  return r.json();
+}
+
+async function doLogin() {
+  const usuario = document.getElementById('inputUsuario').value.trim();
+  const clave   = document.getElementById('inputPassword').value;
+  const errEl   = document.getElementById('loginError');
+  errEl.textContent = '';
+  try {
+    const res  = await fetch('/api/auth/login', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ usuario, clave }),
+    });
+    const data = await res.json();
+    if (!res.ok) { errEl.textContent = data.error || 'Credenciales incorrectas'; return; }
+    sessionStorage.setItem('token',   data.jwt);
+    sessionStorage.setItem('usuario', usuario);
+    window.setToken && window.setToken(data.jwt);
+    mostrarApp(usuario);
+  } catch {
+    errEl.textContent = 'Error de red';
+  }
+}
+
+function doLogout() {
+  sessionStorage.clear();
+  window.setToken && window.setToken(null);
+  document.getElementById('mainContent').style.display = 'none';
+  document.getElementById('loginBanner').style.display = 'flex';
+  document.getElementById('userArea').style.display    = 'none';
+}
+
+function mostrarApp(usuario) {
+  document.getElementById('loginBanner').style.display = 'none';
+  document.getElementById('mainContent').style.display = 'block';
+  document.getElementById('userArea').style.display    = 'flex';
+  document.getElementById('userName').textContent      = usuario || sessionStorage.getItem('usuario') || '—';
+  iniciarDashboard();
+}
+
+/* ─── Temporadas ──────────────────────────────────────────── */
+function generarTemporadas() {
+  const sel   = document.getElementById('selTemporada');
+  const hoy   = new Date();
+  const anyo  = hoy.getMonth() >= 8 ? hoy.getFullYear() : hoy.getFullYear() - 1;
+  const temps = [];
+  for (let i = 0; i < 4; i++) {
+    const a = anyo - i;
+    temps.push({ label: `${a}/${a + 1}`, desde: `${a}-09-01`, hasta: `${a + 1}-08-31` });
+  }
+  temps.push({ label: 'Todo', desde: '2000-01-01', hasta: new Date().toISOString().slice(0, 10) });
+  temps.push({ label: 'Personalizado', desde: '', hasta: '' });
+  temps.forEach(t => {
+    const opt = document.createElement('option');
+    opt.value = JSON.stringify({ desde: t.desde, hasta: t.hasta });
+    opt.textContent = t.label;
+    sel.appendChild(opt);
+  });
+}
+
+function onTemporadaChange() {
+  const val   = JSON.parse(document.getElementById('selTemporada').value);
+  const rango = document.getElementById('rangoPersonalizado');
+  if (!val.desde) {
+    rango.classList.add('visible');
+    document.getElementById('inputDesde').value = '';
+    document.getElementById('inputHasta').value = '';
+  } else {
+    rango.classList.remove('visible');
+  }
+}
+
+function getRango() {
+  const val = JSON.parse(document.getElementById('selTemporada').value);
+  if (val.desde) return val;
+  return {
+    desde: document.getElementById('inputDesde').value || '2000-01-01',
+    hasta: document.getElementById('inputHasta').value || new Date().toISOString().slice(0, 10),
+  };
+}
+
+/* ─── Paleta de colores ───────────────────────────────────── */
+const PALETA = [
+  '#FFD400','#111111','#2E7D32','#1565C0','#e65100',
+  '#6A1B9A','#00838F','#AD1457','#37474F','#F57F17',
+  '#558B2F','#283593','#BF360C','#4E342E','#00695C',
+];
+
+function colores(n) {
+  return Array.from({ length: n }, (_, i) => PALETA[i % PALETA.length]);
+}
+
+/* ─── Instancias de charts (para destruirlos al recargar) ─── */
+const charts = {};
+
+function crearOActualizar(id, config) {
+  if (charts[id]) charts[id].destroy();
+  const ctx = document.getElementById(id).getContext('2d');
+  charts[id] = new Chart(ctx, config);
+}
+
+/* ─── Formateadores ───────────────────────────────────────── */
+const fmt = new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR', minimumFractionDigits: 2 });
+const fmtK = v => v >= 1000 ? (v / 1000).toFixed(1) + ' k€' : fmt.format(v);
+
+/* ─── Render de gráficos ──────────────────────────────────── */
+function renderDeporte(datos) {
+  const labels  = datos.map(d => d.deporte || 'Sin clasificar');
+  const valores = datos.map(d => parseFloat(d.total));
+  crearOActualizar('chartDeporte', {
+    type: 'doughnut',
+    data: {
+      labels,
+      datasets: [{ data: valores, backgroundColor: colores(labels.length), borderWidth: 2, borderColor: '#fff' }],
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { position: 'right', labels: { font: { size: 11 }, padding: 10, boxWidth: 14 } },
+        tooltip: { callbacks: { label: ctx => ` ${ctx.label}: ${fmt.format(ctx.parsed)}` } },
+      },
+    },
+  });
+}
+
+function renderTipo(datos) {
+  const labels  = datos.map(d => d.tipo);
+  const valores = datos.map(d => parseFloat(d.total));
+  crearOActualizar('chartTipo', {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{
+        data: valores,
+        backgroundColor: colores(labels.length),
+        borderRadius: 4,
+      }],
+    },
+    options: {
+      indexAxis: 'y', responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: { callbacks: { label: ctx => ` ${fmt.format(ctx.parsed.x)}` } },
+      },
+      scales: {
+        x: { ticks: { callback: v => fmtK(v) }, grid: { color: '#f0f0f0' } },
+        y: { ticks: { font: { size: 11 } } },
+      },
+    },
+  });
+}
+
+function renderMensual(datos) {
+  const labels  = datos.map(d => d.mes);
+  const valores = datos.map(d => parseFloat(d.total));
+  crearOActualizar('chartMensual', {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{
+        label: 'Gasto mensual',
+        data: valores,
+        backgroundColor: '#FFD400',
+        borderRadius: 4,
+      }],
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: { callbacks: { label: ctx => ` ${fmt.format(ctx.parsed.y)}` } },
+      },
+      scales: {
+        x: { grid: { display: false } },
+        y: { ticks: { callback: v => fmtK(v) }, grid: { color: '#f0f0f0' } },
+      },
+    },
+  });
+}
+
+function renderProveedores(datos) {
+  const labels  = datos.map(d => d.proveedor);
+  const valores = datos.map(d => parseFloat(d.total));
+  crearOActualizar('chartProveedores', {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{
+        data: valores,
+        backgroundColor: '#111111',
+        borderRadius: 4,
+      }],
+    },
+    options: {
+      indexAxis: 'y', responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: (ctx) => {
+              const fila = datos[ctx.dataIndex];
+              return ` ${fmt.format(ctx.parsed.x)} (${fila.num_facturas} fact.)`;
+            },
+          },
+        },
+      },
+      scales: {
+        x: { ticks: { callback: v => fmtK(v) }, grid: { color: '#f0f0f0' } },
+        y: { ticks: { font: { size: 10 } } },
+      },
+    },
+  });
+}
+
+function renderEquipos(datos) {
+  const total = datos.reduce((s, d) => s + parseFloat(d.total), 0);
+  const tbody = document.getElementById('tablaEquipo');
+  if (!datos.length) {
+    tbody.innerHTML = '<tr><td colspan="3" style="text-align:center;color:#aaa;padding:1.5rem">Sin datos</td></tr>';
+    return;
+  }
+  tbody.innerHTML = datos.map(d => {
+    const t    = parseFloat(d.total);
+    const pct  = total > 0 ? (t / total * 100).toFixed(1) : '0.0';
+    const ancho = Math.max(4, Math.round(t / total * 120));
+    return `<tr>
+      <td>
+        <span class="barra-inline" style="width:${ancho}px"></span>
+        ${d.equipo_categoria}
+      </td>
+      <td class="r">${fmt.format(t)}</td>
+      <td class="r" style="color:#888">${pct} %</td>
+    </tr>`;
+  }).join('');
+}
+
+/* ─── Carga de datos ──────────────────────────────────────── */
+async function cargarDatos() {
+  const { desde, hasta } = getRango();
+  const spinner  = document.getElementById('spinner');
+  const avisoErr = document.getElementById('avisoErr');
+  avisoErr.classList.remove('visible');
+  spinner.classList.add('visible');
+
+  try {
+    const data = await apiGet(`/api/gastos/resumen?desde=${desde}&hasta=${hasta}`);
+
+    /* Cards */
+    const t = data.totales;
+    document.getElementById('statTotal').textContent     = fmt.format(parseFloat(t.total_gastos));
+    document.getElementById('statFacturas').textContent  = t.num_facturas;
+    document.getElementById('statPendientes').textContent = t.pendientes_revision;
+
+    /* Gráficos */
+    if (data.por_deporte.length)     renderDeporte(data.por_deporte);
+    if (data.por_tipo.length)        renderTipo(data.por_tipo);
+    if (data.por_mes.length)         renderMensual(data.por_mes);
+    if (data.top_proveedores.length) renderProveedores(data.top_proveedores);
+    renderEquipos(data.por_equipo);
+
+  } catch (err) {
+    avisoErr.textContent = `Error al cargar datos: ${err.message}`;
+    avisoErr.classList.add('visible');
+  } finally {
+    spinner.classList.remove('visible');
+  }
+}
+
+/* ─── Bootstrap ───────────────────────────────────────────── */
+function iniciarDashboard() {
+  generarTemporadas();
+  document.getElementById('selTemporada').addEventListener('change', onTemporadaChange);
+  document.getElementById('btnAplicar').addEventListener('click', cargarDatos);
+  cargarDatos();
+}
+
+document.getElementById('btnLogin').addEventListener('click', doLogin);
+document.getElementById('btnLogout').addEventListener('click', e => { e.preventDefault(); doLogout(); });
+document.getElementById('inputPassword').addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
+
+const jwtGuardado = sessionStorage.getItem('token');
+if (jwtGuardado) {
+  window.setToken && window.setToken(jwtGuardado);
+  mostrarApp();
+}
+</script>
+</body>
+</html>
