@@ -86,6 +86,8 @@
       font-size: .72rem; font-weight: 700; padding: .15rem .5rem; border-radius: 3px;
     }
     .badge-ocr       { background: #fff3cd; color: #856404; }
+    .ocr-proveedor   { font-size: .7rem; color: #aaa; padding: .1rem .4rem; border: 1px solid #e0e0e0; border-radius: 3px; }
+    .ocr-proveedor.ocr-fallback { color: #856404; border-color: #ffc107; background: #fff8e1; cursor: help; }
     .badge-revisada  { background: #d4edda; color: var(--verde); }
     .badge-error     { background: #f8d7da; color: var(--rojo); }
 
@@ -206,6 +208,18 @@
 
     .aviso { padding: .6rem .9rem; border-radius: 5px; font-size: .85rem; margin-bottom: 1rem; display: none; }
     .aviso-err { background: #ffebee; color: var(--rojo); display: block; }
+
+    /* Modal editar */
+    .modal-editar { max-width: 700px; }
+    .modal-editar .campos-ocr { display: grid; grid-template-columns: 1fr 1fr; gap: .6rem 1rem; }
+    @media (max-width: 600px) { .modal-editar .campos-ocr { grid-template-columns: 1fr; } }
+
+    /* Aviso OCR error dentro de tarjeta */
+    .ocr-error-aviso {
+      background: #fff3cd; color: #856404; border: 1px solid #ffc107;
+      border-radius: 5px; padding: .5rem .8rem; font-size: .82rem;
+      margin-bottom: .8rem; grid-column: 1 / -1;
+    }
   </style>
 </head>
 <body>
@@ -278,6 +292,8 @@
           <option>Patinaje</option>
           <option>Kenpo</option>
           <option>Kickboxing</option>
+          <option>Club</option>
+          <option>Múltiple</option>
         </select>
       </label>
       <label>Proveedor <input type="text" id="proveedor" placeholder="Buscar..."></label>
@@ -308,7 +324,20 @@
     <div id="modalCuerpo"></div>
     <div class="modal-footer">
       <a id="btnDescargar" href="#" class="btn btn-small" target="_blank">Descargar archivo</a>
+      <button class="btn-outline btn-small" id="btnEditarModal" onclick="">Editar</button>
+      <button class="btn-outline btn-small" style="color:var(--rojo);border-color:var(--rojo)" id="btnBorrarModal" onclick="">Borrar</button>
       <button class="btn-outline" onclick="cerrarModal()">Cerrar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal editar -->
+<div class="modal-bg" id="modalEditarBg">
+  <div class="modal modal-editar">
+    <h3 id="modalEditarTitulo">Editar factura</h3>
+    <div id="modalEditarCuerpo"></div>
+    <div class="modal-footer" id="modalEditarFooter">
+      <span class="msg" id="editarMsg"></span>
     </div>
   </div>
 </div>
@@ -323,7 +352,8 @@ const fmtFecha = f => f ? f.slice(0, 10) : '—';
 const TIPOS      = ['Factura', 'Recibo', 'Remesa', 'Ingreso'];
 const CONCEPTOS  = ['Federación', 'autobuses', 'hotel', 'Fichas', 'arbitrajes', 'ropa', 'gestoría', 'sanciones'];
 const DEPORTES   = ['Atletismo', 'Trail', 'Baloncesto', 'Fútbol 7', 'Fútbol 8', 'Fútbol 11',
-                    'Fútbol Sala', 'Voleibol', 'Gimnasia Rítmica', 'Patinaje', 'Kenpo', 'Kickboxing'];
+                    'Fútbol Sala', 'Voleibol', 'Gimnasia Rítmica', 'Patinaje', 'Kenpo', 'Kickboxing',
+                    'Club', 'Múltiple'];
 
 let paginaActual = 1;
 
@@ -433,6 +463,14 @@ function rellenarTarjetaOCR(tarjeta, r) {
     ? `<iframe id="prev-${id}" class="prev-frame" src="about:blank"></iframe>`
     : `<img id="prev-${id}" class="prev-img" src="" alt="Preview">`;
 
+  const ocrErrorHtml = r.ocr_error
+    ? `<div class="ocr-error-aviso">⚠ El OCR no pudo leer este archivo: ${escHtml(r.ocr_error)}. Rellena los campos manualmente.</div>`
+    : '';
+
+  const ocrProveedorTag = r.proveedor_ocr
+    ? `<span class="ocr-proveedor${r.ocr_fallback ? ' ocr-fallback' : ''}" title="${r.ocr_fallback ? 'Kimi falló, usado como alternativa: ' + escHtml(r.ocr_fallback_motivo || '') : ''}">via ${escHtml(r.proveedor_ocr)}${r.ocr_fallback ? ' ⚠' : ''}</span>`
+    : '';
+
   tarjeta.className = 'revision-card';
   tarjeta.dataset.id = id;
   tarjeta.innerHTML = `
@@ -440,12 +478,14 @@ function rellenarTarjetaOCR(tarjeta, r) {
       <span class="icono">📄</span>
       <span class="nombre">${escHtml(nombre)}</span>
       <span class="resumen">${escHtml(resumen)}</span>
-      <span class="badge badge-ocr">Revisar OCR</span>
+      ${ocrProveedorTag}
+      <span class="badge ${r.ocr_error ? 'badge-error' : 'badge-ocr'}">${r.ocr_error ? 'OCR fallido' : 'Revisar OCR'}</span>
     </div>
     <div class="revision-body abierto" id="rb-${id}">
       <div class="revision-preview">${previewEl}</div>
       <div class="revision-form">
         <div class="campos-ocr">
+          ${ocrErrorHtml}
 
           <div class="seccion-label">Clasificación</div>
 
@@ -725,7 +765,10 @@ async function cargarFacturas(pagina) {
             <td>${escHtml(f.proveedor) || '<span style="color:#aaa">—</span>'}</td>
             <td style="font-size:.82rem;color:#555">${escHtml(f.concepto) || '—'}</td>
             <td class="importe">${fmt(f.importe)}</td>
-            <td><button class="btn-outline" onclick="verDetalle(${f.id})">Ver</button></td>
+            <td>
+              <button class="btn-outline" onclick="verDetalle(${f.id})">Ver</button>
+              <button class="btn-outline btn-small" onclick="editarFactura(${f.id})" style="margin-left:.3rem">Editar</button>
+            </td>
           </tr>`).join('')
       : '<tr><td colspan="8" class="sin-datos">No hay facturas.</td></tr>';
 
@@ -788,6 +831,8 @@ async function verDetalle(id) {
   }
 
   document.getElementById('btnDescargar').href = `/api/facturas/${id}/archivo`;
+  document.getElementById('btnEditarModal').onclick = () => { cerrarModal(); editarFactura(id); };
+  document.getElementById('btnBorrarModal').onclick = () => borrarFactura(id);
   document.getElementById('modalBg').classList.add('open');
 }
 
@@ -797,6 +842,211 @@ function cerrarModal() {
 document.getElementById('modalBg').addEventListener('click', e => {
   if (e.target === document.getElementById('modalBg')) cerrarModal();
 });
+
+// ── Borrar factura ────────────────────────────────────────────────────────────
+async function borrarFactura(id) {
+  if (!confirm('¿Seguro que quieres borrar esta factura? Se eliminará el archivo y todos sus datos.')) return;
+  const res = await fetch(`/api/facturas/${id}`, {
+    method: 'DELETE',
+    headers: { Authorization: 'Bearer ' + (sessionStorage.getItem('token') || '') }
+  });
+  if (res.ok) {
+    cerrarModal();
+    cargarFacturas(paginaActual);
+  } else {
+    const d = await res.json();
+    alert(d.error || 'Error al borrar');
+  }
+}
+
+// ── Editar factura ────────────────────────────────────────────────────────────
+async function editarFactura(id) {
+  const data = await window.api(`/api/facturas/${id}`);
+  if (!data) return;
+
+  document.getElementById('modalEditarTitulo').textContent =
+    `Editar: ${data.proveedor || data.nombre_archivo}`;
+
+  document.getElementById('modalEditarCuerpo').innerHTML = `
+    <div class="campos-ocr">
+
+      <div class="seccion-label">Clasificación</div>
+
+      <div class="campo-ocr">
+        <label>Tipo de documento
+          <select id="e-${id}-tipo">${opcionesSelect(TIPOS, data.tipo)}</select>
+        </label>
+      </div>
+      <div class="campo-ocr">
+        <label>Concepto
+          <select id="e-${id}-concepto">${opcionesSelect(CONCEPTOS, data.concepto)}</select>
+        </label>
+      </div>
+      <div class="campo-ocr">
+        <label>Deporte
+          <select id="e-${id}-deporte">${opcionesSelect(DEPORTES, data.deporte)}</select>
+        </label>
+      </div>
+      <div class="campo-ocr">
+        <label>Equipo / Categoría
+          <input type="text" id="e-${id}-equipo" value="${escAttr(data.equipo_categoria || '')}" placeholder="Ej: Infantil A, Senior...">
+        </label>
+      </div>
+
+      <div class="seccion-label">Datos del emisor</div>
+
+      <div class="campo-ocr">
+        <label>Proveedor
+          <input type="text" id="e-${id}-proveedor" value="${escAttr(data.proveedor || '')}">
+        </label>
+      </div>
+      <div class="campo-ocr">
+        <label>NIF / CIF proveedor
+          <input type="text" id="e-${id}-nif" value="${escAttr(data.nif_proveedor || '')}">
+        </label>
+      </div>
+      <div class="campo-ocr">
+        <label>Nº Factura / Referencia
+          <input type="text" id="e-${id}-numero" value="${escAttr(data.numero_factura || '')}">
+        </label>
+      </div>
+      <div class="campo-ocr">
+        <label>Fecha
+          <input type="date" id="e-${id}-fecha" value="${escAttr(data.fecha_factura ? data.fecha_factura.slice(0,10) : '')}">
+        </label>
+      </div>
+
+      <div class="seccion-label">Importes</div>
+
+      <div class="campo-ocr">
+        <label>Base imponible (€)
+          <input type="number" step="0.01" id="e-${id}-base" value="${data.base_imponible ?? ''}">
+        </label>
+      </div>
+      <div class="campo-ocr">
+        <label>IVA %
+          <input type="number" step="0.01" id="e-${id}-ivapct" value="${data.iva_porcentaje ?? ''}">
+        </label>
+      </div>
+      <div class="campo-ocr">
+        <label>IVA (€)
+          <input type="number" step="0.01" id="e-${id}-ivaimp" value="${data.iva_importe ?? ''}">
+        </label>
+      </div>
+      <div class="campo-ocr">
+        <label>Importe total (€)
+          <input type="number" step="0.01" id="e-${id}-total" value="${data.importe ?? ''}">
+        </label>
+      </div>
+
+    </div>`;
+
+  document.getElementById('modalEditarFooter').innerHTML = `
+    <span class="msg" id="editarMsg"></span>
+    <button class="btn-outline btn-small" id="btn-reocr-${id}" onclick="reOCR(${id})">Re-leer OCR</button>
+    <button class="btn-verde" onclick="guardarEdicion(${id})">Guardar</button>
+    <button class="btn-outline" onclick="cerrarModalEditar()">Cancelar</button>`;
+
+  document.getElementById('modalEditarBg').classList.add('open');
+}
+
+function cerrarModalEditar() {
+  document.getElementById('modalEditarBg').classList.remove('open');
+}
+document.getElementById('modalEditarBg').addEventListener('click', e => {
+  if (e.target === document.getElementById('modalEditarBg')) cerrarModalEditar();
+});
+
+function rellenarCamposEdicion(id, data) {
+  const set = (campo, val) => {
+    const el = document.getElementById(`e-${id}-${campo}`);
+    if (el) el.value = val ?? '';
+  };
+  set('tipo',     data.tipo || '');
+  set('concepto', data.concepto || '');
+  set('deporte',  data.deporte || '');
+  set('equipo',   data.equipo_categoria || '');
+  set('proveedor', data.proveedor || '');
+  set('nif',      data.nif_proveedor || '');
+  set('numero',   data.numero_factura || '');
+  set('fecha',    data.fecha_factura ? data.fecha_factura.slice(0,10) : '');
+  set('base',     data.base_imponible ?? '');
+  set('ivapct',   data.iva_porcentaje ?? '');
+  set('ivaimp',   data.iva_importe ?? '');
+  set('total',    data.importe ?? '');
+}
+
+async function guardarEdicion(id) {
+  const msg = document.getElementById('editarMsg');
+  msg.textContent = 'Guardando...';
+  msg.className = 'msg';
+
+  const get = campo => document.getElementById(`e-${id}-${campo}`)?.value.trim() || null;
+  const getNum = campo => {
+    const v = document.getElementById(`e-${id}-${campo}`)?.value.trim();
+    return v !== '' && v != null ? parseFloat(v) : null;
+  };
+
+  const payload = {
+    tipo:             get('tipo'),
+    proveedor:        get('proveedor'),
+    nif_proveedor:    get('nif'),
+    numero_factura:   get('numero'),
+    fecha_factura:    get('fecha'),
+    concepto:         get('concepto'),
+    deporte:          get('deporte'),
+    equipo_categoria: get('equipo'),
+    base_imponible:   getNum('base'),
+    iva_porcentaje:   getNum('ivapct'),
+    iva_importe:      getNum('ivaimp'),
+    importe:          getNum('total'),
+  };
+
+  try {
+    const res = await fetch(`/api/facturas/${id}`, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: 'Bearer ' + (sessionStorage.getItem('token') || ''),
+      },
+      body: JSON.stringify(payload),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Error al guardar');
+    msg.textContent = '✓ Guardado';
+    msg.className = 'msg ok';
+    cargarFacturas(paginaActual);
+    setTimeout(() => cerrarModalEditar(), 800);
+  } catch (e) {
+    msg.textContent = e.message;
+    msg.className = 'msg err';
+  }
+}
+
+async function reOCR(id) {
+  const btn = document.getElementById(`btn-reocr-${id}`);
+  const msg = document.getElementById('editarMsg');
+  btn.disabled = true;
+  btn.textContent = 'Leyendo...';
+  msg.textContent = '';
+  try {
+    const res = await fetch(`/api/facturas/${id}/reocr`, {
+      method: 'POST',
+      headers: { Authorization: 'Bearer ' + (sessionStorage.getItem('token') || '') }
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error);
+    rellenarCamposEdicion(id, data);
+    btn.textContent = '✓ Re-leído';
+    msg.textContent = 'OCR actualizado. Revisa los campos y guarda.';
+    msg.className = 'msg ok';
+  } catch (e) {
+    btn.disabled = false;
+    btn.textContent = 'Re-leer OCR';
+    msg.textContent = e.message;
+    msg.className = 'msg err';
+  }
+}
 
 // ── Init ──────────────────────────────────────────────────────────────────────
 const jwtGuardado = sessionStorage.getItem('token');
