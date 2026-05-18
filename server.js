@@ -49,8 +49,9 @@ app.use('/api/dashboard', checkJwt, canRead,   require('./routes/dashboard'));
 app.use('/api/socios',    checkJwt, checkRole, require('./routes/socios'));
 app.use('/api/precios',   checkJwt, checkRole, require('./routes/precios'));
 app.use('/api/pagos',     checkJwt, checkRole, require('./routes/pagos'));
-app.use('/api/facturas',  checkJwt, checkRole, require('./routes/facturas'));
-app.use('/api/stripe',                         require('./routes/stripe'));
+app.use('/api/facturas',       checkJwt, checkRole, require('./routes/facturas'));
+app.use('/api/certificados',  checkJwt, canWrite,  require('./routes/certificados'));
+app.use('/api/stripe',                              require('./routes/stripe'));
 
 // Páginas públicas de inscripciones (sin autenticación)
 var EVENTOS_PUBLICOS = ['cuotas', '10k', 'donacion', 'maraton-futbolsala', 'copa-futbol', 'san-silvestre'];
@@ -69,6 +70,11 @@ EVENTOS_PUBLICOS.forEach(function (e) {
 // Página de facturas (requiere auth, resuelta en cliente)
 app.get('/facturas', (_req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'facturas.html'));
+});
+
+// Página de certificados de donación (requiere auth, resuelta en cliente)
+app.get('/certificados', (_req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'certificados.html'));
 });
 
 // Todas las rutas no-API y no-inscripciones devuelven el SPA
