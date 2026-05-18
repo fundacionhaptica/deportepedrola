@@ -70,12 +70,37 @@ uploads/            → PDFs subidos (gitignored salvo .gitkeep)
 - Vista autoservicio para socios (ver pagos pendientes y pagar).
 - Backups automáticos de la base de datos.
 
-## Despliegue vía SSH desde PowerShell
+## Despliegue en el NAS
 
-Para reiniciar el contenedor sin usar el Container Manager:
+**Proyecto en Container Manager:** `club` → `/volume1/docker/club/new/`
+
+### Regla crítica de despliegue
+
+**NUNCA usar `docker stop`, `docker rm` ni `docker restart` directamente sobre contenedores individuales.** Esto crea contenedores huérfanos que el Container Manager no puede gestionar.
+
+Siempre operar desde el directorio del proyecto con `docker compose`:
+
+```bash
+# Tras cambios de código (sin tocar package.json):
+docker compose -f /volume1/docker/club/new/docker-compose.yml up -d
+
+# Tras cambios en package.json o Dockerfile:
+docker compose -f /volume1/docker/club/new/docker-compose.yml up -d --build
+
+# Tras cambios en db/schema.sql (la migración también corre al arrancar, pero para forzarla):
+docker compose -f /volume1/docker/club/new/docker-compose.yml exec app npm run migrate
+```
+
+### Secuencia de deploy tras merge a main
+
+1. `git pull origin main` (cwd: `/volume1/docker/club/new`)
+2. `docker compose -f /volume1/docker/club/new/docker-compose.yml up -d --build`
+3. Verificar logs: `docker compose -f /volume1/docker/club/new/docker-compose.yml logs app --tail 20`
+
+### Vía SSH desde PowerShell
 
 ```powershell
-ssh jaime@MaJaNAS "sudo docker compose -f /volume1/docker/club/new/docker-compose.yml up -d --build"
+ssh jaime@MaJaNAS "cd /volume1/docker/club/new && git pull origin main && docker compose up -d --build"
 ```
 
 ## Idioma
