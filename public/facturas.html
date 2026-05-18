@@ -538,10 +538,10 @@ function rellenarTarjetaOCR(tarjeta, r) {
 }
 
 async function cargarPreview(id, nombre) {
-  const token = sessionStorage.getItem('token') || '';
+  const jwt = sessionStorage.getItem('token') || '';
   try {
     const res = await fetch(`/api/facturas/${id}/archivo`, {
-      headers: { Authorization: `Bearer ${token}` }
+      headers: { Authorization: `Bearer ${jwt}` }
     });
     if (!res.ok) return;
     const blob = await res.blob();
