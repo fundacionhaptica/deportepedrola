@@ -9,17 +9,18 @@ const ACTIVIDADES = [
   'trail','voleibol','dirigidas',
 ];
 
-// GET /api/precios — devuelve precios actuales de todas las actividades
+// GET /api/precios — devuelve precios y configuración de todas las actividades
 router.get('/', async (_req, res) => {
-  const { rows } = await pool.query(
-    'SELECT actividad, precio_regular, precio_jjee FROM precios_actividades ORDER BY actividad'
-  );
+  const { rows } = await pool.query(`
+    SELECT actividad, precio_regular, precio_jjee, requiere_autobus, precio_con_autobus
+    FROM precios_actividades ORDER BY actividad
+  `);
   res.json(rows);
 });
 
-// PUT /api/precios — guarda todos los precios y recalcula cuotas
+// PUT /api/precios — guarda precios y recalcula cuotas (compatibilidad con lógica antigua)
 router.put('/', async (req, res) => {
-  const { precios } = req.body; // [{ actividad, precio_regular, precio_jjee }, ...]
+  const { precios } = req.body;
   if (!Array.isArray(precios)) return res.status(400).json({ error: 'Se esperaba un array de precios' });
 
   const client = await pool.connect();
@@ -29,16 +30,25 @@ router.put('/', async (req, res) => {
     for (const p of precios) {
       if (!ACTIVIDADES.includes(p.actividad)) continue;
       await client.query(`
-        INSERT INTO precios_actividades (actividad, precio_regular, precio_jjee, updated_at)
-        VALUES ($1, $2, $3, NOW())
+        INSERT INTO precios_actividades
+          (actividad, precio_regular, precio_jjee, requiere_autobus, precio_con_autobus, updated_at)
+        VALUES ($1, $2, $3, $4, $5, NOW())
         ON CONFLICT (actividad) DO UPDATE SET
-          precio_regular = EXCLUDED.precio_regular,
-          precio_jjee    = EXCLUDED.precio_jjee,
-          updated_at     = NOW()
-      `, [p.actividad, p.precio_regular || 0, p.precio_jjee ?? null]);
+          precio_regular    = EXCLUDED.precio_regular,
+          precio_jjee       = EXCLUDED.precio_jjee,
+          requiere_autobus  = EXCLUDED.requiere_autobus,
+          precio_con_autobus= EXCLUDED.precio_con_autobus,
+          updated_at        = NOW()
+      `, [
+        p.actividad,
+        p.precio_regular ?? 0,
+        p.precio_jjee ?? null,
+        p.requiere_autobus ?? false,
+        p.precio_con_autobus ?? null,
+      ]);
     }
 
-    // Recalcular cuota de todos los socios activos
+    // Recalcular cuota legacy (campo socios.cuota) para compatibilidad
     const { rows: preciosRows } = await client.query(
       'SELECT actividad, precio_regular, precio_jjee FROM precios_actividades'
     );
@@ -55,7 +65,6 @@ router.put('/', async (req, res) => {
 
     const hoy = new Date();
     for (const s of socios) {
-      // JJEE: flag manual OR menor de 16 años
       let esJjee = s.es_jjee;
       if (!esJjee && s.fecha_nacimiento) {
         const nac = new Date(s.fecha_nacimiento);
@@ -84,6 +93,33 @@ router.put('/', async (req, res) => {
   } finally {
     client.release();
   }
+});
+
+// GET /api/precios/fichas?temporada=2025/2026
+router.get('/fichas', async (req, res) => {
+  const temporada = req.query.temporada || '2025/2026';
+  const { rows } = await pool.query(
+    'SELECT * FROM fichas_deportivas WHERE temporada = $1 ORDER BY deporte, categoria',
+    [temporada]
+  );
+  res.json(rows);
+});
+
+// PUT /api/precios/fichas — guarda precios de fichas federativas
+router.put('/fichas', async (req, res) => {
+  const { fichas, temporada = '2025/2026' } = req.body;
+  if (!Array.isArray(fichas)) return res.status(400).json({ error: 'Se esperaba un array de fichas' });
+
+  for (const f of fichas) {
+    if (!f.deporte || !f.categoria) continue;
+    await pool.query(`
+      INSERT INTO fichas_deportivas (deporte, temporada, categoria, precio)
+      VALUES ($1, $2, $3, $4)
+      ON CONFLICT (deporte, temporada, categoria) DO UPDATE SET precio = EXCLUDED.precio
+    `, [f.deporte, temporada, f.categoria, f.precio ?? 0]);
+  }
+
+  res.json({ ok: true });
 });
 
 module.exports = router;
