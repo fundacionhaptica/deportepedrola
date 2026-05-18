@@ -46,6 +46,7 @@ app.use('/api', normalizarAuthHeader);
 app.use('/api/auth',          require('./routes/auth'));
 app.use('/api/inscripciones', require('./routes/inscripciones'));
 app.use('/api/dashboard', checkJwt, canRead,   require('./routes/dashboard'));
+app.use('/api/gastos',   checkJwt, canRead,   require('./routes/gastos-dashboard'));
 app.use('/api/socios',    checkJwt, checkRole, require('./routes/socios'));
 app.use('/api/precios',   checkJwt, checkRole, require('./routes/precios'));
 app.use('/api/pagos',     checkJwt, checkRole, require('./routes/pagos'));
@@ -76,6 +77,11 @@ app.get('/facturas', (_req, res) => {
 // Página de certificados de donación (requiere auth, resuelta en cliente)
 app.get('/certificados', (_req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'certificados.html'));
+});
+
+// Dashboard de gastos (requiere auth, resuelta en cliente)
+app.get('/gastos', (_req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'gastos.html'));
 });
 
 // Todas las rutas no-API y no-inscripciones devuelven el SPA
