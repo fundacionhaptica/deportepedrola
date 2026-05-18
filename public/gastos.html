@@ -272,61 +272,51 @@
 'use strict';
 
 /* ─── Auth ────────────────────────────────────────────────── */
-const AUTH_URL = typeof AUTH0_DOMAIN !== 'undefined'
-  ? `https://${AUTH0_DOMAIN}`
-  : window._AUTH_URL || '';
-
-function getToken()    { return localStorage.getItem('club_token'); }
-function setToken(t)   { localStorage.setItem('club_token', t); }
-function removeToken() { localStorage.removeItem('club_token'); }
-function getNombre()   { return localStorage.getItem('club_nombre') || '—'; }
-function setNombre(n)  { localStorage.setItem('club_nombre', n); }
-
 async function apiGet(url) {
-  const token = getToken();
-  const headers = token
-    ? { 'Authorization': `Bearer ${token}`, 'X-Club-Token': token }
-    : {};
-  const r = await fetch(url, { headers });
-  if (r.status === 401) { logout(); throw new Error('No autenticado'); }
+  const jwt = sessionStorage.getItem('token');
+  const r   = await fetch(url, {
+    headers: { 'Authorization': 'Bearer ' + jwt, 'X-Club-Token': jwt },
+  });
+  if (r.status === 401) { doLogout(); throw new Error('No autenticado'); }
   if (!r.ok) { const e = await r.json().catch(() => ({})); throw new Error(e.error || `HTTP ${r.status}`); }
   return r.json();
 }
 
-async function login() {
-  const usuario  = document.getElementById('inputUsuario').value.trim();
-  const password = document.getElementById('inputPassword').value;
-  const errEl    = document.getElementById('loginError');
+async function doLogin() {
+  const usuario = document.getElementById('inputUsuario').value.trim();
+  const clave   = document.getElementById('inputPassword').value;
+  const errEl   = document.getElementById('loginError');
   errEl.textContent = '';
   try {
-    const r = await fetch('/api/auth/login', {
-      method: 'POST',
+    const res  = await fetch('/api/auth/login', {
+      method:  'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ usuario, password }),
+      body:    JSON.stringify({ usuario, clave }),
     });
-    const data = await r.json();
-    if (!r.ok) { errEl.textContent = data.error || 'Credenciales incorrectas'; return; }
-    setToken(data.token);
-    setNombre(data.nombre || usuario);
-    mostrarApp();
+    const data = await res.json();
+    if (!res.ok) { errEl.textContent = data.error || 'Credenciales incorrectas'; return; }
+    sessionStorage.setItem('token',   data.jwt);
+    sessionStorage.setItem('usuario', usuario);
+    window.setToken && window.setToken(data.jwt);
+    mostrarApp(usuario);
   } catch {
     errEl.textContent = 'Error de red';
   }
 }
 
-function logout() {
-  removeToken();
-  localStorage.removeItem('club_nombre');
+function doLogout() {
+  sessionStorage.clear();
+  window.setToken && window.setToken(null);
   document.getElementById('mainContent').style.display = 'none';
   document.getElementById('loginBanner').style.display = 'flex';
   document.getElementById('userArea').style.display    = 'none';
 }
 
-function mostrarApp() {
+function mostrarApp(usuario) {
   document.getElementById('loginBanner').style.display = 'none';
   document.getElementById('mainContent').style.display = 'block';
   document.getElementById('userArea').style.display    = 'flex';
-  document.getElementById('userName').textContent      = getNombre();
+  document.getElementById('userName').textContent      = usuario || sessionStorage.getItem('usuario') || '—';
   iniciarDashboard();
 }
 
@@ -566,11 +556,15 @@ function iniciarDashboard() {
   cargarDatos();
 }
 
-document.getElementById('btnLogin').addEventListener('click', login);
-document.getElementById('btnLogout').addEventListener('click', e => { e.preventDefault(); logout(); });
-document.getElementById('inputPassword').addEventListener('keydown', e => { if (e.key === 'Enter') login(); });
+document.getElementById('btnLogin').addEventListener('click', doLogin);
+document.getElementById('btnLogout').addEventListener('click', e => { e.preventDefault(); doLogout(); });
+document.getElementById('inputPassword').addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
 
-if (getToken()) mostrarApp();
+const jwtGuardado = sessionStorage.getItem('token');
+if (jwtGuardado) {
+  window.setToken && window.setToken(jwtGuardado);
+  mostrarApp();
+}
 </script>
 </body>
 </html>
