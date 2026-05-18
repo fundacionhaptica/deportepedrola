@@ -29,7 +29,7 @@ const PORT = process.env.PORT || 3000;
 // Webhook Stripe: raw body ANTES de express.json() — ver CLAUDE.md regla 3
 app.use('/api/stripe/webhook', express.raw({ type: 'application/json' }));
 
-app.use(express.json());
+app.use(express.json({ limit: '10mb' }));
 app.use(express.static(path.join(__dirname, 'public')));
 
 // Logger temporal: todas las peticiones a /api con su header de auth
