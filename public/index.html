@@ -632,7 +632,7 @@ function renderFilasSocios(socios) {
       ? `<span class="badge badge-verde">Sí${s.pagado_metodo ? ' ('+s.pagado_metodo+')' : ''}</span>`
       : '<span class="badge badge-rojo">No</span>';
     return `<tr style="${s.activo ? '' : 'opacity:.45'}">
-      <td style="color:#aaa">${s.id}</td>
+      <td style="color:#aaa">${s.numero_socio ?? s.id}</td>
       <td><a href="#" style="color:var(--negro);font-weight:600;text-decoration:none"
              onclick="abrirModal(${s.id});return false">
         ${escHtml(s.apellidos ? s.apellidos+', '+s.nombre : s.nombre)}
@@ -789,6 +789,24 @@ function mapearFila(row) {
     return null;
   }
   function bool(names) { const v = col(names); return v && v.toUpperCase() !== 'NO' && v !== '0' && v !== 'FALSE'; }
+  function fecha(names) {
+    const normNames = names.map(normCab);
+    for (const normN of normNames) {
+      const k = Object.keys(row).find(k => normCab(k) === normN);
+      if (k && row[k] != null) {
+        const v = row[k];
+        if (v instanceof Date) return v.toISOString().slice(0, 10);
+        if (typeof v === 'number' && v > 1) {
+          // Serial date de Excel → Date JS (base 1/1/1900)
+          const d = new Date(Math.round((v - 25569) * 86400 * 1000));
+          return d.toISOString().slice(0, 10);
+        }
+        const s = String(v).trim();
+        return s || null;
+      }
+    }
+    return null;
+  }
 
   return {
     numero_socio:    col(['Nº','NÚM','NUM','NÚMERO SOCIO','NUMERO SOCIO']) ? parseInt(col(['Nº','NÚM','NUM','NÚMERO SOCIO','NUMERO SOCIO']), 10) || null : null,
@@ -797,7 +815,7 @@ function mapearFila(row) {
     apellidos:       col(['APELLIDOS']),
     email:           col(['DIRECCIÓN DE CORREO ELECTRÓNICO','DIRECCION DE CORREO ELECTRONICO','EMAIL','E-MAIL','CORREO','CORREO ELECTRONICO','CORREO ELECTRÓNICO']),
     dni:             col(['DNI DEL ALUMNO/A CON LETRA (SI NO TIENE DNI CONTESTAR NO TIENE)','DNI DEL ALUMNO/A','DNI']),
-    fecha_nacimiento:col(['FECHA DE NACIMIENTO']),
+    fecha_nacimiento:fecha(['FECHA DE NACIMIENTO']),
     domicilio:       col(['DOMICILIO']),
     localidad:       col(['LOCALIDAD']),
     codigo_postal:   col(['CÓDIGO POSTAL','CODIGO POSTAL','CP']),
@@ -841,8 +859,12 @@ async function importarFilas(filas) {
     mostrarAvisoSocios(msg, r.errores.length > 0);
     const el = document.getElementById('csvResultado');
     el.style.display = 'block';
+    const erroresMostrar = r.errores.slice(0, 10);
     el.innerHTML = `<strong>${msg}</strong>` +
-      (r.errores.length ? '<br>' + r.errores.map(e => escHtml(e.ref + ': ' + e.motivo)).join('<br>') : '');
+      (r.errores.length
+        ? '<br><small>' + erroresMostrar.map(e => escHtml('Nº' + e.ref + ': ' + e.motivo)).join('<br>') +
+          (r.errores.length > 10 ? `<br>… y ${r.errores.length - 10} más` : '') + '</small>'
+        : '');
     await cargarSocios();
   } catch (err) {
     mostrarAvisoSocios('Error al importar: ' + err.message, true);
@@ -856,7 +878,7 @@ function procesarArchivo(file) {
     r.onload = ev => {
       const wb = XLSX.read(ev.target.result, { type: 'string' });
       const ws = wb.Sheets[wb.SheetNames[0]];
-      importarFilas(XLSX.utils.sheet_to_json(ws, { defval: null }));
+      importarFilas(XLSX.utils.sheet_to_json(ws, { defval: null, cellDates: true }));
     };
     r.readAsText(file);
   } else {
@@ -864,7 +886,7 @@ function procesarArchivo(file) {
     r.onload = ev => {
       const wb = XLSX.read(ev.target.result, { type: 'array' });
       const ws = wb.Sheets[wb.SheetNames[0]];
-      importarFilas(XLSX.utils.sheet_to_json(ws, { defval: null }));
+      importarFilas(XLSX.utils.sheet_to_json(ws, { defval: null, cellDates: true }));
     };
     r.readAsArrayBuffer(file);
   }
