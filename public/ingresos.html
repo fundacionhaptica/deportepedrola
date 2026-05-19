@@ -3,12 +3,13 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Dashboard de Gastos · CDE Deporte Pedrola</title>
+  <title>Dashboard de Ingresos · CDE Deporte Pedrola</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
   <style>
     :root {
       --amarillo: #FFD400; --negro: #111; --verde: #2E7D32;
       --gris: #f4f4f4; --borde: #e0e0e0; --rojo: #c0392b;
+      --naranja: #e65100; --azul: #1565C0;
     }
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
@@ -50,7 +51,7 @@
     }
     .login-error { color: var(--rojo); font-size: .8rem; margin-top: .5rem; text-align: center; min-height: 1.2em; }
 
-    /* Filtros temporada */
+    /* Filtros */
     .filtros {
       background: #fff; border: 1px solid var(--borde); border-radius: 8px;
       padding: .8rem 1rem; display: flex; align-items: flex-end; gap: 1rem;
@@ -58,34 +59,33 @@
     }
     .filtros label { font-size: .78rem; font-weight: 700; color: #555;
                      display: flex; flex-direction: column; gap: .25rem; }
-    .filtros select, .filtros input[type="date"] {
+    .filtros select {
       padding: .38rem .55rem; border: 1px solid var(--borde); border-radius: 4px;
       font-size: .9rem; font-family: inherit; background: #fff;
     }
-    .filtros select:focus, .filtros input[type="date"]:focus {
-      outline: 2px solid var(--amarillo); border-color: transparent;
-    }
+    .filtros select:focus { outline: 2px solid var(--amarillo); border-color: transparent; }
     .btn-filtro {
       background: var(--amarillo); color: var(--negro); font-weight: 700;
       border: none; padding: .45rem 1.1rem; border-radius: 5px; cursor: pointer;
       font-size: .88rem;
     }
     .btn-filtro:hover { opacity: .85; }
-    #rangoPersonalizado { display: none; gap: 1rem; align-items: flex-end; flex-wrap: wrap; }
-    #rangoPersonalizado.visible { display: flex; }
 
     /* Cards resumen */
-    .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; margin-bottom: 1.5rem; }
-    @media (max-width: 600px) { .stats { grid-template-columns: 1fr 1fr; } }
+    .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; margin-bottom: 1.5rem; }
+    @media (max-width: 700px) { .stats { grid-template-columns: 1fr 1fr; } }
     .stat-card {
       background: #fff; border: 1px solid var(--borde); border-radius: 8px;
       padding: 1.1rem 1rem;
     }
     .stat-card .etiqueta { font-size: .68rem; font-weight: 700; text-transform: uppercase;
                            color: #888; margin-bottom: .3rem; }
-    .stat-card .valor { font-size: 1.9rem; font-weight: 700; }
-    .stat-card .valor.rojo { color: var(--rojo); }
-    .stat-card .valor.naranja { color: #e65100; }
+    .stat-card .valor { font-size: 1.7rem; font-weight: 700; }
+    .stat-card .valor.verde   { color: var(--verde); }
+    .stat-card .valor.rojo    { color: var(--rojo); }
+    .stat-card .valor.naranja { color: var(--naranja); }
+    .stat-card .valor.azul    { color: var(--azul); }
+    .stat-card .sub { font-size: .72rem; color: #888; margin-top: .15rem; }
 
     /* Grid de gráficos */
     .charts-grid {
@@ -102,9 +102,9 @@
       color: #888; margin-bottom: 1rem; font-weight: 700;
     }
     .chart-wrap { position: relative; height: 280px; }
-    .chart-wrap.tall { height: 340px; }
+    .chart-wrap.tall { height: 360px; }
 
-    /* Tabla equipos */
+    /* Tabla detalle */
     table { width: 100%; border-collapse: collapse; font-size: .86rem; }
     th {
       text-align: left; padding: .4rem .6rem; font-size: .68rem; color: #888;
@@ -113,10 +113,11 @@
     th.r, td.r { text-align: right; }
     td { padding: .5rem .6rem; border-bottom: 1px solid var(--borde); }
     tr:last-child td { border-bottom: none; }
-    .barra-inline {
+    .pct-bar {
       display: inline-block; height: 8px; border-radius: 4px;
-      background: var(--amarillo); vertical-align: middle; margin-right: .4rem;
+      background: var(--verde); vertical-align: middle; margin-right: .4rem;
     }
+    .pct-bar.pendiente { background: var(--naranja); }
 
     /* Spinner */
     .spinner {
@@ -141,7 +142,7 @@
 
 <header>
   <div>
-    <h1>Dashboard de Gastos <small>Club Deportivo Elemental Deporte Pedrola</small></h1>
+    <h1>Dashboard de Ingresos <small>Club Deportivo Elemental Deporte Pedrola</small></h1>
   </div>
   <div class="user" id="userArea" style="display:none">
     <span id="userName">—</span>
@@ -152,8 +153,8 @@
 <nav>
   <a href="/">Panel</a>
   <a href="/facturas">Facturas</a>
-  <a href="/gastos" class="activa">Gastos</a>
-  <a href="/ingresos">Ingresos</a>
+  <a href="/gastos">Gastos</a>
+  <a href="/ingresos" class="activa">Ingresos</a>
   <a href="/certificados">Certificados</a>
 </nav>
 
@@ -170,27 +171,15 @@
     </div>
   </div>
 
-  <!-- Contenido principal (visible tras login) -->
+  <!-- Contenido principal -->
   <div id="mainContent">
 
     <!-- Filtros -->
     <div class="filtros">
       <label>
         Temporada
-        <select id="selTemporada">
-          <!-- generado por JS -->
-        </select>
+        <select id="selTemporada"></select>
       </label>
-      <div id="rangoPersonalizado">
-        <label>
-          Desde
-          <input type="date" id="inputDesde">
-        </label>
-        <label>
-          Hasta
-          <input type="date" id="inputHasta">
-        </label>
-      </div>
       <button class="btn-filtro" id="btnAplicar">Aplicar</button>
     </div>
 
@@ -200,66 +189,87 @@
     <!-- Tarjetas resumen -->
     <div class="stats" id="statsArea">
       <div class="stat-card">
-        <div class="etiqueta">Total gastos</div>
-        <div class="valor rojo" id="statTotal">—</div>
+        <div class="etiqueta">Socios activos</div>
+        <div class="valor azul" id="statSocios">—</div>
+        <div class="sub" id="statSociosSub">—</div>
       </div>
       <div class="stat-card">
-        <div class="etiqueta">Nº facturas</div>
-        <div class="valor" id="statFacturas">—</div>
+        <div class="etiqueta">Total cuotas</div>
+        <div class="valor" id="statTotal">—</div>
+        <div class="sub" id="statCuotasSub">—</div>
       </div>
       <div class="stat-card">
-        <div class="etiqueta">Pendientes revisión</div>
-        <div class="valor naranja" id="statPendientes">—</div>
+        <div class="etiqueta">Cobrado</div>
+        <div class="valor verde" id="statPagado">—</div>
+        <div class="sub" id="statPagadoPct">—</div>
+      </div>
+      <div class="stat-card">
+        <div class="etiqueta">Pendiente</div>
+        <div class="valor naranja" id="statPendiente">—</div>
+        <div class="sub" id="statPendientePct">—</div>
       </div>
     </div>
 
-    <!-- Gráficos fila 1: donut deporte + barras tipo -->
+    <!-- Fila 1: socios por deporte + ingresos por deporte -->
     <div class="charts-grid">
       <div class="card">
-        <h2>Distribución por deporte</h2>
+        <h2>Socios por deporte</h2>
         <div class="chart-wrap">
-          <canvas id="chartDeporte"></canvas>
+          <canvas id="chartSociosDep"></canvas>
         </div>
       </div>
       <div class="card">
-        <h2>Gasto por tipo de concepto</h2>
+        <h2>Ingresos por deporte</h2>
+        <div class="chart-wrap">
+          <canvas id="chartIngresosDep"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <!-- Fila 2: cobrado vs pendiente por deporte (apilado) -->
+    <div class="charts-grid full">
+      <div class="card">
+        <h2>Cobrado vs pendiente por deporte</h2>
+        <div class="chart-wrap tall">
+          <canvas id="chartPagadoPendiente"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <!-- Fila 3: por categoría + por tipo -->
+    <div class="charts-grid">
+      <div class="card">
+        <h2>Ingresos por categoría (JJEE vs Regular)</h2>
+        <div class="chart-wrap">
+          <canvas id="chartCategoria"></canvas>
+        </div>
+      </div>
+      <div class="card">
+        <h2>Ingresos por tipo de cuota</h2>
         <div class="chart-wrap">
           <canvas id="chartTipo"></canvas>
         </div>
       </div>
     </div>
 
-    <!-- Gráfico fila 2: evolución mensual (ancho completo) -->
-    <div class="charts-grid full" style="margin-bottom:1.5rem">
+    <!-- Fila 4: tabla detalle -->
+    <div class="charts-grid full">
       <div class="card">
-        <h2>Evolución mensual de gastos</h2>
-        <div class="chart-wrap tall">
-          <canvas id="chartMensual"></canvas>
-        </div>
-      </div>
-    </div>
-
-    <!-- Gráficos fila 3: top proveedores + tabla equipos -->
-    <div class="charts-grid">
-      <div class="card">
-        <h2>Top 10 proveedores</h2>
-        <div class="chart-wrap tall">
-          <canvas id="chartProveedores"></canvas>
-        </div>
-      </div>
-      <div class="card">
-        <h2>Gasto por equipo / categoría</h2>
-        <div id="tablaEquipoWrap">
+        <h2>Detalle por deporte</h2>
+        <div style="overflow-x:auto">
           <table>
             <thead>
               <tr>
-                <th>Equipo / Categoría</th>
-                <th class="r">Total</th>
-                <th class="r">%</th>
+                <th>Deporte</th>
+                <th class="r">Socios</th>
+                <th class="r">Cuotas</th>
+                <th class="r">Cobrado</th>
+                <th class="r">Pendiente</th>
+                <th class="r">% Cobrado</th>
               </tr>
             </thead>
-            <tbody id="tablaEquipo">
-              <tr><td colspan="3" style="text-align:center;color:#aaa;padding:1.5rem">—</td></tr>
+            <tbody id="tablaDetalle">
+              <tr><td colspan="6" style="text-align:center;color:#aaa;padding:1.5rem">—</td></tr>
             </tbody>
           </table>
         </div>
@@ -298,7 +308,6 @@ async function doLogin() {
     if (!res.ok) { errEl.textContent = data.error || 'Credenciales incorrectas'; return; }
     sessionStorage.setItem('token',   data.jwt);
     sessionStorage.setItem('usuario', usuario);
-    window.setToken && window.setToken(data.jwt);
     mostrarApp(usuario);
   } catch {
     errEl.textContent = 'Error de red';
@@ -307,7 +316,6 @@ async function doLogin() {
 
 function doLogout() {
   sessionStorage.clear();
-  window.setToken && window.setToken(null);
   document.getElementById('mainContent').style.display = 'none';
   document.getElementById('loginBanner').style.display = 'flex';
   document.getElementById('userArea').style.display    = 'none';
@@ -323,59 +331,30 @@ function mostrarApp(usuario) {
 
 /* ─── Temporadas ──────────────────────────────────────────── */
 function generarTemporadas() {
-  const sel   = document.getElementById('selTemporada');
-  const hoy   = new Date();
-  const anyo  = hoy.getMonth() >= 8 ? hoy.getFullYear() : hoy.getFullYear() - 1;
-  const temps = [];
+  const sel  = document.getElementById('selTemporada');
+  const hoy  = new Date();
+  const anyo = hoy.getMonth() >= 8 ? hoy.getFullYear() : hoy.getFullYear() - 1;
   for (let i = 0; i < 4; i++) {
-    const a = anyo - i;
-    temps.push({ label: `${a}/${a + 1}`, desde: `${a}-09-01`, hasta: `${a + 1}-08-31` });
-  }
-  temps.push({ label: 'Todo', desde: '2000-01-01', hasta: new Date().toISOString().slice(0, 10) });
-  temps.push({ label: 'Personalizado', desde: '', hasta: '' });
-  temps.forEach(t => {
+    const a   = anyo - i;
     const opt = document.createElement('option');
-    opt.value = JSON.stringify({ desde: t.desde, hasta: t.hasta });
-    opt.textContent = t.label;
+    opt.value = `${a}/${a + 1}`;
+    opt.textContent = `${a}/${a + 1}`;
     sel.appendChild(opt);
-  });
-}
-
-function onTemporadaChange() {
-  const val   = JSON.parse(document.getElementById('selTemporada').value);
-  const rango = document.getElementById('rangoPersonalizado');
-  if (!val.desde) {
-    rango.classList.add('visible');
-    document.getElementById('inputDesde').value = '';
-    document.getElementById('inputHasta').value = '';
-  } else {
-    rango.classList.remove('visible');
   }
-}
-
-function getRango() {
-  const val = JSON.parse(document.getElementById('selTemporada').value);
-  if (val.desde) return val;
-  return {
-    desde: document.getElementById('inputDesde').value || '2000-01-01',
-    hasta: document.getElementById('inputHasta').value || new Date().toISOString().slice(0, 10),
-  };
 }
 
 /* ─── Paleta de colores ───────────────────────────────────── */
 const PALETA = [
-  '#FFD400','#111111','#2E7D32','#1565C0','#e65100',
-  '#6A1B9A','#00838F','#AD1457','#37474F','#F57F17',
-  '#558B2F','#283593','#BF360C','#4E342E','#00695C',
+  '#FFD400','#1565C0','#2E7D32','#e65100','#6A1B9A',
+  '#00838F','#AD1457','#37474F','#F57F17','#558B2F',
+  '#283593','#BF360C','#4E342E','#00695C','#111111',
 ];
-
 function colores(n) {
   return Array.from({ length: n }, (_, i) => PALETA[i % PALETA.length]);
 }
 
-/* ─── Instancias de charts (para destruirlos al recargar) ─── */
+/* ─── Charts ──────────────────────────────────────────────── */
 const charts = {};
-
 function crearOActualizar(id, config) {
   if (charts[id]) charts[id].destroy();
   const ctx = document.getElementById(id).getContext('2d');
@@ -383,14 +362,122 @@ function crearOActualizar(id, config) {
 }
 
 /* ─── Formateadores ───────────────────────────────────────── */
-const fmt = new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR', minimumFractionDigits: 2 });
+const fmt  = new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR', minimumFractionDigits: 2 });
 const fmtK = v => v >= 1000 ? (v / 1000).toFixed(1) + ' k€' : fmt.format(v);
+const num  = new Intl.NumberFormat('es-ES');
 
-/* ─── Render de gráficos ──────────────────────────────────── */
-function renderDeporte(datos) {
-  const labels  = datos.map(d => d.deporte || 'Sin clasificar');
+/* ─── Etiquetas legibles ──────────────────────────────────── */
+const NOMBRE_DEP = {
+  atletismo: 'Atletismo', baloncesto: 'Baloncesto', f7: 'Fútbol 7',
+  futbol: 'Fútbol', fs: 'Fútbol Sala', g_ritmica: 'G. Rítmica',
+  kenpo: 'Kenpo', kickboxing: 'Kickboxing', patinaje: 'Patinaje',
+  trail: 'Trail', voleibol: 'Voleibol', dirigidas: 'Act. Dirigidas',
+};
+const NOMBRE_TIPO = {
+  cuota_deporte:   'Cuota de deporte',
+  ficha_adicional: 'Ficha adicional',
+};
+const NOMBRE_CAT = {
+  jjee:    'JJEE (menores de 16)',
+  regular: 'Regular',
+  sin_cat: 'Sin categoría',
+};
+
+/* ─── Render ──────────────────────────────────────────────── */
+function renderSociosDep(datos) {
+  if (!datos.length) {
+    crearOActualizar('chartSociosDep', { type: 'bar', data: { labels: [], datasets: [] } });
+    return;
+  }
+  const labels  = datos.map(d => d.nombre);
+  const valores = datos.map(d => d.num_socios);
+  crearOActualizar('chartSociosDep', {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{
+        label: 'Socios',
+        data: valores,
+        backgroundColor: colores(labels.length),
+        borderRadius: 4,
+      }],
+    },
+    options: {
+      indexAxis: 'y', responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: { callbacks: { label: ctx => ` ${num.format(ctx.parsed.x)} socios` } },
+      },
+      scales: {
+        x: { ticks: { precision: 0 }, grid: { color: '#f0f0f0' } },
+        y: { ticks: { font: { size: 11 } } },
+      },
+    },
+  });
+}
+
+function renderIngresosDep(datos) {
+  if (!datos.length) {
+    crearOActualizar('chartIngresosDep', { type: 'doughnut', data: { labels: [], datasets: [] } });
+    return;
+  }
+  const labels  = datos.map(d => d.nombre);
+  const valores = datos.map(d => d.total);
+  crearOActualizar('chartIngresosDep', {
+    type: 'doughnut',
+    data: {
+      labels,
+      datasets: [{ data: valores, backgroundColor: colores(labels.length), borderWidth: 2, borderColor: '#fff' }],
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { position: 'right', labels: { font: { size: 11 }, padding: 10, boxWidth: 14 } },
+        tooltip: { callbacks: { label: ctx => ` ${ctx.label}: ${fmt.format(ctx.parsed)}` } },
+      },
+    },
+  });
+}
+
+function renderPagadoPendiente(datos) {
+  if (!datos.length) {
+    crearOActualizar('chartPagadoPendiente', { type: 'bar', data: { labels: [], datasets: [] } });
+    return;
+  }
+  const labels    = datos.map(d => d.nombre);
+  const pagado    = datos.map(d => d.pagado);
+  const pendiente = datos.map(d => d.pendiente);
+  crearOActualizar('chartPagadoPendiente', {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [
+        { label: 'Cobrado',   data: pagado,    backgroundColor: '#2E7D32', borderRadius: 4 },
+        { label: 'Pendiente', data: pendiente, backgroundColor: '#e65100', borderRadius: 4 },
+      ],
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { position: 'top' },
+        tooltip: { callbacks: { label: ctx => ` ${ctx.dataset.label}: ${fmt.format(ctx.parsed.y)}` } },
+      },
+      scales: {
+        x: { stacked: true, grid: { display: false } },
+        y: { stacked: true, ticks: { callback: v => fmtK(v) }, grid: { color: '#f0f0f0' } },
+      },
+    },
+  });
+}
+
+function renderCategoria(datos) {
+  if (!datos.length) {
+    crearOActualizar('chartCategoria', { type: 'doughnut', data: { labels: [], datasets: [] } });
+    return;
+  }
+  const labels  = datos.map(d => NOMBRE_CAT[d.categoria] || d.categoria);
   const valores = datos.map(d => parseFloat(d.total));
-  crearOActualizar('chartDeporte', {
+  crearOActualizar('chartCategoria', {
     type: 'doughnut',
     data: {
       labels,
@@ -407,7 +494,11 @@ function renderDeporte(datos) {
 }
 
 function renderTipo(datos) {
-  const labels  = datos.map(d => d.tipo);
+  if (!datos.length) {
+    crearOActualizar('chartTipo', { type: 'bar', data: { labels: [], datasets: [] } });
+    return;
+  }
+  const labels  = datos.map(d => NOMBRE_TIPO[d.tipo] || d.tipo);
   const valores = datos.map(d => parseFloat(d.total));
   crearOActualizar('chartTipo', {
     type: 'bar',
@@ -433,114 +524,58 @@ function renderTipo(datos) {
   });
 }
 
-function renderMensual(datos) {
-  const labels  = datos.map(d => d.mes);
-  const valores = datos.map(d => parseFloat(d.total));
-  crearOActualizar('chartMensual', {
-    type: 'bar',
-    data: {
-      labels,
-      datasets: [{
-        label: 'Gasto mensual',
-        data: valores,
-        backgroundColor: '#FFD400',
-        borderRadius: 4,
-      }],
-    },
-    options: {
-      responsive: true, maintainAspectRatio: false,
-      plugins: {
-        legend: { display: false },
-        tooltip: { callbacks: { label: ctx => ` ${fmt.format(ctx.parsed.y)}` } },
-      },
-      scales: {
-        x: { grid: { display: false } },
-        y: { ticks: { callback: v => fmtK(v) }, grid: { color: '#f0f0f0' } },
-      },
-    },
-  });
-}
-
-function renderProveedores(datos) {
-  const labels  = datos.map(d => d.proveedor);
-  const valores = datos.map(d => parseFloat(d.total));
-  crearOActualizar('chartProveedores', {
-    type: 'bar',
-    data: {
-      labels,
-      datasets: [{
-        data: valores,
-        backgroundColor: '#111111',
-        borderRadius: 4,
-      }],
-    },
-    options: {
-      indexAxis: 'y', responsive: true, maintainAspectRatio: false,
-      plugins: {
-        legend: { display: false },
-        tooltip: {
-          callbacks: {
-            label: (ctx) => {
-              const fila = datos[ctx.dataIndex];
-              return ` ${fmt.format(ctx.parsed.x)} (${fila.num_facturas} fact.)`;
-            },
-          },
-        },
-      },
-      scales: {
-        x: { ticks: { callback: v => fmtK(v) }, grid: { color: '#f0f0f0' } },
-        y: { ticks: { font: { size: 10 } } },
-      },
-    },
-  });
-}
-
-function renderEquipos(datos) {
-  const total = datos.reduce((s, d) => s + parseFloat(d.total), 0);
-  const tbody = document.getElementById('tablaEquipo');
+function renderTabla(datos) {
+  const tbody = document.getElementById('tablaDetalle');
   if (!datos.length) {
-    tbody.innerHTML = '<tr><td colspan="3" style="text-align:center;color:#aaa;padding:1.5rem">Sin datos</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:#aaa;padding:1.5rem">Sin cuotas en esta temporada</td></tr>';
     return;
   }
   tbody.innerHTML = datos.map(d => {
-    const t    = parseFloat(d.total);
-    const pct  = total > 0 ? (t / total * 100).toFixed(1) : '0.0';
-    const ancho = Math.max(4, Math.round(t / total * 120));
+    const pct = d.total > 0 ? (d.pagado / d.total * 100) : 0;
+    const ancho = Math.max(4, Math.round(pct * 1.2));
     return `<tr>
-      <td>
-        <span class="barra-inline" style="width:${ancho}px"></span>
-        ${d.equipo_categoria}
+      <td><strong>${d.nombre}</strong></td>
+      <td class="r">${num.format(d.num_socios)}</td>
+      <td class="r">${fmt.format(d.total)}</td>
+      <td class="r" style="color:var(--verde);font-weight:600">${fmt.format(d.pagado)}</td>
+      <td class="r" style="color:var(--naranja);font-weight:600">${fmt.format(d.pendiente)}</td>
+      <td class="r">
+        <span class="pct-bar" style="width:${ancho}px"></span>
+        ${pct.toFixed(1)} %
       </td>
-      <td class="r">${fmt.format(t)}</td>
-      <td class="r" style="color:#888">${pct} %</td>
     </tr>`;
   }).join('');
 }
 
-/* ─── Carga de datos ──────────────────────────────────────── */
+/* ─── Carga ───────────────────────────────────────────────── */
 async function cargarDatos() {
-  const { desde, hasta } = getRango();
-  const spinner  = document.getElementById('spinner');
-  const avisoErr = document.getElementById('avisoErr');
+  const temporada = document.getElementById('selTemporada').value;
+  const spinner   = document.getElementById('spinner');
+  const avisoErr  = document.getElementById('avisoErr');
   avisoErr.classList.remove('visible');
   spinner.classList.add('visible');
 
   try {
-    const data = await apiGet(`/api/gastos/resumen?desde=${desde}&hasta=${hasta}`);
+    const data = await apiGet(`/api/ingresos/resumen?temporada=${encodeURIComponent(temporada)}`);
+    const t    = data.totales;
 
-    /* Cards */
-    const t = data.totales;
-    document.getElementById('statTotal').textContent     = fmt.format(parseFloat(t.total_gastos));
-    document.getElementById('statFacturas').textContent  = t.num_facturas;
-    document.getElementById('statPendientes').textContent = t.pendientes_revision;
+    document.getElementById('statSocios').textContent       = num.format(t.socios_activos);
+    document.getElementById('statSociosSub').textContent    = `${num.format(t.socios_jjee)} JJEE · ${num.format(t.socios_con_cuota)} con cuota`;
+    document.getElementById('statTotal').textContent        = fmt.format(t.total);
+    document.getElementById('statCuotasSub').textContent    = `${num.format(t.num_cuotas)} cuotas`;
+    document.getElementById('statPagado').textContent       = fmt.format(t.pagado);
+    document.getElementById('statPendiente').textContent    = fmt.format(t.pendiente);
+    const pctPag = t.total > 0 ? (t.pagado    / t.total * 100).toFixed(1) : '0.0';
+    const pctPen = t.total > 0 ? (t.pendiente / t.total * 100).toFixed(1) : '0.0';
+    document.getElementById('statPagadoPct').textContent    = `${pctPag} % del total`;
+    document.getElementById('statPendientePct').textContent = `${pctPen} % del total`;
 
-    /* Gráficos */
-    if (data.por_deporte.length)     renderDeporte(data.por_deporte);
-    if (data.por_tipo.length)        renderTipo(data.por_tipo);
-    if (data.por_mes.length)         renderMensual(data.por_mes);
-    if (data.top_proveedores.length) renderProveedores(data.top_proveedores);
-    renderEquipos(data.por_equipo);
-
+    renderSociosDep(data.por_deporte_socios);
+    renderIngresosDep(data.por_deporte_ingresos);
+    renderPagadoPendiente(data.por_deporte_ingresos);
+    renderCategoria(data.por_categoria);
+    renderTipo(data.por_tipo);
+    renderTabla(data.por_deporte_ingresos);
   } catch (err) {
     avisoErr.textContent = `Error al cargar datos: ${err.message}`;
     avisoErr.classList.add('visible');
@@ -552,8 +587,8 @@ async function cargarDatos() {
 /* ─── Bootstrap ───────────────────────────────────────────── */
 function iniciarDashboard() {
   generarTemporadas();
-  document.getElementById('selTemporada').addEventListener('change', onTemporadaChange);
   document.getElementById('btnAplicar').addEventListener('click', cargarDatos);
+  document.getElementById('selTemporada').addEventListener('change', cargarDatos);
   cargarDatos();
 }
 
@@ -562,10 +597,7 @@ document.getElementById('btnLogout').addEventListener('click', e => { e.preventD
 document.getElementById('inputPassword').addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
 
 const jwtGuardado = sessionStorage.getItem('token');
-if (jwtGuardado) {
-  window.setToken && window.setToken(jwtGuardado);
-  mostrarApp();
-}
+if (jwtGuardado) mostrarApp();
 </script>
 </body>
 </html>
