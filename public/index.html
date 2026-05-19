@@ -176,6 +176,36 @@
     .modal-grid dd { margin: 0 0 .4rem; }
     .modal-acts { display: flex; flex-wrap: wrap; gap: 4px; margin-top: .4rem; }
     .modal-close { float: right; background: none; border: none; font-size: 1.3rem; cursor: pointer; }
+    /* Formulario de edición dentro del modal */
+    .modal-form { display: grid; grid-template-columns: 1fr 1fr; gap: .45rem .8rem; margin-bottom: .8rem; }
+    .modal-form label { font-size: .78rem; font-weight: 600; color: #555;
+                        display: flex; flex-direction: column; gap: .18rem; }
+    .modal-form input, .modal-form select {
+      padding: .3rem .5rem; border: 1px solid var(--borde); border-radius: 4px;
+      font-size: .84rem; font-family: inherit; width: 100%;
+    }
+    .modal-form input:focus, .modal-form select:focus { outline: 2px solid var(--amarillo); border-color: transparent; }
+    .modal-form .full { grid-column: 1 / -1; }
+    .acts-edit { display: flex; flex-wrap: wrap; gap: .35rem .7rem; margin-top: .3rem; }
+    .acts-edit-item { display: flex; flex-direction: row; align-items: center; gap: .3rem;
+                      font-weight: normal; color: #333; font-size: .82rem; cursor: pointer; }
+    /* Barra de selección múltiple */
+    #barraSeleccion {
+      display: none; background: #1565c0; color: #fff;
+      padding: .55rem 1rem; border-radius: 6px; margin-bottom: .8rem;
+      align-items: center; gap: 1rem; flex-wrap: wrap;
+    }
+    #barraSeleccion.visible { display: flex; }
+    #barraSeleccion span { font-size: .9rem; font-weight: 600; }
+    .btn-borrar-sel {
+      background: var(--rojo); color: #fff; border: none; border-radius: 4px;
+      padding: .35rem .85rem; font-size: .84rem; font-weight: 700; cursor: pointer;
+    }
+    .btn-borrar-sel:hover { opacity: .85; }
+    .btn-cancel-sel {
+      background: rgba(255,255,255,.2); color: #fff; border: none; border-radius: 4px;
+      padding: .35rem .85rem; font-size: .84rem; cursor: pointer;
+    }
 
     #loginBanner { display: none; }
 
@@ -323,10 +353,18 @@
               style="padding:.35rem .6rem;border:1px solid var(--borde);border-radius:5px;font-size:.85rem;width:220px">
           </div>
           <div id="spinnerSocios" class="spinner"></div>
+          <!-- Barra de acciones cuando hay socios seleccionados -->
+          <div id="barraSeleccion">
+            <span><span id="numSeleccionados">0</span> seleccionados</span>
+            <button class="btn-borrar-sel" onclick="borrarSeleccionados()">🗑 Eliminar seleccionados</button>
+            <button class="btn-cancel-sel" onclick="limpiarSeleccion()">Cancelar</button>
+          </div>
           <div class="tabla-socios-wrap">
           <table>
             <thead>
               <tr>
+                <th><input type="checkbox" id="chkTodos" title="Seleccionar todos"
+                    onchange="toggleTodos(this.checked)" style="cursor:pointer"></th>
                 <th>#</th>
                 <th>Nombre</th>
                 <th>Email</th>
@@ -621,7 +659,7 @@ function renderFilasSocios(socios) {
   const tbody = document.getElementById('tablaSocios');
   document.getElementById('totalSocios').textContent = socios.length;
   if (!socios.length) {
-    tbody.innerHTML = '<tr><td colspan="8" style="color:#aaa;text-align:center;padding:1rem">Sin socios.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="9" style="color:#aaa;text-align:center;padding:1rem">Sin socios.</td></tr>';
     return;
   }
   tbody.innerHTML = socios.map(s => {
@@ -632,13 +670,14 @@ function renderFilasSocios(socios) {
     const pagadoBadge = s.pagado
       ? `<span class="badge badge-verde">Sí${s.pagado_metodo ? ' ('+s.pagado_metodo+')' : ''}</span>`
       : '<span class="badge badge-rojo">No</span>';
-    return `<tr style="${s.activo ? '' : 'opacity:.45'}">
+    return `<tr style="${s.activo ? '' : 'opacity:.45'}" data-id="${s.id}">
+      <td><input type="checkbox" class="chk-socio" data-id="${s.id}" onchange="actualizarSeleccion()"></td>
       <td style="color:#aaa">${s.numero_socio ?? s.id}</td>
       <td><a href="#" style="color:var(--negro);font-weight:600;text-decoration:none"
              onclick="abrirModal(${s.id});return false">
         ${escHtml(s.apellidos ? s.apellidos+', '+s.nombre : s.nombre)}
       </a></td>
-      <td style="font-size:.78rem;color:#666">${escHtml(s.email)}</td>
+      <td style="font-size:.78rem;color:#666">${escHtml(s.email || '')}</td>
       <td>${actsHtml}</td>
       <td style="font-weight:700;white-space:nowrap">${fmtCuota(s.cuota)}</td>
       <td>${pagadoBadge}</td>
@@ -664,6 +703,47 @@ window.cargarSocios = async function () {
     mostrarAvisoSocios('Error al cargar socios: ' + e.message, true);
   } finally {
     document.getElementById('spinnerSocios').style.display = 'none';
+  }
+};
+
+// ── Selección múltiple y borrado ─────────────────────────────────────────────
+function seleccionados() {
+  return [...document.querySelectorAll('.chk-socio:checked')].map(c => parseInt(c.dataset.id, 10));
+}
+
+window.actualizarSeleccion = function () {
+  const ids = seleccionados();
+  const barra = document.getElementById('barraSeleccion');
+  document.getElementById('numSeleccionados').textContent = ids.length;
+  barra.classList.toggle('visible', ids.length > 0);
+  const total = document.querySelectorAll('.chk-socio').length;
+  const chkTodos = document.getElementById('chkTodos');
+  if (chkTodos) chkTodos.indeterminate = ids.length > 0 && ids.length < total;
+  if (chkTodos) chkTodos.checked = ids.length > 0 && ids.length === total;
+};
+
+window.toggleTodos = function (checked) {
+  document.querySelectorAll('.chk-socio').forEach(c => { c.checked = checked; });
+  actualizarSeleccion();
+};
+
+window.limpiarSeleccion = function () {
+  document.querySelectorAll('.chk-socio').forEach(c => { c.checked = false; });
+  const chkTodos = document.getElementById('chkTodos');
+  if (chkTodos) { chkTodos.checked = false; chkTodos.indeterminate = false; }
+  actualizarSeleccion();
+};
+
+window.borrarSeleccionados = async function () {
+  const ids = seleccionados();
+  if (!ids.length) return;
+  if (!confirm(`¿Eliminar definitivamente ${ids.length} socio(s)? Esta acción no se puede deshacer.`)) return;
+  try {
+    await window.api('/api/socios', { method: 'DELETE', body: JSON.stringify({ ids }) });
+    mostrarAvisoSocios(`${ids.length} socio(s) eliminado(s).`, false);
+    await cargarSocios();
+  } catch (err) {
+    mostrarAvisoSocios('Error al eliminar: ' + err.message, true);
   }
 };
 
@@ -701,10 +781,12 @@ window.abrirModal = function (id) {
     <dt>Rol</dt><dd>${s.rol}</dd>
     <dt>Estado</dt><dd>${s.activo ? 'Activo' : 'Baja'}</dd>
   `;
-  document.getElementById('modalAcciones').innerHTML = s.pagado
+  document.getElementById('modalAcciones').innerHTML = (s.pagado
     ? `<button class="btn-sm btn-baja" onclick="marcarPagado(${s.id},false)">Desmarcar pagado</button>`
     : `<button class="btn-sm btn-alta" style="padding:.4rem .9rem;font-size:.82rem"
-         onclick="elegirMetodoPago(${s.id})">Marcar como pagado…</button>`;
+         onclick="elegirMetodoPago(${s.id})">Marcar como pagado…</button>`) +
+    `<button class="btn-sm" style="background:#1565c0;color:#fff;padding:.4rem .9rem;font-size:.82rem"
+       onclick="editarSocio(${s.id})">✏ Editar</button>`;
   document.getElementById('modalSocio').style.display = 'flex';
 };
 
@@ -747,6 +829,88 @@ window.toggleActivo = async function (id, nuevoEstado) {
     await cargarSocios();
   } catch (e) {
     mostrarAvisoSocios('Error: ' + e.message, true);
+  }
+};
+
+const ACTS_EDIT = [
+  ['act_atletismo','Atletismo'],['act_baloncesto','Baloncesto'],['act_f7','Fútbol 7'],
+  ['act_futbol','Fútbol'],['act_fs','Fútbol Sala'],['act_g_ritmica','G. Rítmica'],
+  ['act_kenpo','Kenpo'],['act_kickboxing','Kickboxing'],['act_patinaje','Patinaje'],
+  ['act_trail','Trail'],['act_voleibol','Voleibol'],['act_dirigidas','Dirigidas'],
+];
+
+window.editarSocio = function (id) {
+  const s = _sociosCache.find(x => x.id === id);
+  if (!s) return;
+  const fnac = s.fecha_nacimiento ? String(s.fecha_nacimiento).slice(0, 10) : '';
+  const actsHtml = ACTS_EDIT.map(([k, lbl]) =>
+    `<label class="acts-edit-item"><input type="checkbox" id="e_${k}"${s[k] ? ' checked' : ''}> ${escHtml(lbl)}</label>`
+  ).join('');
+  document.getElementById('modalDetalle').innerHTML = `
+    <form id="formEditSocio" onsubmit="guardarEdicionSocio(event,${id})" style="width:100%;grid-column:1/-1">
+      <div class="modal-form">
+        <label>Nombre *<input id="e_nombre" type="text" value="${escHtml(s.nombre||'')}" required></label>
+        <label>Apellidos<input id="e_apellidos" type="text" value="${escHtml(s.apellidos||'')}"></label>
+        <label>Email<input id="e_email" type="email" value="${escHtml(s.email||'')}"></label>
+        <label>DNI<input id="e_dni" type="text" value="${escHtml(s.dni||'')}"></label>
+        <label>F. Nacimiento<input id="e_fecha_nac" type="date" value="${fnac}"></label>
+        <label>Teléfono<input id="e_telefono" type="text" value="${escHtml(s.telefono||'')}"></label>
+        <label class="full">Domicilio<input id="e_domicilio" type="text" value="${escHtml(s.domicilio||'')}"></label>
+        <label>Localidad<input id="e_localidad" type="text" value="${escHtml(s.localidad||'')}"></label>
+        <label>C.P.<input id="e_cp" type="text" value="${escHtml(s.codigo_postal||'')}"></label>
+        <label class="full" style="font-family:monospace">IBAN<input id="e_iban" type="text" value="${escHtml(s.numero_cuenta||'')}" style="font-family:monospace"></label>
+        <label>Apellidos Tutor<input id="e_ap_tutor" type="text" value="${escHtml(s.apellidos_tutor||'')}"></label>
+        <label>DNI Tutor<input id="e_dni_tutor" type="text" value="${escHtml(s.dni_tutor||'')}"></label>
+        <label>Tlf. Tutor<input id="e_tlf_tutor" type="text" value="${escHtml(s.telefono_tutor||'')}"></label>
+        <label>Rol<select id="e_rol">
+          <option value="socio"${s.rol==='socio'?' selected':''}>Socio</option>
+          <option value="junta"${s.rol==='junta'?' selected':''}>Junta</option>
+          <option value="admin"${s.rol==='admin'?' selected':''}>Admin</option>
+        </select></label>
+        <div class="full">
+          <div style="font-size:.75rem;font-weight:600;color:#888;text-transform:uppercase;margin-bottom:.4rem">Actividades</div>
+          <div class="acts-edit">${actsHtml}</div>
+        </div>
+      </div>
+      <div style="display:flex;gap:.6rem;margin-top:.8rem">
+        <button type="submit" class="btn-primary" style="flex:1;padding:.45rem">Guardar cambios</button>
+        <button type="button" class="btn-sm" style="padding:.4rem .9rem"
+          onclick="abrirModal(${id})">Cancelar</button>
+      </div>
+    </form>`;
+  document.getElementById('modalAcciones').innerHTML = '';
+};
+
+window.guardarEdicionSocio = async function (e, id) {
+  e.preventDefault();
+  const body = {
+    nombre:          document.getElementById('e_nombre').value.trim(),
+    apellidos:       document.getElementById('e_apellidos').value.trim() || null,
+    email:           document.getElementById('e_email').value.trim() || null,
+    dni:             document.getElementById('e_dni').value.trim() || null,
+    fecha_nacimiento:document.getElementById('e_fecha_nac').value || null,
+    telefono:        document.getElementById('e_telefono').value.trim() || null,
+    domicilio:       document.getElementById('e_domicilio').value.trim() || null,
+    localidad:       document.getElementById('e_localidad').value.trim() || null,
+    codigo_postal:   document.getElementById('e_cp').value.trim() || null,
+    numero_cuenta:   document.getElementById('e_iban').value.trim() || null,
+    apellidos_tutor: document.getElementById('e_ap_tutor').value.trim() || null,
+    dni_tutor:       document.getElementById('e_dni_tutor').value.trim() || null,
+    telefono_tutor:  document.getElementById('e_tlf_tutor').value.trim() || null,
+    rol:             document.getElementById('e_rol').value,
+  };
+  for (const [k] of ACTS_EDIT) body[k] = document.getElementById('e_' + k).checked;
+
+  const btn = e.target.querySelector('[type=submit]');
+  btn.disabled = true; btn.textContent = 'Guardando…';
+  try {
+    await window.api(`/api/socios/${id}`, { method: 'PATCH', body: JSON.stringify(body) });
+    document.getElementById('modalSocio').style.display = 'none';
+    mostrarAvisoSocios('Socio actualizado.', false);
+    await cargarSocios();
+  } catch (err) {
+    mostrarAvisoSocios('Error al guardar: ' + err.message, true);
+    btn.disabled = false; btn.textContent = 'Guardar cambios';
   }
 };
 
