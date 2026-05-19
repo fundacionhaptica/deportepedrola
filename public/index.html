@@ -900,6 +900,14 @@ window.editarSocio = function (id) {
           <option value="junta"${s.rol==='junta'?' selected':''}>Junta</option>
           <option value="admin"${s.rol==='admin'?' selected':''}>Admin</option>
         </select></label>
+        <label>Nº Socio<input id="e_numero_socio" type="number" min="1" value="${s.numero_socio||''}"></label>
+        <label>Socio desde<input id="e_socio_desde" type="number" min="2000" max="2099" value="${s.socio_desde||2025}"></label>
+        <label>Cuota (€)<input id="e_cuota" type="number" step="0.01" min="0" value="${s.cuota||''}"></label>
+        <div class="full">
+          <label class="acts-edit-item" style="margin-bottom:.4rem">
+            <input type="checkbox" id="e_es_jjee"${s.es_jjee?' checked':''}> Es JJEE (forzar modalidad escolar independientemente de la edad)
+          </label>
+        </div>
         <div class="full">
           <div style="font-size:.75rem;font-weight:600;color:#888;text-transform:uppercase;margin-bottom:.4rem">Actividades</div>
           <div class="acts-edit">${actsHtml}</div>
@@ -916,12 +924,29 @@ window.editarSocio = function (id) {
 
 window.guardarEdicionSocio = async function (e, id) {
   e.preventDefault();
+  const s = _sociosCache.find(x => x.id === id) || {};
+
+  // Detectar si cambian campos que afectan al cálculo de cuotas
+  const actsAntes  = ACTS_EDIT.map(([k]) => Boolean(s[k]));
+  const actsAhora  = ACTS_EDIT.map(([k]) => document.getElementById('e_' + k).checked);
+  const jjeeAntes  = Boolean(s.es_jjee);
+  const jjeeAhora  = document.getElementById('e_es_jjee').checked;
+  const fnacAntes  = s.fecha_nacimiento ? String(s.fecha_nacimiento).slice(0, 10) : '';
+  const fnacAhora  = document.getElementById('e_fecha_nac').value || '';
+  const recalcular = actsAntes.some((v, i) => v !== actsAhora[i])
+                     || jjeeAntes !== jjeeAhora
+                     || fnacAntes !== fnacAhora;
+
+  const cuotaVal  = document.getElementById('e_cuota').value;
+  const numSocio  = document.getElementById('e_numero_socio').value;
+  const socioDesde = document.getElementById('e_socio_desde').value;
+
   const body = {
     nombre:          document.getElementById('e_nombre').value.trim(),
     apellidos:       document.getElementById('e_apellidos').value.trim() || null,
     email:           document.getElementById('e_email').value.trim() || null,
     dni:             document.getElementById('e_dni').value.trim() || null,
-    fecha_nacimiento:document.getElementById('e_fecha_nac').value || null,
+    fecha_nacimiento:fnacAhora || null,
     telefono:        document.getElementById('e_telefono').value.trim() || null,
     domicilio:       document.getElementById('e_domicilio').value.trim() || null,
     localidad:       document.getElementById('e_localidad').value.trim() || null,
@@ -931,6 +956,10 @@ window.guardarEdicionSocio = async function (e, id) {
     dni_tutor:       document.getElementById('e_dni_tutor').value.trim() || null,
     telefono_tutor:  document.getElementById('e_tlf_tutor').value.trim() || null,
     rol:             document.getElementById('e_rol').value,
+    es_jjee:         jjeeAhora,
+    cuota:           cuotaVal ? parseFloat(cuotaVal) : null,
+    numero_socio:    numSocio ? parseInt(numSocio, 10) : null,
+    socio_desde:     socioDesde ? parseInt(socioDesde, 10) : 2025,
   };
   for (const [k] of ACTS_EDIT) body[k] = document.getElementById('e_' + k).checked;
 
@@ -938,8 +967,22 @@ window.guardarEdicionSocio = async function (e, id) {
   btn.disabled = true; btn.textContent = 'Guardando…';
   try {
     await window.api(`/api/socios/${id}`, { method: 'PATCH', body: JSON.stringify(body) });
-    document.getElementById('modalSocio').style.display = 'none';
-    mostrarAvisoSocios('Socio actualizado.', false);
+
+    if (recalcular) {
+      btn.textContent = 'Recalculando cuotas…';
+      const hoy = new Date();
+      const a   = hoy.getMonth() >= 8 ? hoy.getFullYear() : hoy.getFullYear() - 1;
+      const temporada = `${a}/${a + 1}`;
+      await window.api('/api/cuotas/generar', {
+        method: 'POST',
+        body:   JSON.stringify({ temporada, socio_id: id, sobreescribir: true }),
+      });
+      document.getElementById('modalSocio').style.display = 'none';
+      mostrarAvisoSocios(`Socio actualizado. Cuotas de ${temporada} recalculadas.`, false);
+    } else {
+      document.getElementById('modalSocio').style.display = 'none';
+      mostrarAvisoSocios('Socio actualizado.', false);
+    }
     await cargarSocios();
   } catch (err) {
     mostrarAvisoSocios('Error al guardar: ' + err.message, true);

@@ -65,14 +65,17 @@ router.get('/resumen', async (req, res) => {
 });
 
 // POST /api/cuotas/generar — genera cuotas para todos los socios activos de una temporada
+// Acepta `socio_id` para regenerar solo un socio concreto.
 router.post('/generar', async (req, res) => {
-  const { temporada = '2025/2026', sobreescribir = false } = req.body;
+  const { temporada = '2025/2026', sobreescribir = false, socio_id = null } = req.body;
 
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
 
-    if (sobreescribir) {
+    if (sobreescribir && socio_id) {
+      await client.query('DELETE FROM cuotas_socio WHERE temporada = $1 AND socio_id = $2', [temporada, socio_id]);
+    } else if (sobreescribir) {
       await client.query('DELETE FROM cuotas_socio WHERE temporada = $1', [temporada]);
     }
 
@@ -93,13 +96,18 @@ router.post('/generar', async (req, res) => {
       mapaFichas[f.deporte][f.categoria] = parseFloat(f.precio) || 0;
     }
 
-    const { rows: socios } = await client.query(`
-      SELECT id, fecha_nacimiento, es_jjee,
-        act_atletismo, act_baloncesto, act_f7, act_futbol, act_fs,
-        act_g_ritmica, act_kenpo, act_kickboxing, act_patinaje,
-        act_trail, act_voleibol, act_dirigidas
-      FROM socios WHERE activo = true
-    `);
+    const sociosQ = socio_id
+      ? `SELECT id, fecha_nacimiento, es_jjee,
+           act_atletismo, act_baloncesto, act_f7, act_futbol, act_fs,
+           act_g_ritmica, act_kenpo, act_kickboxing, act_patinaje,
+           act_trail, act_voleibol, act_dirigidas
+         FROM socios WHERE activo = true AND id = $1`
+      : `SELECT id, fecha_nacimiento, es_jjee,
+           act_atletismo, act_baloncesto, act_f7, act_futbol, act_fs,
+           act_g_ritmica, act_kenpo, act_kickboxing, act_patinaje,
+           act_trail, act_voleibol, act_dirigidas
+         FROM socios WHERE activo = true`;
+    const { rows: socios } = await client.query(sociosQ, socio_id ? [socio_id] : []);
 
     // Año de corte: nacidos a partir de (anio_inicio_temporada - 15) son JJEE
     const anioInicioTemp = parseInt(temporada.split('/')[0], 10);
