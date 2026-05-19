@@ -363,7 +363,7 @@
           <table>
             <thead>
               <tr>
-                <th><input type="checkbox" id="chkTodos" title="Seleccionar todos"
+                <th id="thCheckbox"><input type="checkbox" id="chkTodos" title="Seleccionar todos"
                     onchange="toggleTodos(this.checked)" style="cursor:pointer"></th>
                 <th>#</th>
                 <th>Nombre</th>
@@ -620,12 +620,29 @@ window.cambiarTab = function (tab) {
   document.querySelectorAll('.nav-tab').forEach(btn => {
     btn.classList.toggle('activa', btn.dataset.tab === tab);
   });
-  if (tab === 'socios')  cargarSocios();
+  if (tab === 'socios') {
+    aplicarVisibilidadSocios();
+    cargarSocios();
+  }
   if (tab === 'precios') cargarPrecios();
 };
 
+function aplicarVisibilidadSocios() {
+  const escribir = puedeEscribir();
+  const eliminar = puedeEliminar();
+  // Formulario de alta y CSV: solo junta/admin
+  const panelDerecho = document.querySelector('.socios-grid > div:last-child');
+  if (panelDerecho) panelDerecho.style.display = escribir ? '' : 'none';
+  // Barra de eliminación múltiple: solo admin (ya se oculta si no hay checkboxes)
+  // Se muestra automáticamente sólo si hay checkboxes marcados
+}
+
 // ── Socios ───────────────────────────────────────────────────────────────────
 var _sociosCache = [];
+
+function getRol() { return sessionStorage.getItem('usuario') || 'socio'; }
+function puedeEscribir() { return ['junta', 'admin'].includes(getRol()); }
+function puedeEliminar() { return getRol() === 'admin'; }
 
 const ACTS_LABEL = {
   act_atletismo:'Atletismo', act_baloncesto:'Baloncesto', act_f7:'F7',
@@ -658,6 +675,10 @@ function actsDeUnSocio(s) {
 function renderFilasSocios(socios) {
   const tbody = document.getElementById('tablaSocios');
   document.getElementById('totalSocios').textContent = socios.length;
+  // Mostrar/ocultar cabecera de checkbox según rol
+  const thChk = document.getElementById('thCheckbox');
+  if (thChk) thChk.style.display = puedeEliminar() ? '' : 'none';
+
   if (!socios.length) {
     tbody.innerHTML = '<tr><td colspan="9" style="color:#aaa;text-align:center;padding:1rem">Sin socios.</td></tr>';
     return;
@@ -670,8 +691,17 @@ function renderFilasSocios(socios) {
     const pagadoBadge = s.pagado
       ? `<span class="badge badge-verde">Sí${s.pagado_metodo ? ' ('+s.pagado_metodo+')' : ''}</span>`
       : '<span class="badge badge-rojo">No</span>';
+    const chkCell = puedeEliminar()
+      ? `<td><input type="checkbox" class="chk-socio" data-id="${s.id}" onchange="actualizarSeleccion()"></td>`
+      : '<td></td>';
+    const toggleBtn = puedeEscribir()
+      ? `<button class="btn-sm ${s.activo ? 'btn-baja' : 'btn-alta'}"
+                onclick="toggleActivo(${s.id}, ${!s.activo})">
+          ${s.activo ? 'Baja' : 'Alta'}
+        </button>`
+      : '';
     return `<tr style="${s.activo ? '' : 'opacity:.45'}" data-id="${s.id}">
-      <td><input type="checkbox" class="chk-socio" data-id="${s.id}" onchange="actualizarSeleccion()"></td>
+      ${chkCell}
       <td style="color:#aaa">${s.numero_socio ?? s.id}</td>
       <td><a href="#" style="color:var(--negro);font-weight:600;text-decoration:none"
              onclick="abrirModal(${s.id});return false">
@@ -683,10 +713,7 @@ function renderFilasSocios(socios) {
       <td>${pagadoBadge}</td>
       <td><span class="badge ${s.activo ? 'badge-verde' : 'badge-naranja'}">${s.activo ? 'Activo' : 'Baja'}</span></td>
       <td style="white-space:nowrap">
-        <button class="btn-sm ${s.activo ? 'btn-baja' : 'btn-alta'}"
-                onclick="toggleActivo(${s.id}, ${!s.activo})">
-          ${s.activo ? 'Baja' : 'Alta'}
-        </button>
+        ${toggleBtn}
       </td>
     </tr>`;
   }).join('');
@@ -781,12 +808,17 @@ window.abrirModal = function (id) {
     <dt>Rol</dt><dd>${s.rol}</dd>
     <dt>Estado</dt><dd>${s.activo ? 'Activo' : 'Baja'}</dd>
   `;
-  document.getElementById('modalAcciones').innerHTML = (s.pagado
-    ? `<button class="btn-sm btn-baja" onclick="marcarPagado(${s.id},false)">Desmarcar pagado</button>`
-    : `<button class="btn-sm btn-alta" style="padding:.4rem .9rem;font-size:.82rem"
-         onclick="elegirMetodoPago(${s.id})">Marcar como pagado…</button>`) +
-    `<button class="btn-sm" style="background:#1565c0;color:#fff;padding:.4rem .9rem;font-size:.82rem"
-       onclick="editarSocio(${s.id})">✏ Editar</button>`;
+  const btnPago = puedeEscribir()
+    ? (s.pagado
+        ? `<button class="btn-sm btn-baja" onclick="marcarPagado(${s.id},false)">Desmarcar pagado</button>`
+        : `<button class="btn-sm btn-alta" style="padding:.4rem .9rem;font-size:.82rem"
+             onclick="elegirMetodoPago(${s.id})">Marcar como pagado…</button>`)
+    : '';
+  const btnEditar = puedeEscribir()
+    ? `<button class="btn-sm" style="background:#1565c0;color:#fff;padding:.4rem .9rem;font-size:.82rem"
+         onclick="editarSocio(${s.id})">✏ Editar</button>`
+    : '';
+  document.getElementById('modalAcciones').innerHTML = btnPago + btnEditar;
   document.getElementById('modalSocio').style.display = 'flex';
 };
 

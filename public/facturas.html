@@ -215,10 +215,23 @@
                  vertical-align: middle; cursor: default; }
     .num-factura { font-size: .78rem; color: #555; }
 
-    /* Modal editar */
-    .modal-editar { max-width: 700px; }
+    /* Modal editar con preview */
+    .modal-editar { max-width: 1100px; }
+    .modal-editar-inner { display: flex; gap: 1rem; align-items: flex-start; }
+    .modal-editar-preview { flex: 0 0 44%; min-width: 200px; }
+    .modal-editar-preview iframe { width: 100%; min-height: 420px; max-height: 72vh; border: none; display: block; }
+    .modal-editar-preview img  { width: 100%; max-height: 72vh; object-fit: contain; display: block;
+                                  border: 1px solid var(--borde); border-radius: 4px; }
+    .modal-editar-form { flex: 1; overflow-y: auto; max-height: 72vh; }
+    @media (max-width: 760px) {
+      .modal-editar-inner { flex-direction: column; }
+      .modal-editar-preview { flex: none; width: 100%; }
+      .modal-editar-preview iframe { min-height: 260px; max-height: 260px; }
+    }
     .modal-editar .campos-ocr { display: grid; grid-template-columns: 1fr 1fr; gap: .6rem 1rem; }
     @media (max-width: 600px) { .modal-editar .campos-ocr { grid-template-columns: 1fr; } }
+    .ocr-stats-badge { font-size: .75rem; color: #888; }
+    .ocr-stats-badge strong { color: var(--verde); }
 
     /* Aviso OCR error dentro de tarjeta */
     .ocr-error-aviso {
@@ -257,7 +270,10 @@
 
   <!-- Subida -->
   <div class="card">
-    <h2>Subir facturas</h2>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.8rem">
+      <h2 style="margin:0">Subir facturas</h2>
+      <span class="ocr-stats-badge" id="ocrStatsBadge"></span>
+    </div>
     <div class="dropzone" id="dropzone">
       <p>Arrastra aquí los PDF o imágenes, o haz clic para seleccionar</p>
       <p style="font-size:.78rem;color:#aaa">PDF, JPG, PNG, WEBP · Máximo 20 archivos a la vez · 20 MB por archivo</p>
@@ -342,9 +358,14 @@
 <div class="modal-bg" id="modalEditarBg">
   <div class="modal modal-editar">
     <h3 id="modalEditarTitulo">Editar factura</h3>
-    <div id="modalEditarCuerpo"></div>
-    <div class="modal-footer" id="modalEditarFooter">
-      <span class="msg" id="editarMsg"></span>
+    <div class="modal-editar-inner">
+      <div class="modal-editar-preview" id="modalEditarPreview" style="display:none"></div>
+      <div class="modal-editar-form">
+        <div id="modalEditarCuerpo"></div>
+        <div class="modal-footer" id="modalEditarFooter">
+          <span class="msg" id="editarMsg"></span>
+        </div>
+      </div>
     </div>
   </div>
 </div>
@@ -403,7 +424,7 @@ async function subirArchivos(fileList) {
     try {
       const res  = await fetch('/api/facturas/upload', {
         method:  'POST',
-        headers: { Authorization: 'Bearer ' + (sessionStorage.getItem('token') || '') },
+        headers: apiHeaders(),
         body:    formData,
       });
       const data = await res.json();
@@ -586,10 +607,9 @@ function rellenarTarjetaOCR(tarjeta, r) {
 }
 
 async function cargarPreview(id, nombre) {
-  const jwt = sessionStorage.getItem('token') || '';
   try {
     const res = await fetch(`/api/facturas/${id}/archivo`, {
-      headers: { Authorization: `Bearer ${jwt}` }
+      headers: apiHeaders(),
     });
     if (!res.ok) return;
     const blob = await res.blob();
@@ -705,10 +725,7 @@ async function confirmarRevision(id) {
   try {
     const res = await fetch(`/api/facturas/${id}`, {
       method:  'PATCH',
-      headers: {
-        'Content-Type':  'application/json',
-        Authorization:   'Bearer ' + (sessionStorage.getItem('token') || ''),
-      },
+      headers: apiHeaders({ 'Content-Type': 'application/json' }),
       body: JSON.stringify(payload),
     });
     const data = await res.json();
@@ -740,6 +757,13 @@ function escHtml(s) {
   return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 function escAttr(s) { return escHtml(s); }
+
+// Helper: cabeceras de autenticación para fetch directo (Authorization + X-Club-Token).
+// Cloudflare Access elimina Authorization, por eso se envían ambos.
+function apiHeaders(extra) {
+  var tok = sessionStorage.getItem('token') || '';
+  return Object.assign({ Authorization: 'Bearer ' + tok, 'X-Club-Token': tok }, extra || {});
+}
 
 // ── Listado ───────────────────────────────────────────────────────────────────
 async function cargarFacturas(pagina) {
@@ -872,7 +896,7 @@ async function borrarFactura(id) {
   if (!confirm('¿Seguro que quieres borrar esta factura? Se eliminará el archivo y todos sus datos.')) return;
   const res = await fetch(`/api/facturas/${id}`, {
     method: 'DELETE',
-    headers: { Authorization: 'Bearer ' + (sessionStorage.getItem('token') || '') }
+    headers: apiHeaders(),
   });
   if (res.ok) {
     cerrarModal();
@@ -972,14 +996,36 @@ async function editarFactura(id) {
     <button class="btn-outline" onclick="cerrarModalEditar()">Cancelar</button>`;
 
   document.getElementById('modalEditarBg').classList.add('open');
+  cargarPreviewEditar(id, data.nombre_archivo || '');
 }
 
 function cerrarModalEditar() {
   document.getElementById('modalEditarBg').classList.remove('open');
+  const prev = document.getElementById('modalEditarPreview');
+  if (prev) { prev.style.display = 'none'; prev.innerHTML = ''; }
 }
 document.getElementById('modalEditarBg').addEventListener('click', e => {
   if (e.target === document.getElementById('modalEditarBg')) cerrarModalEditar();
 });
+
+async function cargarPreviewEditar(id, nombre) {
+  const panel = document.getElementById('modalEditarPreview');
+  if (!panel) return;
+  const ext = (nombre.split('.').pop() || '').toLowerCase();
+  const esPdf = ext === 'pdf';
+  panel.innerHTML = esPdf
+    ? `<iframe src="about:blank" style="width:100%;min-height:420px;max-height:72vh;border:none;display:block"></iframe>`
+    : `<img src="" alt="Preview" style="width:100%;max-height:72vh;object-fit:contain;display:block;border:1px solid var(--borde);border-radius:4px">`;
+  panel.style.display = '';
+  try {
+    const res = await fetch(`/api/facturas/${id}/archivo`, { headers: apiHeaders() });
+    if (!res.ok) { panel.style.display = 'none'; return; }
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const el = panel.querySelector('iframe, img');
+    if (el) el.src = url;
+  } catch (_) { panel.style.display = 'none'; }
+}
 
 function rellenarCamposEdicion(id, data) {
   const set = (campo, val) => {
@@ -1029,10 +1075,7 @@ async function guardarEdicion(id) {
   try {
     const res = await fetch(`/api/facturas/${id}`, {
       method: 'PATCH',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: 'Bearer ' + (sessionStorage.getItem('token') || ''),
-      },
+      headers: apiHeaders({ 'Content-Type': 'application/json' }),
       body: JSON.stringify(payload),
     });
     const data = await res.json();
@@ -1056,7 +1099,7 @@ async function reOCR(id) {
   try {
     const res = await fetch(`/api/facturas/${id}/reocr`, {
       method: 'POST',
-      headers: { Authorization: 'Bearer ' + (sessionStorage.getItem('token') || '') }
+      headers: apiHeaders(),
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error);
@@ -1072,6 +1115,21 @@ async function reOCR(id) {
   }
 }
 
+// ── OCR stats ────────────────────────────────────────────────────────────────
+async function cargarOCRStats() {
+  try {
+    const data = await window.api('/api/facturas/ocr-stats');
+    if (!data) return;
+    const el = document.getElementById('ocrStatsBadge');
+    if (!el) return;
+    if (data.ejemplos_confirmados > 0) {
+      el.innerHTML = `OCR: <strong>${data.ejemplos_confirmados}</strong> ej. confirmados`;
+    } else {
+      el.textContent = 'OCR: sin ejemplos aún (confirma facturas para mejorar la lectura)';
+    }
+  } catch (_) {}
+}
+
 // ── Init ──────────────────────────────────────────────────────────────────────
 const jwtGuardado = sessionStorage.getItem('token');
 if (!jwtGuardado) {
@@ -1081,6 +1139,7 @@ if (!jwtGuardado) {
   const usuarioGuardado = sessionStorage.getItem('usuario');
   if (usuarioGuardado) document.getElementById('userNameHeader').textContent = usuarioGuardado;
   cargarFacturas(1);
+  cargarOCRStats();
 }
 </script>
 </body>
