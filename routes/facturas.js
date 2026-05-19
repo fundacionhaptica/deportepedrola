@@ -260,6 +260,18 @@ router.patch('/:id', async (req, res) => {
   }
 });
 
+// GET /api/facturas/ocr-stats — número de facturas confirmadas disponibles para few-shot
+router.get('/ocr-stats', async (req, res) => {
+  try {
+    const { rows: [{ total }] } = await db.query(
+      `SELECT COUNT(*) AS total FROM facturas WHERE ocr_revisado = true AND proveedor IS NOT NULL`
+    );
+    res.json({ ejemplos_confirmados: Number(total) });
+  } catch (e) {
+    res.status(500).json({ error: 'Error interno del servidor' });
+  }
+});
+
 // GET /api/facturas/:id — detalle completo incluido OCR raw
 router.get('/:id', async (req, res) => {
   try {
