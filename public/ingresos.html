@@ -181,10 +181,48 @@
         <select id="selTemporada"></select>
       </label>
       <button class="btn-filtro" id="btnAplicar">Aplicar</button>
+      <button class="btn-filtro" id="btnAvisarCuotas"
+              style="background:#1565C0;color:#fff;margin-left:auto"
+              title="Envía un correo a cada socio activo con su cuota prevista">
+        ✉ Avisar cuotas por correo…
+      </button>
     </div>
 
     <div class="aviso-err" id="avisoErr"></div>
+    <div id="avisoOk" class="aviso-err"
+         style="background:#e8f5e9;color:#2E7D32;display:none"></div>
     <div class="spinner" id="spinner"></div>
+
+    <!-- Modal confirmación envío cuotas -->
+    <div id="modalAvisoCuotas"
+         style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);
+                z-index:99;align-items:center;justify-content:center">
+      <div style="background:#fff;border-radius:8px;max-width:680px;width:92%;
+                  max-height:90vh;overflow:auto;padding:1.4rem">
+        <h2 style="font-size:1.05rem;margin-bottom:.6rem">
+          Enviar previsión de cuota por correo
+        </h2>
+        <p id="avisoCuotasResumen" style="font-size:.88rem;color:#555;margin-bottom:.8rem">
+          Calculando destinatarios…
+        </p>
+        <div id="avisoCuotasPreview"
+             style="border:1px solid var(--borde);border-radius:6px;
+                    max-height:340px;overflow:auto;background:#fafafa;
+                    padding:.6rem;font-size:.78rem;display:none"></div>
+        <p style="font-size:.78rem;color:#888;margin-top:.8rem">
+          Se enviará un correo individual a cada socio con su desglose y un aviso
+          sobre el posible recargo por desplazamientos en deportes de equipo.
+        </p>
+        <div style="display:flex;gap:.6rem;justify-content:flex-end;margin-top:1rem">
+          <button class="btn-filtro" id="btnAvisarCancelar"
+                  style="background:#eee;color:#333">Cancelar</button>
+          <button class="btn-filtro" id="btnAvisarConfirmar"
+                  style="background:var(--verde);color:#fff" disabled>
+            Enviar ahora
+          </button>
+        </div>
+      </div>
+    </div>
 
     <!-- Tarjetas resumen -->
     <div class="stats" id="statsArea">
@@ -287,6 +325,22 @@ async function apiGet(url) {
   const jwt = sessionStorage.getItem('token');
   const r   = await fetch(url, {
     headers: { 'Authorization': 'Bearer ' + jwt, 'X-Club-Token': jwt },
+  });
+  if (r.status === 401) { doLogout(); throw new Error('No autenticado'); }
+  if (!r.ok) { const e = await r.json().catch(() => ({})); throw new Error(e.error || `HTTP ${r.status}`); }
+  return r.json();
+}
+
+async function apiPost(url, body) {
+  const jwt = sessionStorage.getItem('token');
+  const r   = await fetch(url, {
+    method:  'POST',
+    headers: {
+      'Authorization':  'Bearer ' + jwt,
+      'X-Club-Token':   jwt,
+      'Content-Type':   'application/json',
+    },
+    body: JSON.stringify(body || {}),
   });
   if (r.status === 401) { doLogout(); throw new Error('No autenticado'); }
   if (!r.ok) { const e = await r.json().catch(() => ({})); throw new Error(e.error || `HTTP ${r.status}`); }
@@ -584,11 +638,91 @@ async function cargarDatos() {
   }
 }
 
+/* ─── Aviso de cuotas por correo ──────────────────────────── */
+function escHtmlSimple(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+async function abrirModalAvisoCuotas() {
+  const modal    = document.getElementById('modalAvisoCuotas');
+  const resumen  = document.getElementById('avisoCuotasResumen');
+  const previewE = document.getElementById('avisoCuotasPreview');
+  const btnConf  = document.getElementById('btnAvisarConfirmar');
+  const temporada = document.getElementById('selTemporada').value;
+
+  modal.style.display = 'flex';
+  previewE.style.display = 'none';
+  previewE.innerHTML = '';
+  btnConf.disabled = true;
+  resumen.textContent = 'Calculando destinatarios…';
+
+  try {
+    const r = await apiPost('/api/cuotas/email-prevision', { temporada, dry_run: true });
+    const e = r.detalle.enviados.length;
+    const o = r.detalle.omitidos.length;
+    resumen.innerHTML = `
+      Se enviará a <strong>${e} socio${e === 1 ? '' : 's'}</strong>
+      con cuotas generadas para la temporada <strong>${escHtmlSimple(temporada)}</strong>.
+      ${o ? `<br><span style="color:#888">Se omitirán ${o} socios sin email o sin cuotas.</span>` : ''}
+    `;
+    if (r.preview) {
+      previewE.style.display = 'block';
+      previewE.innerHTML = `
+        <div style="font-size:.72rem;color:#888;text-transform:uppercase;margin-bottom:.4rem">
+          Vista previa del correo para ${escHtmlSimple(r.preview.nombre || r.preview.email)}
+        </div>
+        <div style="background:#fff;border:1px solid #eee;border-radius:4px;padding:.4rem">
+          ${r.preview.html}
+        </div>`;
+    }
+    btnConf.disabled = e === 0;
+    btnConf.dataset.temporada = temporada;
+  } catch (err) {
+    resumen.innerHTML = `<span style="color:var(--rojo)">Error: ${escHtmlSimple(err.message)}</span>`;
+  }
+}
+
+function cerrarModalAvisoCuotas() {
+  document.getElementById('modalAvisoCuotas').style.display = 'none';
+}
+
+async function confirmarEnvioCuotas() {
+  const btnConf = document.getElementById('btnAvisarConfirmar');
+  const temporada = btnConf.dataset.temporada;
+  const avisoOk = document.getElementById('avisoOk');
+  const avisoErr = document.getElementById('avisoErr');
+  avisoOk.style.display = 'none';
+  avisoErr.classList.remove('visible');
+
+  btnConf.disabled = true;
+  btnConf.textContent = 'Enviando…';
+
+  try {
+    const r = await apiPost('/api/cuotas/email-prevision', { temporada });
+    cerrarModalAvisoCuotas();
+    let msg = `Enviados ${r.enviados} correos de previsión.`;
+    if (r.omitidos)  msg += ` Omitidos: ${r.omitidos}.`;
+    if (r.errores)   msg += ` Errores: ${r.errores}.`;
+    avisoOk.textContent = msg;
+    avisoOk.style.display = 'block';
+  } catch (err) {
+    avisoErr.textContent = 'Error enviando correos: ' + err.message;
+    avisoErr.classList.add('visible');
+  } finally {
+    btnConf.disabled = false;
+    btnConf.textContent = 'Enviar ahora';
+  }
+}
+
 /* ─── Bootstrap ───────────────────────────────────────────── */
 function iniciarDashboard() {
   generarTemporadas();
   document.getElementById('btnAplicar').addEventListener('click', cargarDatos);
   document.getElementById('selTemporada').addEventListener('change', cargarDatos);
+  document.getElementById('btnAvisarCuotas').addEventListener('click', abrirModalAvisoCuotas);
+  document.getElementById('btnAvisarCancelar').addEventListener('click', cerrarModalAvisoCuotas);
+  document.getElementById('btnAvisarConfirmar').addEventListener('click', confirmarEnvioCuotas);
   cargarDatos();
 }
 

@@ -2,6 +2,7 @@
 
 const router = require('express').Router();
 const pool   = require('../db/pool');
+const email  = require('../lib/email');
 
 const NOMBRE_DEPORTE = {
   atletismo: 'Atletismo', baloncesto: 'Baloncesto', f7: 'Fútbol 7',
@@ -229,6 +230,106 @@ router.delete('/:id', async (req, res) => {
   const { rowCount } = await pool.query('DELETE FROM cuotas_socio WHERE id=$1', [id]);
   if (!rowCount) return res.status(404).json({ error: 'Cuota no encontrada' });
   res.json({ ok: true });
+});
+
+// POST /api/cuotas/email-prevision
+// body: { temporada?, socio_id?, dry_run? }
+//   · sin socio_id  → envía a todos los socios activos con email y cuotas en la temporada
+//   · con socio_id  → envía solo a ese socio
+//   · dry_run=true  → no envía, devuelve la lista de destinatarios y el preview del primero
+router.post('/email-prevision', async (req, res) => {
+  const { temporada = '2025/2026', socio_id = null, dry_run = false } = req.body || {};
+
+  if (!dry_run && !email.isConfigured()) {
+    return res.status(400).json({
+      error: 'El envío de correo no está configurado. Define SMTP_HOST, SMTP_USER y SMTP_PASS en el .env.',
+    });
+  }
+
+  // Construir lista de socios objetivo
+  const sociosQ = socio_id
+    ? `SELECT id, nombre, apellidos, email FROM socios WHERE id = $1 AND activo = true`
+    : `SELECT id, nombre, apellidos, email FROM socios WHERE activo = true AND email IS NOT NULL AND email <> '' ORDER BY apellidos, nombre`;
+  const { rows: socios } = await pool.query(sociosQ, socio_id ? [socio_id] : []);
+
+  if (!socios.length) {
+    return res.status(404).json({ error: 'No hay socios destino' });
+  }
+
+  // Cuotas de todos los socios en una sola consulta
+  const ids = socios.map(s => s.id);
+  const { rows: cuotas } = await pool.query(`
+    SELECT socio_id, tipo, deporte, categoria, concepto, importe, incluye_desplazamiento
+    FROM cuotas_socio
+    WHERE temporada = $1 AND socio_id = ANY($2::int[])
+    ORDER BY socio_id, tipo, deporte
+  `, [temporada, ids]);
+
+  const cuotasPorSocio = {};
+  for (const c of cuotas) {
+    (cuotasPorSocio[c.socio_id] = cuotasPorSocio[c.socio_id] || []).push(c);
+  }
+
+  const enviados   = [];
+  const omitidos   = [];
+  const errores    = [];
+  let preview      = null;
+
+  for (const s of socios) {
+    const cuotasSocio = cuotasPorSocio[s.id] || [];
+
+    if (!cuotasSocio.length) {
+      omitidos.push({ id: s.id, email: s.email, motivo: 'sin cuotas generadas en esta temporada' });
+      continue;
+    }
+    if (!s.email) {
+      omitidos.push({ id: s.id, email: null, motivo: 'sin email' });
+      continue;
+    }
+
+    const { subject, html, text, total } = email.construirEmailPrevisionCuota({
+      socio: s, cuotas: cuotasSocio, temporada,
+    });
+
+    // Guardar preview del primero para que el frontend pueda mostrarlo en dry_run
+    if (!preview) {
+      preview = {
+        socio_id: s.id,
+        nombre:   [s.nombre, s.apellidos].filter(Boolean).join(' '),
+        email:    s.email,
+        subject,
+        html,
+        text,
+        total,
+        num_cuotas: cuotasSocio.length,
+      };
+    }
+
+    if (dry_run) {
+      enviados.push({ id: s.id, email: s.email, total, dry_run: true });
+      continue;
+    }
+
+    try {
+      const r = await email.sendMail({ to: s.email, subject, html, text });
+      enviados.push({ id: s.id, email: s.email, total, message_id: r.id });
+    } catch (err) {
+      console.error(`[email-prevision] socio ${s.id} (${s.email}):`, err.message);
+      errores.push({ id: s.id, email: s.email, motivo: err.message });
+    }
+  }
+
+  res.json({
+    ok: true,
+    temporada,
+    dry_run: Boolean(dry_run),
+    total_socios: socios.length,
+    enviados: enviados.length,
+    omitidos: omitidos.length,
+    errores:  errores.length,
+    detalle:  { enviados, omitidos, errores },
+    preview,
+  });
 });
 
 module.exports = router;

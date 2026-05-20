@@ -819,7 +819,13 @@ window.abrirModal = function (id) {
     ? `<button class="btn-sm" style="background:#1565c0;color:#fff;padding:.4rem .9rem;font-size:.82rem"
          onclick="editarSocio(${s.id})">✏ Editar</button>`
     : '';
-  document.getElementById('modalAcciones').innerHTML = btnPago + btnEditar;
+  const btnEmail = (puedeEscribir() && s.email)
+    ? `<button class="btn-sm" style="background:#2E7D32;color:#fff;padding:.4rem .9rem;font-size:.82rem"
+         onclick="enviarPrevisionCuotaSocio(${s.id})"
+         title="Envía un correo a ${escHtml(s.email)} con la cuota prevista de esta temporada">
+         ✉ Enviar previsión cuota</button>`
+    : '';
+  document.getElementById('modalAcciones').innerHTML = btnPago + btnEditar + btnEmail;
   document.getElementById('modalSocio').style.display = 'flex';
 };
 
@@ -847,6 +853,35 @@ window.marcarPagado = async function (id, pagado, metodo) {
     document.getElementById('modalSocio').style.display = 'none';
     mostrarAvisoSocios(pagado ? 'Pago registrado.' : 'Pago desmarcado.', false);
     await cargarSocios();
+  } catch (e) {
+    mostrarAvisoSocios('Error: ' + e.message, true);
+  }
+};
+
+// Envío de la previsión de cuota anual a un socio concreto por correo.
+// Usa la temporada en curso (corte: agosto → empieza nueva temporada).
+window.enviarPrevisionCuotaSocio = async function (id) {
+  const hoy  = new Date();
+  const a    = hoy.getMonth() >= 8 ? hoy.getFullYear() : hoy.getFullYear() - 1;
+  const temp = `${a}/${a + 1}`;
+  const s    = _sociosCache.find(x => x.id === id);
+  const nom  = s ? (s.nombre + (s.apellidos ? ' ' + s.apellidos : '')) : '';
+  if (!confirm(`¿Enviar la previsión de cuota ${temp} a ${nom} <${s?.email||''}>?`)) return;
+
+  try {
+    const r = await window.api('/api/cuotas/email-prevision', {
+      method: 'POST',
+      body:   JSON.stringify({ temporada: temp, socio_id: id }),
+    });
+    if (r.enviados) {
+      mostrarAvisoSocios(`Correo enviado a ${s.email}.`, false);
+    } else if (r.omitidos) {
+      const motivo = r.detalle.omitidos[0]?.motivo || 'omitido';
+      mostrarAvisoSocios(`No se envió: ${motivo}.`, true);
+    } else if (r.errores) {
+      const motivo = r.detalle.errores[0]?.motivo || 'error desconocido';
+      mostrarAvisoSocios(`Error de envío: ${motivo}`, true);
+    }
   } catch (e) {
     mostrarAvisoSocios('Error: ' + e.message, true);
   }
