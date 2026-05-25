@@ -5,5 +5,15 @@ uploads/*
 logs/
 *.log
 .DS_Store
+# Archivos de metadatos del NAS Synology
+@eaDir/
+Thumbs.db
+# PDFs y archivos de datos en scripts/ (no van en git)
+scripts/*.pdf
+scripts/*.xlsx
+scripts/*.csv
+# Firmas e imágenes locales
 public/firma.png
 public/logo.png
+# PDFs almacenados en NAS — nunca subir al repositorio
+documentos/

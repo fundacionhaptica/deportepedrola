@@ -23,6 +23,17 @@ function byMethod({ read, write, del }) {
 
 const checkRole = byMethod({ read: canRead, write: canWrite, del: canDelete });
 
+// Middleware alternativo: acepta JWT normal O X-Internal-Key para uploads internos desde Cowork
+function checkJwtOrInternalKey(req, res, next) {
+  const internalKey = process.env.INTERNAL_API_KEY;
+  if (internalKey && req.headers['x-internal-key'] === internalKey) {
+    // Inyectar auth ficticio con todos los permisos necesarios
+    req.auth = { sub: 'internal-cowork', permissions: ['read:datos', 'write:datos', 'delete:datos'] };
+    return next();
+  }
+  return checkJwt(req, res, next);
+}
+
 const app  = express();
 const PORT = process.env.PORT || 3000;
 
@@ -51,9 +62,10 @@ app.use('/api/ingresos', checkJwt, canRead,   require('./routes/ingresos-dashboa
 app.use('/api/socios',    checkJwt, checkRole, require('./routes/socios'));
 app.use('/api/precios',   checkJwt, checkRole, require('./routes/precios'));
 app.use('/api/pagos',     checkJwt, checkRole, require('./routes/pagos'));
-app.use('/api/facturas',       checkJwt, checkRole, require('./routes/facturas'));
+// facturas: acepta JWT normal O X-Internal-Key (para subidas desde Cowork)
+app.use('/api/facturas',      checkJwtOrInternalKey, checkRole, require('./routes/facturas'));
 app.use('/api/certificados',  checkJwt, canWrite,  require('./routes/certificados'));
-app.use('/api/cuotas',       checkJwt, checkRole, require('./routes/cuotas'));
+app.use('/api/cuotas',        checkJwt, checkRole, require('./routes/cuotas'));
 app.use('/api/stripe',                              require('./routes/stripe'));
 
 // Páginas públicas de inscripciones (sin autenticación)
@@ -91,7 +103,7 @@ app.get('/ingresos', (_req, res) => {
 });
 
 // Todas las rutas no-API y no-inscripciones devuelven el SPA
-app.get(/^(?!\/api|\/inscripciones).*/, (_req, res) => {
+app.get(/^\/(?!api|inscripciones)/, (_req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 

@@ -7,7 +7,7 @@ const fs     = require('fs');
 const db     = require('../db/pool');
 const { extraerDatosFactura } = require('../lib/ocr');
 
-const UPLOADS_DIR = process.env.UPLOADS_DIR || path.join(__dirname, '..', 'uploads');
+const UPLOADS_DIR  = process.env.UPLOADS_DIR || path.join(__dirname, '..', 'uploads');
 const FACTURAS_DIR = path.join(UPLOADS_DIR, 'facturas');
 if (!fs.existsSync(FACTURAS_DIR)) fs.mkdirSync(FACTURAS_DIR, { recursive: true });
 
@@ -57,7 +57,8 @@ router.get('/', async (req, res) => {
 
     const { rows } = await db.query(
       `SELECT id, nombre_archivo, tipo, proveedor, nif_proveedor, numero_factura,
-              fecha_factura, concepto, deporte, equipo_categoria, importe, created_at
+              fecha_factura, concepto, deporte, equipo_categoria, importe,
+              referencia_banco, ocr_revisado, created_at
        FROM facturas ${where}
        ORDER BY COALESCE(fecha_factura, created_at::date) DESC
        LIMIT $${params.length - 1} OFFSET $${params.length}`,
@@ -114,38 +115,71 @@ router.get('/duplicados', async (req, res) => {
   }
 });
 
-// POST /api/facturas/upload — sube una o varias facturas y lanza OCR
+// POST /api/facturas/upload — sube una o varias facturas
+// Si se envían campos de metadatos en el form (tipo, proveedor, concepto, etc.) junto
+// con skip_ocr=true, se guardan directamente sin pasar por OCR y con ocr_revisado=true.
+// Útil para el flujo manual desde Cowork donde Claude ya leyó el PDF.
 router.post('/upload', upload.array('archivos', 20), async (req, res) => {
   if (!req.files || req.files.length === 0) {
     return res.status(400).json({ error: 'No se recibió ningún archivo.' });
   }
 
-  // Obtener ejemplos confirmados para few-shot
-  const { rows: ejemplosOcr } = await db.query(
-    `SELECT tipo, proveedor, nif_proveedor, numero_factura, fecha_factura,
-            concepto, base_imponible, iva_porcentaje, iva_importe, importe
-     FROM facturas
-     WHERE ocr_revisado = true AND proveedor IS NOT NULL
-     ORDER BY created_at DESC LIMIT 6`
-  ).catch(() => ({ rows: [] }));
+  // Modo manual: metadatos ya confirmados, sin OCR
+  const skipOcr = req.body.skip_ocr === 'true' || req.body.skip_ocr === true;
+
+  // Obtener ejemplos confirmados para few-shot (solo si se usa OCR)
+  let ejemplosOcr = [];
+  if (!skipOcr) {
+    const { rows } = await db.query(
+      `SELECT tipo, proveedor, nif_proveedor, numero_factura, fecha_factura,
+              concepto, base_imponible, iva_porcentaje, iva_importe, importe
+       FROM facturas
+       WHERE ocr_revisado = true AND proveedor IS NOT NULL
+       ORDER BY created_at DESC LIMIT 6`
+    ).catch(() => ({ rows: [] }));
+    ejemplosOcr = rows;
+  }
 
   const resultados = [];
 
   for (const file of req.files) {
-    let ocrRawJson = null;
-    let extraido   = {};
-
-    let ocrError = null;
-    let proveedorOcr = null;
-    let ocrFallback = false;
+    let ocrRawJson     = null;
+    let extraido       = {};
+    let ocrError       = null;
+    let proveedorOcr   = null;
+    let ocrFallback    = false;
     let ocrFallbackMotivo = null;
-    try {
-      ({ ocrRawJson, extraido, proveedor_ocr: proveedorOcr,
-         ocr_fallback: ocrFallback, ocr_fallback_motivo: ocrFallbackMotivo
-       } = await extraerDatosFactura(file.path, file.mimetype, ejemplosOcr));
-    } catch (e) {
-      console.error(`[facturas] OCR fallido para ${file.filename}:`, e.message);
-      ocrError = e.message;
+    let revisado       = false;
+
+    if (skipOcr) {
+      // — Flujo manual: usar metadatos del form directamente —
+      revisado = true;
+      extraido = {
+        tipo:            req.body.tipo            || null,
+        proveedor:       req.body.proveedor       || null,
+        nif_proveedor:   req.body.nif_proveedor   || null,
+        numero_factura:  req.body.numero_factura  || null,
+        fecha_factura:   req.body.fecha_factura   || null,
+        concepto:        req.body.concepto        || null,
+        deporte:         req.body.deporte         || null,
+        equipo_categoria:req.body.equipo_categoria|| null,
+        base_imponible:  req.body.base_imponible  ? Number(req.body.base_imponible)  : null,
+        iva_porcentaje:  req.body.iva_porcentaje  ? Number(req.body.iva_porcentaje)  : null,
+        iva_importe:     req.body.iva_importe     ? Number(req.body.iva_importe)     : null,
+        importe_total:   req.body.importe         ? Number(req.body.importe)         : null,
+        referencia_banco:req.body.referencia_banco|| null,
+      };
+      proveedorOcr = 'manual-cowork';
+    } else {
+      // — Flujo automático: OCR con Kimi/Gemini —
+      try {
+        ({ ocrRawJson, extraido, proveedor_ocr: proveedorOcr,
+           ocr_fallback: ocrFallback, ocr_fallback_motivo: ocrFallbackMotivo
+         } = await extraerDatosFactura(file.path, file.mimetype, ejemplosOcr));
+      } catch (e) {
+        console.error(`[facturas] OCR fallido para ${file.filename}:`, e.message);
+        ocrError = e.message;
+      }
     }
 
     const fechaFactura = extraido.fecha_factura || null;
@@ -154,26 +188,32 @@ router.post('/upload', upload.array('archivos', 20), async (req, res) => {
       const { rows: [factura] } = await db.query(
         `INSERT INTO facturas
            (nombre_archivo, ruta_archivo, tipo, proveedor, nif_proveedor, numero_factura,
-            fecha_factura, concepto, base_imponible, iva_porcentaje, iva_importe,
-            importe, ocr_raw_json)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
+            fecha_factura, concepto, deporte, equipo_categoria,
+            base_imponible, iva_porcentaje, iva_importe,
+            importe, referencia_banco, ocr_raw_json, ocr_revisado)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)
          RETURNING id, tipo, proveedor, nif_proveedor, numero_factura,
                    fecha_factura, concepto, base_imponible, iva_porcentaje,
-                   iva_importe, importe, nombre_archivo, deporte, equipo_categoria`,
+                   iva_importe, importe, nombre_archivo, deporte, equipo_categoria,
+                   referencia_banco, ocr_revisado`,
         [
           file.originalname,
           file.path,
-          extraido.tipo            || null,
-          extraido.proveedor       || null,
-          extraido.nif_proveedor   || null,
-          extraido.numero_factura  || null,
+          extraido.tipo             || null,
+          extraido.proveedor        || null,
+          extraido.nif_proveedor    || null,
+          extraido.numero_factura   || null,
           fechaFactura,
-          extraido.concepto        || null,
-          extraido.base_imponible  || null,
-          extraido.iva_porcentaje  || null,
-          extraido.iva_importe     || null,
-          extraido.importe_total   || null,
+          extraido.concepto         || null,
+          extraido.deporte          || null,
+          extraido.equipo_categoria || null,
+          extraido.base_imponible   || null,
+          extraido.iva_porcentaje   || null,
+          extraido.iva_importe      || null,
+          extraido.importe_total    || null,
+          extraido.referencia_banco || null,
           ocrRawJson ? JSON.stringify(ocrRawJson) : null,
+          revisado,
         ]
       );
       resultados.push({ ok: true, ocr_error: ocrError || null,
@@ -195,7 +235,7 @@ router.patch('/:id', async (req, res) => {
     const { tipo, proveedor, nif_proveedor, numero_factura, fecha_factura,
             concepto, deporte, equipo_categoria,
             base_imponible, iva_porcentaje, iva_importe, importe,
-            distribuciones } = req.body;
+            referencia_banco, distribuciones } = req.body;
 
     // Determinar deporte efectivo en factura principal
     let deportePrincipal = deporte || null;
@@ -220,10 +260,11 @@ router.patch('/:id', async (req, res) => {
          iva_porcentaje   = COALESCE($10, iva_porcentaje),
          iva_importe      = COALESCE($11, iva_importe),
          importe          = COALESCE($12, importe),
+         referencia_banco = COALESCE($13, referencia_banco),
          ocr_revisado     = true
-       WHERE id = $13
+       WHERE id = $14
        RETURNING id, tipo, proveedor, nif_proveedor, numero_factura, fecha_factura,
-                 concepto, deporte, equipo_categoria,
+                 concepto, deporte, equipo_categoria, referencia_banco,
                  base_imponible, iva_porcentaje, iva_importe, importe`,
       [tipo || null, proveedor || null, nif_proveedor || null, numero_factura || null,
        fecha_factura || null, concepto || null, deportePrincipal,
@@ -232,6 +273,7 @@ router.patch('/:id', async (req, res) => {
        iva_porcentaje != null ? iva_porcentaje : null,
        iva_importe    != null ? iva_importe    : null,
        importe        != null ? importe        : null,
+       referencia_banco || null,
        req.params.id]
     );
     if (!factura) { await client.query('ROLLBACK'); return res.status(404).json({ error: 'Factura no encontrada.' }); }

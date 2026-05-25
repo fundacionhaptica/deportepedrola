@@ -108,7 +108,6 @@ UPDATE precios_actividades SET requiere_autobus = true
 WHERE actividad IN ('futbol', 'f7', 'baloncesto', 'fs');
 
 -- Fichas federativas por deporte, temporada y categoría
--- El club paga la ficha más alta; el socio paga el resto si practica varios deportes
 CREATE TABLE IF NOT EXISTS fichas_deportivas (
     id          SERIAL        PRIMARY KEY,
     deporte     TEXT          NOT NULL,
@@ -178,26 +177,28 @@ CREATE TABLE IF NOT EXISTS movimientos (
 );
 
 CREATE TABLE IF NOT EXISTS facturas (
-    id              SERIAL        PRIMARY KEY,
-    nombre_archivo  TEXT          NOT NULL,
-    ruta_archivo    TEXT          NOT NULL,
-    proveedor       TEXT,
-    nif_proveedor   TEXT,
-    numero_factura  TEXT,
-    fecha_factura   DATE,
-    concepto        TEXT,
-    base_imponible  NUMERIC(10,2),
-    iva_porcentaje  NUMERIC(5,2),
-    iva_importe     NUMERIC(10,2),
-    importe         NUMERIC(10,2),
-    ocr_raw_json    JSONB,
-    ocr_revisado    BOOLEAN       NOT NULL DEFAULT FALSE,
-    created_at      TIMESTAMPTZ   NOT NULL DEFAULT NOW()
+    id               SERIAL        PRIMARY KEY,
+    nombre_archivo   TEXT          NOT NULL,
+    ruta_archivo     TEXT          NOT NULL,
+    proveedor        TEXT,
+    nif_proveedor    TEXT,
+    numero_factura   TEXT,
+    fecha_factura    DATE,
+    concepto         TEXT,
+    base_imponible   NUMERIC(10,2),
+    iva_porcentaje   NUMERIC(5,2),
+    iva_importe      NUMERIC(10,2),
+    importe          NUMERIC(10,2),
+    ocr_raw_json     JSONB,
+    ocr_revisado     BOOLEAN       NOT NULL DEFAULT FALSE,
+    created_at       TIMESTAMPTZ   NOT NULL DEFAULT NOW()
 );
-ALTER TABLE facturas ADD COLUMN IF NOT EXISTS ocr_revisado    BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE facturas ADD COLUMN IF NOT EXISTS ocr_revisado     BOOLEAN NOT NULL DEFAULT FALSE;
 ALTER TABLE facturas ADD COLUMN IF NOT EXISTS tipo             TEXT;
 ALTER TABLE facturas ADD COLUMN IF NOT EXISTS deporte          TEXT;
 ALTER TABLE facturas ADD COLUMN IF NOT EXISTS equipo_categoria TEXT;
+-- Campo para referencia bancaria de justificantes de pago
+ALTER TABLE facturas ADD COLUMN IF NOT EXISTS referencia_banco TEXT;
 
 CREATE TABLE IF NOT EXISTS factura_distribuciones (
     id               SERIAL        PRIMARY KEY,

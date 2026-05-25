@@ -6,7 +6,8 @@ services:
     ports:
       - "3011:3000"
     volumes:
-      - ./uploads:/app/uploads
+      # PDFs almacenados en el NAS, fuera del repositorio git
+      - /volume1/docker/club/documentos:/app/uploads
     depends_on:
       db:
         condition: service_healthy
