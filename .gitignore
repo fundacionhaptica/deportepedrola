@@ -1,19 +1,47 @@
+# ── Dependencias ──────────────────────────────────────────────
 node_modules/
-.env
+
+# ── Variables de entorno y secretos ───────────────────────────
+# Importante: cualquier *.env incluye apis.env, .env.local, etc.
+*.env
+!.env.example
+.deploy/
+.ssh/
+
+# ── Datos / volumenes (solo en NAS, nunca en git) ─────────────
 uploads/*
 !uploads/.gitkeep
-logs/
-*.log
-.DS_Store
-# Archivos de metadatos del NAS Synology
-@eaDir/
-Thumbs.db
-# PDFs y archivos de datos en scripts/ (no van en git)
+documentos/
+ibercaja/justificantes/
+ibercaja/pendientes/
+ibercaja/__pycache__/
+
+# ── Ficheros y backups de la carpeta scripts/ ─────────────────
+# Los PDFs, Excel y CSVs nunca van a git (estan en el NAS).
 scripts/*.pdf
 scripts/*.xlsx
+scripts/*.xlsx.bak-*
 scripts/*.csv
-# Firmas e imágenes locales
+scripts/*.txt
+
+# ── Logs ──────────────────────────────────────────────────────
+logs/
+*.log
+
+# ── Caches Python ─────────────────────────────────────────────
+__pycache__/
+*.pyc
+
+# ── Imagenes locales del frontend (subir manualmente) ─────────
 public/firma.png
 public/logo.png
-# PDFs almacenados en NAS — nunca subir al repositorio
-documentos/
+
+# ── Metadatos del NAS Synology ────────────────────────────────
+@eaDir/
+Thumbs.db
+.DS_Store
+
+# ── Carpetas temporales ───────────────────────────────────────
+tmp/
+.claude/
+.cache/
