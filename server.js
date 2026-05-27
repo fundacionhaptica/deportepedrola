@@ -66,6 +66,7 @@ app.use('/api/pagos',     checkJwt, checkRole, require('./routes/pagos'));
 app.use('/api/facturas',      checkJwtOrInternalKey, checkRole, require('./routes/facturas'));
 app.use('/api/certificados',  checkJwt, canWrite,  require('./routes/certificados'));
 app.use('/api/cuotas',        checkJwt, checkRole, require('./routes/cuotas'));
+app.use('/api/movimientos', checkJwt, checkRole, require('./routes/movimientos'));
 app.use('/api/stripe',                              require('./routes/stripe'));
 
 // Páginas públicas de inscripciones (sin autenticación)
