@@ -45,3 +45,6 @@ Thumbs.db
 tmp/
 .claude/
 .cache/
+# ── Backups con sufijo de fecha (cualquier archivo *.bak-YYYYMMDD) ────
+Movimientos_caja.bak-*
+*.bak-*
