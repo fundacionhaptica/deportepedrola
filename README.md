@@ -12,12 +12,17 @@ Desplegada en: `https://erp.deportepedrola.com`
 |---|---|
 | Backend | Node.js 20 + Express |
 | Base de datos | PostgreSQL 16 |
-| Autenticación | Auth0 (JWT + JWKS) |
-| OCR de facturas | Anthropic Claude API |
-| Pagos | Stripe Checkout (pagos únicos) |
+| Autenticación | JWT HS256 propio (3 roles: admin / junta / socio, contraseñas en `.env`) |
+| OCR de facturas | Workflow Cowork manual (ver `docs/WORKFLOW_OCR_COWORK.md`); hook preparado para `vision-router` del NAS cuando se active |
+| Email | SMTP Zoho EU (`smtp.zoho.eu:465`, cuenta `hola@deportepedrola.com`) |
+| Pagos | Stripe Checkout (pagos únicos, `mode:'payment'`) |
 | PDFs | pdfkit |
 | Frontend | HTML + JS vanilla + Chart.js (CDN) |
-| Despliegue | Docker Compose |
+| Despliegue | Docker Compose (`docker compose -p club ... up -d`) |
+
+Documentación complementaria:
+- `docs/AUDITORIA.md` — estado real de la app y de los datos
+- `docs/WORKFLOW_OCR_COWORK.md` — cómo procesar facturas vía Cowork (Claude desktop)
 
 ---
 
@@ -38,12 +43,13 @@ nano .env
 ```
 
 Rellenar al menos:
-- `DATABASE_URL` (ajustar contraseña)
-- `AUTH0_DOMAIN`, `AUTH0_AUDIENCE`, `AUTH0_CLIENT_ID`
-- `ANTHROPIC_API_KEY`
+- `POSTGRES_PASSWORD`, `DATABASE_URL`
+- `JWT_SECRET`, `AUTH_ADMIN_PASS`, `AUTH_JUNTA_PASS`, `AUTH_SOCIO_PASS`
+- `INTERNAL_API_KEY` (para subidas Cowork)
 - `STRIPE_SECRET_KEY`, `STRIPE_PUBLISHABLE_KEY`, `STRIPE_WEBHOOK_SECRET`
-- `PUBLIC_URL`
-- `CLUB_REPRESENTANTE_DNI`, `CLUB_EMAIL`, `CLUB_TELEFONO`
+- `SMTP_HOST=smtp.zoho.eu`, `SMTP_PORT=465`, `SMTP_USER`, `SMTP_PASS` (app-specific password de Zoho)
+- `PUBLIC_URL=https://erp.deportepedrola.com`
+- `CLUB_*` (datos del club para certificados de donación y firmas)
 
 ### 3. Crear directorio de uploads
 
@@ -55,42 +61,25 @@ touch uploads/.gitkeep
 ### 4. Arrancar los contenedores
 
 ```bash
-docker compose up -d --build
+docker compose -p club -f docker-compose.yml up -d --build
 ```
 
-### 5. Ejecutar migraciones de base de datos
+### 5. Ejecutar migraciones y scripts de carga inicial
+
+Las migraciones (`db/schema.sql`) corren automáticamente al arrancar `app`. Para los scripts opcionales:
 
 ```bash
-docker compose exec app npm run migrate
+docker compose -p club exec app npm run migrate           # migraciones
+docker compose -p club exec app node scripts/importar-socios.js /ruta/Socios_DP.xlsx
 ```
 
-### 6. (Opcional) Importar socios desde Excel
-
-```bash
-docker compose exec app node db/seed-socios.js /ruta/al/Socios_DP.xlsx
-```
-
----
-
-## Configuración de Auth0
-
-1. Crear un tenant en [auth0.com](https://auth0.com) (plan gratuito suficiente).
-2. Crear una **API**:
-   - Identifier: `https://api.deporte-pedrola` (valor de `AUTH0_AUDIENCE`)
-   - Signing algorithm: RS256
-3. Crear una **Application** de tipo "Single Page Application":
-   - Allowed Callback URLs: `https://erp.deportepedrola.com`
-   - Allowed Logout URLs: `https://erp.deportepedrola.com`
-   - Allowed Web Origins: `https://erp.deportepedrola.com`
-4. Copiar **Domain** → `AUTH0_DOMAIN` y **Client ID** → `AUTH0_CLIENT_ID` en `.env`.
-
-### Promocionar el primer administrador
-
-Tras el primer login, ejecutar en la base de datos:
-
-```sql
-UPDATE usuarios SET rol = 'admin' WHERE email = 'jaime@ejemplo.com';
-```
+Scripts SQL adicionales en `scripts/`:
+- `01_limpiar_mojibake_y_duplicados.sql` — limpieza inicial BD heredada
+- `02_importar_facturas_y_distribuciones.SQL` — carga histórica facturas (idempotente, ON CONFLICT)
+- `05_vista_socios_categoria.sql` — vista categorías por edad
+- `07_vistas_libro_caja.sql` + `08_v_libro_caja_v2.sql` — vistas resumen para dashboard
+- `09_tarifas_2025_2026.sql` — tarifas oficiales
+- `10_generar_cuotas_2025_2026.sql` — generar `cuotas_socio` para todos
 
 ---
 
@@ -108,22 +97,18 @@ UPDATE usuarios SET rol = 'admin' WHERE email = 'jaime@ejemplo.com';
 ## Importación de socios desde Excel
 
 ```bash
-docker compose exec app node db/seed-socios.js /ruta/al/Socios_DP.xlsx
+docker compose -p club exec app node scripts/importar-socios.js /ruta/al/Socios_DP.xlsx
 ```
 
-El script importa socios y crea inscripciones para la temporada `2024-2025`. No se ejecuta automáticamente en el arranque.
+El script es idempotente (UPSERT por `numero_socio`). Reporta insertados, actualizados, errores. Las cuotas automáticas se generan con `scripts/10_generar_cuotas_2025_2026.sql` (las reglas: multi-deporte = suma, JJEE si edad ≤ 15).
 
 ---
 
-## ⚠️ Aviso legal: certificados de donación y Ley 49/2002
+## Certificados de donación y Ley 49/2002
 
-Los certificados de donación generados por esta aplicación incluyen referencias a la **Ley 49/2002** sobre incentivos fiscales al mecenazgo (deducción en IRPF, modelo 182).
+**CONFIRMADO 2026-05-28 con asesor fiscal:** el Club Deportivo Elemental Deporte Pedrola **sí está acogido** al régimen fiscal especial del Título II de la **Ley 49/2002**, de 23 de diciembre, sobre el régimen fiscal de las entidades sin fines lucrativos y de los incentivos fiscales al mecenazgo.
 
-**Estas deducciones solo aplican si la entidad está efectivamente acogida al régimen especial de dicha ley** (entidades sin fines lucrativos de utilidad pública, fundaciones, etc.).
-
-Un club deportivo inscrito en el registro de entidades deportivas de Aragón no acoge automáticamente la Ley 49/2002. **Jaime debe confirmar con el asesor fiscal si el club cumple los requisitos antes de entregar certificados a donantes.**
-
-Si el club no está acogido a dicha ley, adaptar el texto del certificado en `lib/certificado-donacion.js`.
+Los certificados emitidos por `lib/certificado-donacion.js` (endpoint `POST /api/certificados/donacion`) son **válidos** para que el donante deduzca en IRPF (modelo 182). El texto legal del PDF **no debe modificarse** sin revisar previamente con el asesor fiscal (ver `CLAUDE.md` regla 5).
 
 ---
 

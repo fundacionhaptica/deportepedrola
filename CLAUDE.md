@@ -10,7 +10,7 @@
 
 4. **OCR no destructivo.** El JSON íntegro devuelto por la API de Anthropic se guarda en `facturas.ocr_raw_json` sin transformar. No filtrar ni modificar antes de guardar — permite reprocesar en el futuro.
 
-5. **Certificados de donación.** Cualquier cambio en el texto del certificado (`lib/certificado-donacion.js`) tiene implicaciones fiscales. Revisar con Jaime antes de modificar. Ver aviso en README sobre Ley 49/2002.
+5. **Certificados de donación.** Ley 49/2002 CONFIRMADA con asesor fiscal (2026-05-28): el club SÍ está acogido al régimen especial, los certificados son válidos para deducción IRPF (modelo 182). Cualquier cambio en el texto del certificado (`lib/certificado-donacion.js`) tiene implicaciones fiscales — revisar con Jaime ANTES de modificar.
 
 6. **Adelantos del presidente** (`tipo='adelanto_presidente'`) llevan SIEMPRE `es_tesoreria=true` y no deben computar como ingreso real en informes ni en el balance. La vista `v_balance_mensual` filtra `WHERE es_tesoreria = false`.
 
