@@ -69,6 +69,7 @@ app.use('/api/cuotas',        checkJwt, checkRole, require('./routes/cuotas'));
 app.use('/api/movimientos', checkJwt, checkRole, require('./routes/movimientos'));
 app.use('/api/conciliacion', checkJwt, checkRole, require('./routes/conciliacion'));
 app.use('/api/proveedores', checkJwt, checkRole, require('./routes/proveedores'));
+app.use('/api/conceptos',   checkJwt, checkRole, require('./routes/conceptos'));
 app.use('/api/stripe',                              require('./routes/stripe'));
 
 // Páginas públicas de inscripciones (sin autenticación)

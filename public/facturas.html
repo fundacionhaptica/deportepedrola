@@ -382,7 +382,14 @@ const fmt = n => n != null
 const fmtFecha = f => f ? f.slice(0, 10) : '—';
 
 const TIPOS = ['factura','recibo','licencias','recibo_premio','recibo_arbitraje','justificante_bancario','cobro_bancario','gasto_bancario','extracto_tpv','extracto_cuenta','devolucion','notificacion'];
-const CONCEPTOS  = ['Federación', 'autobuses', 'hotel', 'Fichas', 'arbitrajes', 'ropa', 'gestoría', 'sanciones'];
+let CONCEPTOS = ['Federación', 'Autobuses', 'Hotel', 'Fichas / Licencias', 'Arbitraje', 'Ropa / Equipación', 'Gestoría', 'Sanciones', 'Otros'];
+// Cargar la lista real desde /api/conceptos al inicializar
+async function cargarConceptosDinamicos() {
+  try {
+    const data = await window.api('/api/conceptos');
+    if (Array.isArray(data) && data.length) CONCEPTOS = data.map(c => c.nombre);
+  } catch (_) { /* fallback al hardcoded */ }
+}
 const DEPORTES   = ['Atletismo', 'Trail', 'Baloncesto', 'Fútbol 7', 'Fútbol 8', 'Fútbol 11',
                     'Fútbol Sala', 'Voleibol', 'Gimnasia Rítmica', 'Patinaje', 'Kenpo', 'Kickboxing',
                     'Club', 'Múltiple'];
@@ -1143,7 +1150,7 @@ if (!jwtGuardado) {
   window.setToken(jwtGuardado);
   const usuarioGuardado = sessionStorage.getItem('usuario');
   if (usuarioGuardado) document.getElementById('userNameHeader').textContent = usuarioGuardado;
-  cargarFacturas(1);
+  cargarConceptosDinamicos().then(() => cargarFacturas(1));
   cargarOCRStats();
 }
 
