@@ -402,12 +402,23 @@ router.post('/:id/reocr', async (req, res) => {
 
     const { ocrRawJson, extraido } = await extraerDatosFactura(f.ruta_archivo, mime, ejemplosOcr);
 
+    // Importante: NUNCA sobrescribir campos no nulos cuando ocr_revisado=true.
+    // El COALESCE($N, facturas.X) prefiere el dato existente en BD.
+    // Solo rellena lo que actualmente esté NULL. Si quieres forzar, envía body.force=true.
+    const forzar = req.body && req.body.force === true;
+    const sqlSet = forzar
+      ? `tipo=COALESCE($1,tipo), proveedor=COALESCE($2,proveedor), nif_proveedor=COALESCE($3,nif_proveedor),
+           numero_factura=COALESCE($4,numero_factura), fecha_factura=COALESCE($5::date,fecha_factura),
+           concepto=COALESCE($6,concepto), base_imponible=COALESCE($7,base_imponible),
+           iva_porcentaje=COALESCE($8,iva_porcentaje), iva_importe=COALESCE($9,iva_importe),
+           importe=COALESCE($10,importe), ocr_raw_json=$11`
+      : `tipo=COALESCE(tipo,$1), proveedor=COALESCE(proveedor,$2), nif_proveedor=COALESCE(nif_proveedor,$3),
+           numero_factura=COALESCE(numero_factura,$4), fecha_factura=COALESCE(fecha_factura,$5::date),
+           concepto=COALESCE(concepto,$6), base_imponible=COALESCE(base_imponible,$7),
+           iva_porcentaje=COALESCE(iva_porcentaje,$8), iva_importe=COALESCE(iva_importe,$9),
+           importe=COALESCE(importe,$10), ocr_raw_json=$11`;
     const { rows: [updated] } = await db.query(
-      `UPDATE facturas SET
-         tipo           = $1, proveedor      = $2, nif_proveedor  = $3,
-         numero_factura = $4, fecha_factura  = $5::date, concepto = $6,
-         base_imponible = $7, iva_porcentaje = $8, iva_importe    = $9,
-         importe        = $10, ocr_raw_json  = $11, ocr_revisado  = false
+      `UPDATE facturas SET ${sqlSet}
        WHERE id = $12
        RETURNING id, tipo, proveedor, nif_proveedor, numero_factura, fecha_factura,
                  concepto, deporte, equipo_categoria,
