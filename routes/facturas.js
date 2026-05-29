@@ -83,7 +83,7 @@ router.get('/duplicados', async (req, res) => {
     // Duplicados por numero_factura + proveedor (ignorando mayúsculas y espacios)
     const { rows: porNumero } = await db.query(`
       SELECT array_agg(id ORDER BY id) AS ids,
-             numero_factura,
+             MAX(numero_factura) AS numero_factura,
              MAX(proveedor) AS proveedor,
              'numero_factura' AS motivo
       FROM facturas
