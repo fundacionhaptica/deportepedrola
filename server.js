@@ -67,6 +67,7 @@ app.use('/api/facturas',      checkJwtOrInternalKey, checkRole, require('./route
 app.use('/api/certificados',  checkJwt, canWrite,  require('./routes/certificados'));
 app.use('/api/cuotas',        checkJwt, checkRole, require('./routes/cuotas'));
 app.use('/api/movimientos', checkJwt, checkRole, require('./routes/movimientos'));
+app.use('/api/conciliacion', checkJwt, checkRole, require('./routes/conciliacion'));
 app.use('/api/stripe',                              require('./routes/stripe'));
 
 // Páginas públicas de inscripciones (sin autenticación)
@@ -94,6 +95,10 @@ app.get('/certificados', (_req, res) => {
 });
 
 // Dashboard de gastos (requiere auth, resuelta en cliente)
+app.get('/conciliacion', (_req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'conciliacion.html'));
+});
+
 app.get('/justificantes', (_req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'justificantes.html'));
 });

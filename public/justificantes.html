@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Justificantes bancarios · CDE Deporte Pedrola</title>
+  <script src="/app.js"></script>
   <style>
     :root {
       --amarillo: #FFD400; --negro: #111; --azul: #1E88E5;
@@ -38,7 +39,7 @@
     .btn { background: var(--amarillo); color: var(--negro); padding: .35rem .6rem; border: none;
            border-radius: 4px; cursor: pointer; font-size: .78rem; font-weight: 600; }
     .btn-outline { background: #fff; border: 1px solid var(--borde); padding: .3rem .55rem;
-                   border-radius: 4px; cursor: pointer; font-size: .76rem; }
+                   border-radius: 4px; cursor: pointer; font-size: .76rem; text-decoration: none; color: inherit; display: inline-block; }
     .filtros { display: flex; gap: .8rem; margin-bottom: 1rem; flex-wrap: wrap; }
     .filtros input, .filtros select { padding: .4rem .6rem; border: 1px solid var(--borde); border-radius: 4px; font-size: .85rem; }
     .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 1rem; margin-bottom: 1.5rem; }
@@ -59,6 +60,7 @@
   <a href="/">Panel</a>
   <a href="/facturas">Facturas</a>
   <a href="/justificantes" class="activa">Justificantes</a>
+  <a href="/conciliacion">Conciliación</a>
   <a href="/gastos">Gastos</a>
   <a href="/ingresos">Ingresos</a>
   <a href="/certificados">Certificados</a>
@@ -66,9 +68,7 @@
 
 <div class="wrap">
   <div class="aviso">
-    <strong>Justificantes bancarios.</strong> Transferencias IberCaja registradas como gasto pero a las que les falta la factura original.
-    Aparecen aquí porque se cargaron sin factura desde el Excel.
-    Cuando recibas la factura, edita la entrada y cambia el <em>tipo</em> a “factura” para reclasificarla.
+    <strong>Justificantes bancarios.</strong> Transferencias IberCaja registradas como gasto pero que no son una factura comercial. Son evidencia de que el dinero salió, pero hace falta la factura del proveedor para cerrar la conciliación contable.
   </div>
 
   <div class="stats">
@@ -85,27 +85,19 @@
       <input type="text" id="fBeneficiario" placeholder="Beneficiario…">
       <button class="btn" onclick="cargar()">Filtrar</button>
     </div>
-    <table>
-      <thead><tr>
-        <th>Fecha</th><th>Beneficiario</th><th>Concepto</th>
-        <th style="text-align:right">Importe</th><th>Acciones</th>
-      </tr></thead>
-      <tbody id="tabla"><tr><td colspan="5" class="sin-datos">Cargando…</td></tr></tbody>
-    </table>
+    <div style="overflow-x:auto">
+      <table>
+        <thead><tr>
+          <th>Fecha</th><th>Beneficiario</th><th>Concepto</th>
+          <th style="text-align:right">Importe</th><th>Acciones</th>
+        </tr></thead>
+        <tbody id="tabla"><tr><td colspan="5" class="sin-datos">Cargando…</td></tr></tbody>
+      </table>
+    </div>
   </div>
 </div>
 
 <script>
-const token = localStorage.getItem('jwt');
-if (!token) { location.href='/'; }
-
-async function api(path) {
-  const r = await fetch(path, { headers: { Authorization: 'Bearer ' + token } });
-  if (r.status === 401) { localStorage.removeItem('jwt'); location.href='/'; return null; }
-  if (!r.ok) { alert('Error ' + r.status); return null; }
-  return r.json();
-}
-
 function fmt(n) {
   if (n == null) return '—';
   return Number(n).toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €';
@@ -124,31 +116,38 @@ async function cargar() {
   if (desde) url += '&desde=' + desde;
   if (hasta) url += '&hasta=' + hasta;
   if (ben)   url += '&proveedor=' + encodeURIComponent(ben);
-  const data = await api(url);
-  if (!data) return;
-  const filas = data.facturas;
-  document.getElementById('stNum').textContent = data.total;
-  const total = filas.reduce((s, f) => s + Number(f.importe || 0), 0);
-  document.getElementById('stImporte').textContent = fmt(total);
-  document.getElementById('stPendientes').textContent = data.total;
-
-  document.getElementById('tabla').innerHTML = filas.length
-    ? filas.map(f => `
-      <tr>
-        <td>${fmtFecha(f.fecha_factura)}</td>
-        <td>${esc(f.proveedor || '—')}</td>
-        <td style="color:#555;font-size:.8rem">${esc(f.concepto || '—')}</td>
-        <td class="importe">${fmt(f.importe)}</td>
-        <td>
-          <button class="btn-outline" onclick="verPDF(${f.id})">PDF</button>
-          <a class="btn-outline" href="/facturas?id=${f.id}" style="text-decoration:none">Editar</a>
-        </td>
-      </tr>`).join('')
-    : '<tr><td colspan="5" class="sin-datos">Sin justificantes con esos filtros.</td></tr>';
+  try {
+    const data = await window.api(url);
+    if (!data) return;
+    const filas = data.facturas;
+    document.getElementById('stNum').textContent = data.total;
+    const total = filas.reduce((s, f) => s + Number(f.importe || 0), 0);
+    document.getElementById('stImporte').textContent = fmt(total);
+    document.getElementById('stPendientes').textContent = data.total;
+    document.getElementById('tabla').innerHTML = filas.length
+      ? filas.map(f => `
+        <tr>
+          <td>${fmtFecha(f.fecha_factura)}</td>
+          <td>${esc(f.proveedor || '—')}</td>
+          <td style="color:#555;font-size:.8rem">${esc(f.concepto || '—')}</td>
+          <td class="importe">${fmt(f.importe)}</td>
+          <td>
+            <button class="btn-outline" onclick="verPDF(${f.id})">PDF</button>
+            <a class="btn-outline" href="/facturas?id=${f.id}" style="margin-left:.3rem">Editar</a>
+          </td>
+        </tr>`).join('')
+      : '<tr><td colspan="5" class="sin-datos">Sin justificantes con esos filtros.</td></tr>';
+  } catch (e) {
+    document.getElementById('tabla').innerHTML = `<tr><td colspan="5" style="color:var(--rojo);text-align:center;padding:1rem">Error: ${esc(e.message)}</td></tr>`;
+  }
 }
 
 function verPDF(id) {
-  fetch('/api/facturas/' + id + '/archivo', { headers: { Authorization: 'Bearer ' + token } })
+  const token = sessionStorage.getItem('token');
+  if (!token) { alert('Sesión caducada'); return; }
+  fetch('/api/facturas/' + id + '/archivo', {
+    headers: { Authorization: 'Bearer ' + token, 'X-Club-Token': token }
+  })
     .then(r => r.ok ? r.blob() : Promise.reject('HTTP ' + r.status))
     .then(blob => {
       const url = URL.createObjectURL(blob);
@@ -157,8 +156,18 @@ function verPDF(id) {
     })
     .catch(e => alert('No se pudo abrir el PDF: ' + e));
 }
+window.verPDF = verPDF;
 
-cargar();
+// Init: usa el mismo patron que facturas.html / ingresos.html
+const jwtGuardado = sessionStorage.getItem('token');
+if (!jwtGuardado) {
+  window.location.href = '/';
+} else {
+  window.setToken(jwtGuardado);
+  const usuarioGuardado = sessionStorage.getItem('usuario');
+  if (usuarioGuardado) document.getElementById('userNameHeader').textContent = usuarioGuardado;
+  cargar();
+}
 </script>
 </body>
 </html>

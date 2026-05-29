@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Conciliación · CDE Deporte Pedrola</title>
+  <script src="/app.js"></script>
+  <style>
+    :root {
+      --amarillo: #FFD400; --negro: #111; --azul: #1E88E5;
+      --gris: #f4f4f4; --borde: #e0e0e0; --rojo: #c0392b; --verde: #2E7D32; --naranja: #f39c12;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+           background: var(--gris); color: var(--negro); line-height: 1.5; }
+    header { background: var(--negro); color: var(--amarillo); padding: 1rem 1.5rem;
+             border-bottom: 5px solid var(--amarillo); display: flex; justify-content: space-between; }
+    header h1 { font-size: 1.2rem; }
+    header small { color: #fff; font-size: .8rem; display: block; opacity: .8; }
+    nav { background: #1a1a1a; padding: .4rem 1.5rem; display: flex; gap: .3rem; }
+    nav a { color: #ccc; text-decoration: none; font-size: .83rem; font-weight: 600; padding: .35rem .8rem; border-radius: 4px; }
+    nav a:hover { background: #333; color: #fff; }
+    nav a.activa { background: var(--amarillo); color: var(--negro); }
+    .wrap { max-width: 1400px; margin: 0 auto; padding: 1.5rem 1rem; }
+    .card { background: #fff; padding: 1.2rem; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,.08); margin-bottom: 1rem; }
+    h2 { margin-bottom: 1rem; font-size: 1.05rem; }
+    .aviso { background: #fff3cd; border-left: 4px solid #ffc107; padding: .75rem 1rem; margin-bottom: 1rem; font-size: .85rem; }
+    table { width: 100%; border-collapse: collapse; font-size: .82rem; }
+    th { text-align: left; padding: .5rem; background: #f0f0f0; font-weight: 600; border-bottom: 2px solid var(--borde); position: sticky; top: 0; z-index: 1; }
+    td { padding: .5rem; border-bottom: 1px solid var(--borde); vertical-align: top; }
+    tr:hover { background: #fafafa; }
+    .importe { text-align: right; font-weight: 700; font-family: "Courier New", monospace; }
+    .btn { background: var(--amarillo); color: var(--negro); padding: .35rem .8rem; border: none; border-radius: 4px; cursor: pointer; font-size: .8rem; font-weight: 600; }
+    .btn-outline { background: #fff; border: 1px solid var(--borde); padding: .25rem .5rem; border-radius: 4px; cursor: pointer; font-size: .75rem; }
+    .btn-verde { background: var(--verde); color: #fff; border: none; padding: .3rem .6rem; border-radius: 4px; cursor: pointer; font-size: .75rem; font-weight: 600; }
+    .btn-rojo { background: var(--rojo); color: #fff; border: none; padding: .25rem .5rem; border-radius: 4px; cursor: pointer; font-size: .72rem; }
+    .estado-completo      { background: #c8e6c9; color: #2E7D32; padding: .15rem .5rem; border-radius: 12px; font-size: .7rem; font-weight: 700; }
+    .estado-falta_justificante { background: #fff3cd; color: #b8860b; padding: .15rem .5rem; border-radius: 12px; font-size: .7rem; font-weight: 700; }
+    .estado-falta_factura { background: #ffe0e0; color: #c0392b; padding: .15rem .5rem; border-radius: 12px; font-size: .7rem; font-weight: 700; }
+    .estado-discrepancia  { background: #f8d7da; color: #721c24; padding: .15rem .5rem; border-radius: 12px; font-size: .7rem; font-weight: 700; }
+    .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1rem; margin-bottom: 1.5rem; }
+    .stat { background: #fff; padding: 1rem; border-radius: 6px; box-shadow: 0 1px 2px rgba(0,0,0,.05); }
+    .stat .label { font-size: .72rem; color: #666; text-transform: uppercase; letter-spacing: .5px; }
+    .stat .valor { font-size: 1.3rem; font-weight: 700; margin-top: .2rem; }
+    .filtros { display: flex; gap: .6rem; margin-bottom: 1rem; flex-wrap: wrap; align-items: center; }
+    .filtros select, .filtros input { padding: .4rem .6rem; border: 1px solid var(--borde); border-radius: 4px; font-size: .85rem; }
+    .tab-buttons { display: flex; gap: .3rem; margin-bottom: 1rem; }
+    .tab-buttons button { background: #fff; border: 1px solid var(--borde); padding: .5rem 1rem; cursor: pointer; font-size: .85rem; font-weight: 600; }
+    .tab-buttons button.activa { background: var(--amarillo); border-color: var(--amarillo); }
+    .ids { font-family: "Courier New", monospace; font-size: .72rem; color: #555; }
+    .nada { color: #999; font-style: italic; font-size: .75rem; }
+    .sugerencia-row { background: #f0f8ff; }
+    .sugerencia-row td { vertical-align: middle; }
+    .modal-bg { display:none; position:fixed; inset:0; background:rgba(0,0,0,.5); z-index:99; align-items:center; justify-content:center; }
+    .modal { background:#fff; border-radius:8px; max-width:600px; width:92%; max-height:90vh; overflow:auto; padding:1.4rem; }
+    .modal h3 { font-size: 1rem; margin-bottom: .8rem; }
+  </style>
+</head>
+<body>
+
+<header>
+  <div><h1>CDE Deporte Pedrola</h1><small>Conciliación contable — facturas ↔ justificantes</small></div>
+  <div><span id="userNameHeader" style="font-size:.8rem;color:#ccc"></span></div>
+</header>
+
+<nav>
+  <a href="/">Panel</a>
+  <a href="/facturas">Facturas</a>
+  <a href="/justificantes">Justificantes</a>
+  <a href="/conciliacion" class="activa">Conciliación</a>
+  <a href="/gastos">Gastos</a>
+  <a href="/ingresos">Ingresos</a>
+  <a href="/certificados">Certificados</a>
+</nav>
+
+<div class="wrap">
+  <div class="aviso">
+    <strong>Conciliación para el interventor del ayuntamiento.</strong> Esta vista cruza cada factura comercial con su transferencia bancaria justificativa.
+    Cuatro estados: <span class="estado-completo">completo</span> (factura + justificante coinciden ±1 €),
+    <span class="estado-falta_justificante">falta justificante</span>,
+    <span class="estado-falta_factura">falta factura</span>,
+    <span class="estado-discrepancia">discrepancia</span> (vinculadas pero importes distintos).
+  </div>
+
+  <!-- Stats -->
+  <div class="stats" id="stats"></div>
+
+  <!-- Tabs -->
+  <div class="tab-buttons">
+    <button id="tabBtnEstado" class="activa" onclick="showTab('estado')">Estado actual</button>
+    <button id="tabBtnSugerencias" onclick="showTab('sugerencias')">Sugerencias automáticas</button>
+  </div>
+
+  <!-- Tab estado -->
+  <div id="tabEstado" class="card">
+    <div class="filtros">
+      <select id="fEstado" onchange="cargarEstado()">
+        <option value="">Todos los estados</option>
+        <option value="falta_justificante">Falta justificante</option>
+        <option value="falta_factura">Falta factura</option>
+        <option value="discrepancia">Discrepancia</option>
+        <option value="completo">Completo</option>
+      </select>
+      <select id="fTipo" onchange="cargarEstado()">
+        <option value="">Facturas y justificantes</option>
+        <option value="factura">Solo facturas</option>
+        <option value="justificante_bancario">Solo justificantes</option>
+      </select>
+      <input type="date" id="fDesde" title="Desde">
+      <input type="date" id="fHasta" title="Hasta">
+      <button class="btn" onclick="cargarEstado()">Filtrar</button>
+      <button class="btn-outline" onclick="exportarCSV()" style="margin-left:auto">⬇ Exportar CSV</button>
+    </div>
+    <div style="overflow:auto;max-height:65vh">
+      <table>
+        <thead><tr>
+          <th>Fecha</th><th>Tipo</th><th>Proveedor / concepto</th><th>Nº</th>
+          <th style="text-align:right">Importe</th><th>Estado</th><th>Conciliada con</th><th>Acciones</th>
+        </tr></thead>
+        <tbody id="tabla"><tr><td colspan="8" style="text-align:center;padding:1rem;color:#888">Cargando…</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Tab sugerencias -->
+  <div id="tabSugerencias" class="card" style="display:none">
+    <div style="margin-bottom:.8rem;font-size:.85rem;color:#666">
+      Combinaciones detectadas automáticamente: factura sin justificante + justificante sin factura cuyo importe coincide (±1 €) y la fecha está dentro de 60 días. Confirma cada vinculación manualmente.
+    </div>
+    <div style="overflow:auto;max-height:65vh">
+      <table>
+        <thead><tr>
+          <th>F. fecha</th><th>Proveedor factura</th><th>Nº</th>
+          <th style="text-align:right">F. importe</th>
+          <th>J. fecha</th><th>Beneficiario justif</th>
+          <th style="text-align:right">J. importe</th>
+          <th>Dif. €</th><th>Dif. días</th><th>Acción</th>
+        </tr></thead>
+        <tbody id="tablaSug"><tr><td colspan="10" style="text-align:center;padding:1rem;color:#888">—</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: conciliar manualmente -->
+<div class="modal-bg" id="modal">
+  <div class="modal">
+    <h3 id="modalTitulo">Conciliar</h3>
+    <p id="modalCuerpo" style="font-size:.85rem;color:#555;margin-bottom:1rem"></p>
+    <div id="modalLista" style="max-height:50vh;overflow:auto;border:1px solid #eee;border-radius:4px;margin-bottom:1rem"></div>
+    <div style="display:flex;gap:.6rem;justify-content:flex-end">
+      <button class="btn-outline" onclick="cerrarModal()">Cerrar</button>
+    </div>
+  </div>
+</div>
+
+<script>
+function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+function fmt(n) { return n == null ? '—' : Number(n).toLocaleString('es-ES', {minimumFractionDigits:2,maximumFractionDigits:2}) + ' €'; }
+function fmtFecha(s) { return s ? new Date(s).toLocaleDateString('es-ES') : '—'; }
+
+let _filas = []; // cache para exportar
+
+async function cargarResumen() {
+  try {
+    const data = await window.api('/api/conciliacion/resumen');
+    if (!data) return;
+    const stats = document.getElementById('stats');
+    const reduce = (arr, fn) => arr.reduce((s, x) => s + fn(x), 0);
+    const total_f = reduce(data.filter(x => x.tipo==='factura'), x => Number(x.importe_total));
+    const total_j = reduce(data.filter(x => x.tipo==='justificante_bancario'), x => Number(x.importe_total));
+    const n_completo = reduce(data.filter(x => x.estado==='completo'), x => Number(x.n));
+    const n_falta_j  = reduce(data.filter(x => x.estado==='falta_justificante'), x => Number(x.n));
+    const n_falta_f  = reduce(data.filter(x => x.estado==='falta_factura'), x => Number(x.n));
+    const n_dis      = reduce(data.filter(x => x.estado==='discrepancia'), x => Number(x.n));
+    stats.innerHTML = `
+      <div class="stat"><div class="label">Facturas totales €</div><div class="valor">${fmt(total_f)}</div></div>
+      <div class="stat"><div class="label">Justificantes €</div><div class="valor">${fmt(total_j)}</div></div>
+      <div class="stat" style="background:#e8f5e9"><div class="label">Completas</div><div class="valor" style="color:#2E7D32">${n_completo}</div></div>
+      <div class="stat" style="background:#fff8e1"><div class="label">Falta justificante</div><div class="valor" style="color:#b8860b">${n_falta_j}</div></div>
+      <div class="stat" style="background:#ffebee"><div class="label">Falta factura</div><div class="valor" style="color:#c0392b">${n_falta_f}</div></div>
+      <div class="stat" style="background:#fde7ea"><div class="label">Discrepancias</div><div class="valor" style="color:#721c24">${n_dis}</div></div>
+    `;
+  } catch (e) { console.error(e); }
+}
+
+async function cargarEstado() {
+  const params = new URLSearchParams();
+  const est = document.getElementById('fEstado').value;
+  const tipo = document.getElementById('fTipo').value;
+  const d = document.getElementById('fDesde').value;
+  const h = document.getElementById('fHasta').value;
+  if (est) params.set('estado', est);
+  if (tipo) params.set('tipo', tipo);
+  if (d) params.set('desde', d);
+  if (h) params.set('hasta', h);
+  document.getElementById('tabla').innerHTML = '<tr><td colspan="8" style="text-align:center;padding:1rem;color:#888">Cargando…</td></tr>';
+  try {
+    const data = await window.api('/api/conciliacion?' + params.toString());
+    if (!data) return;
+    _filas = data;
+    const tbody = document.getElementById('tabla');
+    if (data.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:1rem;color:#888">Sin resultados.</td></tr>';
+      return;
+    }
+    tbody.innerHTML = data.map(f => {
+      const ids = (f.conciliada_con || []).join(', ');
+      const esFactura = f.tipo === 'factura';
+      const btnConciliar = esFactura
+        ? `<button class="btn-verde" onclick="abrirConciliar(${f.id})">Vincular</button>`
+        : `<button class="btn-verde" onclick="abrirConciliarJustif(${f.id})">Vincular</button>`;
+      const btnDesconciliar = ids ? `<button class="btn-rojo" onclick="verConciliacionesPara(${f.id},'${f.tipo}')">Editar vínculos</button>` : '';
+      return `<tr>
+        <td>${fmtFecha(f.fecha_factura)}</td>
+        <td><span style="font-size:.7rem;text-transform:uppercase;color:${esFactura?'#1565C0':'#7E57C2'};font-weight:700">${esFactura?'Factura':'Justif. banco'}</span></td>
+        <td>${esc(f.proveedor || '—')}<br><small style="color:#888;font-size:.7rem">${esc(f.concepto || '')}</small></td>
+        <td>${esc(f.numero_factura || '—')}</td>
+        <td class="importe">${fmt(f.importe)}</td>
+        <td><span class="estado-${f.estado_conciliacion}">${f.estado_conciliacion.replace('_',' ')}</span></td>
+        <td class="ids">${ids || '<span class="nada">—</span>'}</td>
+        <td style="white-space:nowrap">${btnConciliar} ${btnDesconciliar}
+          <button class="btn-outline" onclick="verPDF(${f.id})">PDF</button></td>
+      </tr>`;
+    }).join('');
+  } catch (e) {
+    document.getElementById('tabla').innerHTML = `<tr><td colspan="8" style="color:var(--rojo);padding:1rem;text-align:center">Error: ${esc(e.message)}</td></tr>`;
+  }
+}
+
+async function cargarSugerencias() {
+  document.getElementById('tablaSug').innerHTML = '<tr><td colspan="10" style="text-align:center;padding:1rem;color:#888">Buscando…</td></tr>';
+  try {
+    const data = await window.api('/api/conciliacion/sugerencias');
+    if (!data) return;
+    if (data.length === 0) {
+      document.getElementById('tablaSug').innerHTML = '<tr><td colspan="10" style="text-align:center;padding:1rem;color:#888">No hay sugerencias automáticas (todo lo importante ya está conciliado o no hay coincidencias claras).</td></tr>';
+      return;
+    }
+    document.getElementById('tablaSug').innerHTML = data.map(s => `
+      <tr class="sugerencia-row">
+        <td>${fmtFecha(s.factura_fecha)}</td>
+        <td>${esc(s.factura_proveedor || '')}</td>
+        <td>${esc(s.numero_factura || '')}</td>
+        <td class="importe">${fmt(s.factura_importe)}</td>
+        <td>${fmtFecha(s.justif_fecha)}</td>
+        <td>${esc(s.justif_proveedor || '')}<br><small style="font-size:.7rem;color:#888">${esc(s.justif_concepto || '')}</small></td>
+        <td class="importe">${fmt(s.justif_importe)}</td>
+        <td class="importe">${fmt(s.dif_importe)}</td>
+        <td style="text-align:right">${s.dif_dias}</td>
+        <td><button class="btn-verde" onclick="conciliarPar(${s.factura_id},${s.justif_id})">✓ Vincular</button></td>
+      </tr>`).join('');
+  } catch (e) {
+    document.getElementById('tablaSug').innerHTML = `<tr><td colspan="10" style="color:var(--rojo);padding:1rem;text-align:center">Error: ${esc(e.message)}</td></tr>`;
+  }
+}
+
+async function conciliarPar(factura_id, justificante_id) {
+  if (!confirm(`Vincular factura #${factura_id} con justificante #${justificante_id}?`)) return;
+  try {
+    const r = await window.api('/api/conciliacion', {
+      method: 'POST',
+      body: JSON.stringify({ factura_id, justificante_id }),
+    });
+    if (!r) return;
+    alert('Vinculación creada.');
+    cargarResumen();
+    cargarSugerencias();
+    cargarEstado();
+  } catch (e) {
+    alert('Error: ' + e.message);
+  }
+}
+
+async function abrirConciliar(factura_id) {
+  document.getElementById('modal').style.display = 'flex';
+  document.getElementById('modalTitulo').textContent = `Vincular factura #${factura_id}`;
+  document.getElementById('modalCuerpo').textContent = 'Elige el justificante bancario que paga esta factura:';
+  const lista = document.getElementById('modalLista');
+  lista.innerHTML = '<div style="padding:.6rem;color:#888">Cargando…</div>';
+  try {
+    const data = await window.api('/api/conciliacion?tipo=justificante_bancario');
+    if (!data) return;
+    lista.innerHTML = data.map(j => `
+      <div style="padding:.5rem;border-bottom:1px solid #eee;display:flex;justify-content:space-between;align-items:center;gap:.5rem">
+        <div style="flex:1">
+          <div style="font-weight:600">${esc(j.proveedor || '—')}</div>
+          <small style="color:#888">${fmtFecha(j.fecha_factura)} · ${esc(j.concepto || '')}</small>
+        </div>
+        <div class="importe" style="min-width:90px">${fmt(j.importe)}</div>
+        <span class="estado-${j.estado_conciliacion}">${j.estado_conciliacion.replace('_',' ')}</span>
+        <button class="btn-verde" onclick="conciliarPar(${factura_id},${j.id})">Vincular</button>
+      </div>`).join('') || '<div style="padding:.6rem;color:#888">Sin justificantes disponibles.</div>';
+  } catch (e) { lista.innerHTML = `<div style="padding:.6rem;color:var(--rojo)">Error: ${esc(e.message)}</div>`; }
+}
+
+async function abrirConciliarJustif(justif_id) {
+  document.getElementById('modal').style.display = 'flex';
+  document.getElementById('modalTitulo').textContent = `Vincular justificante #${justif_id}`;
+  document.getElementById('modalCuerpo').textContent = 'Elige la factura que este justificante paga:';
+  const lista = document.getElementById('modalLista');
+  lista.innerHTML = '<div style="padding:.6rem;color:#888">Cargando…</div>';
+  try {
+    const data = await window.api('/api/conciliacion?tipo=factura');
+    if (!data) return;
+    lista.innerHTML = data.map(f => `
+      <div style="padding:.5rem;border-bottom:1px solid #eee;display:flex;justify-content:space-between;align-items:center;gap:.5rem">
+        <div style="flex:1">
+          <div style="font-weight:600">${esc(f.proveedor || '—')}</div>
+          <small style="color:#888">${fmtFecha(f.fecha_factura)} · ${esc(f.numero_factura || '')} · ${esc(f.concepto || '')}</small>
+        </div>
+        <div class="importe" style="min-width:90px">${fmt(f.importe)}</div>
+        <span class="estado-${f.estado_conciliacion}">${f.estado_conciliacion.replace('_',' ')}</span>
+        <button class="btn-verde" onclick="conciliarPar(${f.id},${justif_id})">Vincular</button>
+      </div>`).join('') || '<div style="padding:.6rem;color:#888">Sin facturas disponibles.</div>';
+  } catch (e) { lista.innerHTML = `<div style="padding:.6rem;color:var(--rojo)">Error: ${esc(e.message)}</div>`; }
+}
+
+async function verConciliacionesPara(id, tipo) {
+  // Muestra las conciliaciones existentes y permite borrar
+  const fila = _filas.find(x => x.id === id);
+  if (!fila) return;
+  document.getElementById('modal').style.display = 'flex';
+  document.getElementById('modalTitulo').textContent = `Vínculos de ${tipo === 'factura' ? 'factura' : 'justificante'} #${id}`;
+  document.getElementById('modalCuerpo').textContent = 'Pulsa ✕ para deshacer un vínculo:';
+  const lista = document.getElementById('modalLista');
+  const otros = fila.conciliada_con || [];
+  if (otros.length === 0) {
+    lista.innerHTML = '<div style="padding:.6rem;color:#888">Sin vínculos.</div>';
+    return;
+  }
+  lista.innerHTML = otros.map(oid => `
+    <div style="padding:.5rem;border-bottom:1px solid #eee;display:flex;justify-content:space-between;align-items:center">
+      <div>Vinculado con #${oid}</div>
+      <button class="btn-rojo" onclick="desconciliar(${tipo==='factura'?id:oid},${tipo==='factura'?oid:id})">✕ Quitar</button>
+    </div>`).join('');
+}
+
+async function desconciliar(factura_id, justificante_id) {
+  if (!confirm('¿Quitar este vínculo?')) return;
+  try {
+    const r = await window.api(`/api/conciliacion?factura_id=${factura_id}&justificante_id=${justificante_id}`, { method: 'DELETE' });
+    if (!r) return;
+    cerrarModal();
+    cargarResumen();
+    cargarEstado();
+  } catch (e) { alert('Error: ' + e.message); }
+}
+
+function cerrarModal() { document.getElementById('modal').style.display = 'none'; }
+
+function showTab(tab) {
+  document.getElementById('tabEstado').style.display = tab === 'estado' ? 'block' : 'none';
+  document.getElementById('tabSugerencias').style.display = tab === 'sugerencias' ? 'block' : 'none';
+  document.getElementById('tabBtnEstado').classList.toggle('activa', tab === 'estado');
+  document.getElementById('tabBtnSugerencias').classList.toggle('activa', tab === 'sugerencias');
+  if (tab === 'sugerencias') cargarSugerencias();
+}
+
+function verPDF(id) {
+  const token = sessionStorage.getItem('token');
+  fetch('/api/facturas/' + id + '/archivo', { headers: { Authorization: 'Bearer ' + token, 'X-Club-Token': token } })
+    .then(r => r.ok ? r.blob() : Promise.reject('HTTP ' + r.status))
+    .then(blob => { const url = URL.createObjectURL(blob); window.open(url, '_blank'); setTimeout(() => URL.revokeObjectURL(url), 60000); })
+    .catch(e => alert('No se pudo abrir el PDF: ' + e));
+}
+window.verPDF = verPDF;
+window.conciliarPar = conciliarPar;
+window.abrirConciliar = abrirConciliar;
+window.abrirConciliarJustif = abrirConciliarJustif;
+window.verConciliacionesPara = verConciliacionesPara;
+window.desconciliar = desconciliar;
+
+function exportarCSV() {
+  if (!_filas.length) { alert('Sin datos'); return; }
+  const headers = ['fecha','tipo','proveedor','numero','concepto','importe','estado','conciliada_con','deporte','equipo'];
+  const rows = _filas.map(f => [
+    f.fecha_factura || '',
+    f.tipo,
+    f.proveedor || '',
+    f.numero_factura || '',
+    (f.concepto || '').replace(/"/g,'\"\"'),
+    f.importe || 0,
+    f.estado_conciliacion,
+    (f.conciliada_con || []).join(';'),
+    f.deporte || '',
+    f.equipo_categoria || '',
+  ].map(v => `"${String(v).replace(/"/g,'""')}"`).join(','));
+  const csv = headers.join(',') + '\n' + rows.join('\n');
+  const blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(blob);
+  link.download = 'conciliacion_' + new Date().toISOString().slice(0,10) + '.csv';
+  link.click();
+}
+window.exportarCSV = exportarCSV;
+
+// Init
+const jwtGuardado = sessionStorage.getItem('token');
+if (!jwtGuardado) {
+  window.location.href = '/';
+} else {
+  window.setToken(jwtGuardado);
+  const usuario = sessionStorage.getItem('usuario');
+  if (usuario) document.getElementById('userNameHeader').textContent = usuario;
+  cargarResumen();
+  cargarEstado();
+}
+</script>
+</body>
+</html>
