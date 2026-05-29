@@ -444,21 +444,26 @@
 
       <div class="aviso" id="avisoPrecios"></div>
 
-      <div style="max-width:700px">
+      <div style="max-width:850px">
         <div class="card">
           <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:1rem;gap:1rem;flex-wrap:wrap">
             <div>
               <h2 style="margin:0 0 .3rem">Tarifas por actividad</h2>
               <p style="font-size:.8rem;color:#666;margin:0">
-                <strong>JJEE</strong> (Juegos Escolares de Aragón) se aplica a menores de 16 años
-                en las actividades que participan en el programa escolar.<br>
-                Deja el precio JJEE en blanco si la actividad no tiene esa modalidad.<br>
-                Al guardar se <strong>recalculan todas las cuotas</strong> automáticamente.
+                <strong>JJEE</strong> (Juegos Escolares de Aragón) se aplica a menores de 16 años.<br>
+                Al guardar se <strong>recalculan las cuotas de la temporada actual</strong>.
               </p>
             </div>
             <button class="btn-primary" style="width:auto;white-space:nowrap" onclick="guardarPrecios()">
               Guardar y recalcular cuotas
             </button>
+          </div>
+
+          <div style="display:flex;gap:.7rem;align-items:center;margin:1rem 0;flex-wrap:wrap;background:#fafafa;padding:.7rem;border-radius:6px">
+            <label style="font-size:.85rem;font-weight:600">Temporada:</label>
+            <select id="selTemporada" onchange="cargarPrecios()" style="padding:.35rem .6rem;border:1px solid #ddd;border-radius:4px;font-size:.85rem"></select>
+            <button class="btn-outline btn-small" onclick="crearActividadPrompt()" title="Añadir un deporte/actividad nuevo">+ Nueva actividad</button>
+            <button class="btn-outline btn-small" onclick="duplicarTemporada()" title="Copiar tarifas a la siguiente temporada">Duplicar a siguiente temporada →</button>
           </div>
 
           <div id="spinnerPrecios" class="spinner"></div>
@@ -469,7 +474,8 @@
                 <th>Actividad</th>
                 <th>Precio regular (€)</th>
                 <th>Precio JJEE (€)</th>
-                <th style="font-size:.7rem;color:#aaa">¿JJEE?</th>
+                <th style="font-size:.7rem;color:#aaa">Autobús</th>
+                <th></th>
               </tr>
             </thead>
             <tbody id="bodyPrecios"></tbody>
@@ -1193,60 +1199,134 @@ window.csvFileSelected = input => {
 };
 
 // ── Precios actividades ──────────────────────────────────────────────────────
-const ACTS_NOMBRE = {
-  atletismo:'Atletismo', baloncesto:'Baloncesto', f7:'Fútbol 7',
-  futbol:'Fútbol', fs:'Fútbol Sala', g_ritmica:'Gimnasia Rítmica',
-  kenpo:'Kenpo', kickboxing:'Kickboxing', patinaje:'Patinaje',
-  trail:'Trail', voleibol:'Voleibol', dirigidas:'Act. Dirigidas',
+let _preciosActuales = []; // cache para guardar
+
+window.cargarTemporadas = async function () {
+  try {
+    const temps = await window.api('/api/precios/temporadas');
+    const sel = document.getElementById('selTemporada');
+    const actual = sel.value;
+    sel.innerHTML = (temps && temps.length ? temps : ['2025/2026'])
+      .map(t => `<option value="${t}">${t}</option>`).join('');
+    if (actual && temps.includes(actual)) sel.value = actual;
+  } catch (_) {}
 };
 
-function mostrarAvisoPrecios(msg, esError) {
-  const el = document.getElementById('avisoPrecios');
-  el.textContent = msg;
-  el.className = 'aviso ' + (esError ? 'aviso-err' : 'aviso-ok');
-  setTimeout(() => { el.className = 'aviso'; }, 5000);
-}
-
 window.cargarPrecios = async function () {
-  document.getElementById('spinnerPrecios').style.display = 'block';
   try {
-    const precios = await window.api('/api/precios');
+    await window.cargarTemporadas();
+    const temp = document.getElementById('selTemporada').value || '2025/2026';
+    const precios = await window.api(`/api/precios?temporada=${encodeURIComponent(temp)}`);
     if (!precios) return;
+    _preciosActuales = precios;
     const tbody = document.getElementById('bodyPrecios');
-    const mapa = {};
-    precios.forEach(p => { mapa[p.actividad] = p; });
-
-    tbody.innerHTML = Object.keys(ACTS_NOMBRE).map(act => {
-      const p = mapa[act] || { precio_regular: 0, precio_jjee: null };
-      const tieneJjee = p.precio_jjee != null;
-      return `<tr>
-        <td style="font-weight:600">${ACTS_NOMBRE[act]}</td>
-        <td>
-          <input type="number" step="0.01" min="0" style="width:100px;padding:.3rem .4rem;border:1px solid var(--borde);border-radius:4px"
-            id="preg_${act}" value="${p.precio_regular || 0}">
+    if (precios.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;color:#888;padding:1rem">Sin actividades para ${temp}. Crea una nueva o duplica desde la temporada anterior.</td></tr>`;
+      return;
+    }
+    tbody.innerHTML = precios.map(p => `
+      <tr>
+        <td style="font-weight:600">
+          ${escHtml(p.nombre_visible || p.actividad)}
+          <br><small style="color:#aaa">${escHtml(p.actividad)}</small>
         </td>
-        <td>
-          <input type="number" step="0.01" min="0" style="width:100px;padding:.3rem .4rem;border:1px solid var(--borde);border-radius:4px"
-            id="pjjee_${act}" value="${tieneJjee ? p.precio_jjee : ''}" placeholder="—">
-        </td>
-        <td style="text-align:center">
-          ${tieneJjee ? '<span class="badge badge-verde">Sí</span>' : '<span style="color:#ccc;font-size:.75rem">No</span>'}
-        </td>
-      </tr>`;
-    }).join('');
+        <td><input type="number" step="0.01" min="0" data-act="${p.actividad}" data-f="precio_regular" value="${p.precio_regular ?? 0}" style="width:90px"></td>
+        <td><input type="number" step="0.01" min="0" data-act="${p.actividad}" data-f="precio_jjee" value="${p.precio_jjee ?? ''}" placeholder="sin JJEE" style="width:90px"></td>
+        <td><input type="checkbox" data-act="${p.actividad}" data-f="requiere_autobus" ${p.requiere_autobus ? 'checked' : ''}></td>
+        <td><button class="btn-outline btn-small" style="color:var(--rojo);border-color:var(--rojo)" onclick="borrarActividad('${p.actividad}')">✕</button></td>
+      </tr>
+    `).join('');
   } catch (e) {
     mostrarAvisoPrecios('Error al cargar precios: ' + e.message, true);
-  } finally {
-    document.getElementById('spinnerPrecios').style.display = 'none';
   }
 };
 
 window.guardarPrecios = async function () {
-  const precios = Object.keys(ACTS_NOMBRE).map(act => {
-    const reg  = parseFloat(document.getElementById('preg_' + act).value) || 0;
-    const jval = document.getElementById('pjjee_' + act).value.trim();
-    const jjee = jval === '' ? null : (parseFloat(jval) || 0);
-    return { actividad: act, precio_regular: reg, precio_jjee: jjee };
+  const temp = document.getElementById('selTemporada').value || '2025/2026';
+  const precios = _preciosActuales.map(p => {
+    const inps = document.querySelectorAll(`input[data-act="${p.actividad}"]`);
+    const obj = { actividad: p.actividad, nombre_visible: p.nombre_visible };
+    inps.forEach(i => {
+      const f = i.dataset.f;
+      if (f === 'requiere_autobus') obj[f] = i.checked;
+      else obj[f] = i.value === '' ? null : Number(i.value);
+    });
+    return obj;
+  });
+  try {
+    const r = await window.api('/api/precios', {
+      method: 'PUT',
+      body: JSON.stringify({ precios, temporada: temp }),
+    });
+    if (!r) return;
+    mostrarAvisoPrecios(`Guardado. ${r.socios_actualizados || 0} socios recalculados.`, false);
+    cargarPrecios();
+  } catch (e) {
+    mostrarAvisoPrecios('Error al guardar: ' + e.message, true);
+  }
+};
+
+window.crearActividadPrompt = async function () {
+  const actividad = prompt('Codigo corto en minúsculas (ej: padel, voleibol_playa, halterofilia):');
+  if (!actividad) return;
+  const nombre_visible = prompt('Nombre visible (ej: Pádel, Voleibol Playa, Halterofilia):');
+  if (!nombre_visible) return;
+  const precio_regular = Number(prompt('Precio regular en €:', '0')) || 0;
+  const precio_jjee = prompt('Precio JJEE en € (vacío si no participa):');
+  const requiere_autobus = confirm('¿Requiere autobús para desplazamientos? Aceptar = Sí.');
+  const temp = document.getElementById('selTemporada').value || '2025/2026';
+  try {
+    const r = await window.api('/api/precios/actividad', {
+      method: 'POST',
+      body: JSON.stringify({
+        actividad: actividad.trim().toLowerCase(),
+        nombre_visible: nombre_visible.trim(),
+        temporada: temp,
+        precio_regular,
+        precio_jjee: precio_jjee === '' || precio_jjee == null ? null : Number(precio_jjee),
+        requiere_autobus,
+      }),
+    });
+    if (!r) return;
+    mostrarAvisoPrecios(`Actividad ${r.actividad} creada para ${temp}.`, false);
+    cargarPrecios();
+  } catch (e) {
+    mostrarAvisoPrecios('Error al crear: ' + e.message, true);
+  }
+};
+
+window.borrarActividad = async function (act) {
+  if (!confirm(`¿Eliminar la actividad "${act}" para esta temporada? (no afecta a las demás temporadas)`)) return;
+  const temp = document.getElementById('selTemporada').value || '2025/2026';
+  try {
+    const r = await window.api(`/api/precios/actividad/${encodeURIComponent(act)}?temporada=${encodeURIComponent(temp)}`, { method: 'DELETE' });
+    if (!r) return;
+    mostrarAvisoPrecios('Actividad eliminada.', false);
+    cargarPrecios();
+  } catch (e) {
+    mostrarAvisoPrecios('Error al borrar: ' + e.message, true);
+  }
+};
+
+window.duplicarTemporada = async function () {
+  const desde = document.getElementById('selTemporada').value || '2025/2026';
+  const [a, b] = desde.split("/").map(Number);
+  const hasta = `${a+1}/${b+1}`;
+  if (!confirm(`Copiar todas las tarifas de ${desde} a ${hasta}? Despues podrás editarlas.`)) return;
+  try {
+    const r = await window.api('/api/precios/duplicar-temporada', {
+      method: 'POST',
+      body: JSON.stringify({ desde, hasta }),
+    });
+    if (!r) return;
+    mostrarAvisoPrecios(`Temporada ${r.temporada} creada con ${r.copiadas} actividades.`, false);
+    await cargarTemporadas();
+    document.getElementById('selTemporada').value = hasta;
+    cargarPrecios();
+  } catch (e) {
+    mostrarAvisoPrecios('Error al duplicar: ' + e.message, true);
+  }
+};
   });
 
   try {
