@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Proveedores · CDE Deporte Pedrola</title>
+  <script src="/app.js"></script>
+  <style>
+    :root { --amarillo:#FFD400; --negro:#111; --gris:#f4f4f4; --borde:#e0e0e0; --rojo:#c0392b; --verde:#2E7D32; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif; background:var(--gris); color:var(--negro); line-height:1.5; }
+    header { background:var(--negro); color:var(--amarillo); padding:1rem 1.5rem; border-bottom:5px solid var(--amarillo); display:flex; justify-content:space-between; }
+    header h1 { font-size:1.2rem; }
+    header small { color:#fff; font-size:.8rem; display:block; opacity:.8; }
+    nav { background:#1a1a1a; padding:.4rem 1.5rem; display:flex; gap:.3rem; flex-wrap:wrap; }
+    nav a { color:#ccc; text-decoration:none; font-size:.83rem; font-weight:600; padding:.35rem .8rem; border-radius:4px; }
+    nav a:hover { background:#333; color:#fff; }
+    nav a.activa { background:var(--amarillo); color:var(--negro); }
+    .wrap { max-width:1300px; margin:0 auto; padding:1.5rem 1rem; }
+    .card { background:#fff; padding:1.2rem; border-radius:8px; box-shadow:0 1px 3px rgba(0,0,0,.08); }
+    h2 { margin-bottom:1rem; font-size:1.05rem; }
+    table { width:100%; border-collapse:collapse; font-size:.85rem; }
+    th { text-align:left; padding:.5rem; background:#f0f0f0; font-weight:600; border-bottom:2px solid var(--borde); }
+    td { padding:.5rem; border-bottom:1px solid var(--borde); vertical-align:top; }
+    tr:hover { background:#fafafa; }
+    .btn { background:var(--amarillo); color:var(--negro); padding:.4rem .8rem; border:none; border-radius:4px; cursor:pointer; font-size:.82rem; font-weight:600; }
+    .btn-outline { background:#fff; border:1px solid var(--borde); padding:.25rem .5rem; border-radius:4px; cursor:pointer; font-size:.75rem; }
+    .btn-verde { background:var(--verde); color:#fff; border:none; padding:.3rem .6rem; border-radius:4px; cursor:pointer; font-size:.78rem; }
+    .btn-rojo { background:var(--rojo); color:#fff; border:none; padding:.25rem .5rem; border-radius:4px; cursor:pointer; font-size:.72rem; }
+    .filtros { display:flex; gap:.6rem; margin-bottom:1rem; flex-wrap:wrap; }
+    .filtros input { padding:.45rem .6rem; border:1px solid var(--borde); border-radius:4px; font-size:.85rem; flex:1; min-width:200px; }
+    .modal-bg { display:none; position:fixed; inset:0; background:rgba(0,0,0,.5); z-index:99; align-items:center; justify-content:center; }
+    .modal { background:#fff; border-radius:8px; max-width:520px; width:92%; padding:1.4rem; }
+    .modal h3 { font-size:1rem; margin-bottom:.8rem; }
+    .modal label { display:block; font-size:.78rem; font-weight:600; color:#555; margin:.7rem 0 .2rem; }
+    .modal input, .modal textarea { width:100%; padding:.45rem .6rem; border:1px solid var(--borde); border-radius:4px; font-size:.85rem; font-family:inherit; }
+    .modal textarea { min-height:60px; resize:vertical; }
+    .num { text-align:right; font-family:"Courier New",monospace; font-weight:700; }
+    .info { background:#fff3cd; border-left:4px solid #ffc107; padding:.6rem 1rem; margin-bottom:1rem; font-size:.83rem; }
+  </style>
+</head>
+<body>
+
+<header>
+  <div><h1>CDE Deporte Pedrola</h1><small>Proveedores</small></div>
+  <div><span id="userNameHeader" style="font-size:.8rem;color:#ccc"></span></div>
+</header>
+
+<nav>
+  <a href="/">Panel</a>
+  <a href="/facturas">Facturas</a>
+  <a href="/justificantes">Justificantes</a>
+  <a href="/conciliacion">Conciliación</a>
+  <a href="/proveedores" class="activa">Proveedores</a>
+  <a href="/gastos">Gastos</a>
+  <a href="/ingresos">Ingresos</a>
+  <a href="/certificados">Certificados</a>
+</nav>
+
+<div class="wrap">
+  <div class="info">
+    <strong>Ficha de proveedores.</strong> Aquí se centraliza nombre, NIF, dirección, email y teléfono de cada proveedor que aparece en facturas o justificantes. Al OCR una factura nueva, el sistema buscará aquí para autocompletar.
+  </div>
+
+  <div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.8rem;flex-wrap:wrap;gap:.5rem">
+      <h2 style="margin:0">Listado de proveedores</h2>
+      <button class="btn" onclick="nuevoProveedor()">+ Nuevo proveedor</button>
+    </div>
+    <div class="filtros">
+      <input type="text" id="q" placeholder="Buscar por nombre, NIF o email…" oninput="cargar()">
+    </div>
+    <div style="overflow:auto">
+      <table>
+        <thead><tr>
+          <th>Nombre</th><th>NIF</th><th>Dirección</th><th>Email</th><th>Teléfono</th>
+          <th style="text-align:right">Nº facturas</th>
+          <th style="text-align:right">Total facturado</th>
+          <th>Acciones</th>
+        </tr></thead>
+        <tbody id="tabla"><tr><td colspan="8" style="padding:1rem;text-align:center;color:#888">Cargando…</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- Modal editar/crear -->
+<div class="modal-bg" id="modal">
+  <div class="modal">
+    <h3 id="modalTitulo">Proveedor</h3>
+    <label>Nombre *</label>
+    <input type="text" id="mNombre">
+    <label>NIF / CIF</label>
+    <input type="text" id="mNif" placeholder="B-12345678">
+    <label>Dirección</label>
+    <input type="text" id="mDireccion">
+    <label>Email</label>
+    <input type="email" id="mEmail">
+    <label>Teléfono</label>
+    <input type="text" id="mTelefono">
+    <label>Notas</label>
+    <textarea id="mNotas"></textarea>
+    <div style="display:flex;gap:.6rem;justify-content:flex-end;margin-top:1rem">
+      <button class="btn-outline" onclick="cerrarModal()">Cancelar</button>
+      <button class="btn-verde" id="btnGuardar" onclick="guardar()">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<script>
+function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
+function fmt(n){return n==null?'—':Number(n).toLocaleString('es-ES',{minimumFractionDigits:2,maximumFractionDigits:2})+' €';}
+
+let _editId = null;
+
+async function cargar() {
+  const q = document.getElementById('q').value.trim();
+  const url = '/api/proveedores' + (q ? '?q=' + encodeURIComponent(q) : '');
+  try {
+    const data = await window.api(url);
+    if (!data) return;
+    const tb = document.getElementById('tabla');
+    if (!data.length) { tb.innerHTML = '<tr><td colspan="8" style="padding:1rem;text-align:center;color:#888">Sin resultados.</td></tr>'; return; }
+    tb.innerHTML = data.map(p => `
+      <tr>
+        <td><strong>${esc(p.nombre)}</strong></td>
+        <td>${esc(p.nif || '—')}</td>
+        <td style="font-size:.75rem;color:#666">${esc(p.direccion || '—')}</td>
+        <td>${esc(p.email || '—')}</td>
+        <td>${esc(p.telefono || '—')}</td>
+        <td class="num">${p.num_facturas}</td>
+        <td class="num">${fmt(p.total_facturado)}</td>
+        <td style="white-space:nowrap">
+          <button class="btn-outline" onclick="editar(${p.id})">Editar</button>
+          <button class="btn-rojo" onclick="borrar(${p.id})">✕</button>
+        </td>
+      </tr>`).join('');
+  } catch (e) {
+    document.getElementById('tabla').innerHTML = `<tr><td colspan="8" style="color:var(--rojo);text-align:center;padding:1rem">Error: ${esc(e.message)}</td></tr>`;
+  }
+}
+
+function nuevoProveedor() {
+  _editId = null;
+  document.getElementById('modalTitulo').textContent = 'Nuevo proveedor';
+  ['mNombre','mNif','mDireccion','mEmail','mTelefono','mNotas'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('modal').style.display = 'flex';
+}
+
+async function editar(id) {
+  try {
+    const p = await window.api('/api/proveedores/' + id);
+    if (!p) return;
+    _editId = id;
+    document.getElementById('modalTitulo').textContent = 'Editar ' + p.nombre;
+    document.getElementById('mNombre').value = p.nombre || '';
+    document.getElementById('mNif').value = p.nif || '';
+    document.getElementById('mDireccion').value = p.direccion || '';
+    document.getElementById('mEmail').value = p.email || '';
+    document.getElementById('mTelefono').value = p.telefono || '';
+    document.getElementById('mNotas').value = p.notas || '';
+    document.getElementById('modal').style.display = 'flex';
+  } catch (e) { alert('Error: ' + e.message); }
+}
+
+async function guardar() {
+  const body = {
+    nombre: document.getElementById('mNombre').value.trim(),
+    nif: document.getElementById('mNif').value.trim() || null,
+    direccion: document.getElementById('mDireccion').value.trim() || null,
+    email: document.getElementById('mEmail').value.trim() || null,
+    telefono: document.getElementById('mTelefono').value.trim() || null,
+    notas: document.getElementById('mNotas').value.trim() || null,
+  };
+  if (!body.nombre) { alert('El nombre es obligatorio'); return; }
+  try {
+    const path = _editId ? '/api/proveedores/' + _editId : '/api/proveedores';
+    const method = _editId ? 'PATCH' : 'POST';
+    const r = await window.api(path, { method, body: JSON.stringify(body) });
+    if (!r) return;
+    cerrarModal();
+    cargar();
+  } catch (e) { alert('Error: ' + e.message); }
+}
+
+async function borrar(id) {
+  if (!confirm('¿Eliminar este proveedor? Si tiene facturas, no se podrá.')) return;
+  try {
+    const r = await window.api('/api/proveedores/' + id, { method: 'DELETE' });
+    if (!r) return;
+    cargar();
+  } catch (e) { alert(e.message); }
+}
+
+function cerrarModal() { document.getElementById('modal').style.display = 'none'; }
+window.editar = editar;
+window.borrar = borrar;
+window.nuevoProveedor = nuevoProveedor;
+
+const jwtGuardado = sessionStorage.getItem('token');
+if (!jwtGuardado) { window.location.href = '/'; }
+else {
+  window.setToken(jwtGuardado);
+  const u = sessionStorage.getItem('usuario');
+  if (u) document.getElementById('userNameHeader').textContent = u;
+  cargar();
+}
+</script>
+</body>
+</html>

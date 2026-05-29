@@ -61,6 +61,7 @@
   <a href="/facturas">Facturas</a>
   <a href="/justificantes" class="activa">Justificantes</a>
   <a href="/conciliacion">Conciliación</a>
+  <a href="/proveedores">Proveedores</a>
   <a href="/gastos">Gastos</a>
   <a href="/ingresos">Ingresos</a>
   <a href="/certificados">Certificados</a>
@@ -68,18 +69,28 @@
 
 <div class="wrap">
   <div class="aviso">
-    <strong>Justificantes bancarios.</strong> Transferencias IberCaja registradas como gasto pero que no son una factura comercial. Son evidencia de que el dinero salió, pero hace falta la factura del proveedor para cerrar la conciliación contable.
+    <strong>Movimientos bancarios.</strong> Todos los apuntes bancarios cargados (470 PDFs). Pagos a proveedores, cobros, comisiones de cuenta, extractos TPV, devoluciones y notificaciones. Usa el selector de tipo para filtrar. Los importes vacíos se pueden rellenar editando el movimiento o desde la conciliación.
   </div>
 
   <div class="stats">
-    <div class="stat"><div class="label">Nº justificantes</div><div class="valor" id="stNum">—</div></div>
+    <div class="stat"><div class="label">Nº movimientos</div><div class="valor" id="stNum">—</div></div>
     <div class="stat"><div class="label">Importe total</div><div class="valor" id="stImporte">—</div></div>
-    <div class="stat"><div class="label">Pendientes de factura</div><div class="valor" id="stPendientes">—</div></div>
+    <div class="stat"><div class="label">Sin importe</div><div class="valor" id="stPendientes">—</div></div>
   </div>
 
   <div class="card">
     <h2>Listado</h2>
     <div class="filtros">
+      <select id="fTipo" onchange="cargar()">
+        <option value="">Todos los movimientos bancarios</option>
+        <option value="justificante_bancario" selected>Pagos (justificantes)</option>
+        <option value="cobro_bancario">Cobros / abonos</option>
+        <option value="gasto_bancario">Gastos bancarios (comisiones, cargos)</option>
+        <option value="extracto_tpv">Extractos TPV / liquidación</option>
+        <option value="extracto_cuenta">Extractos cuenta</option>
+        <option value="devolucion">Devoluciones</option>
+        <option value="notificacion">Notificaciones</option>
+      </select>
       <input type="date" id="fDesde" title="Desde">
       <input type="date" id="fHasta" title="Hasta">
       <input type="text" id="fBeneficiario" placeholder="Beneficiario…">
@@ -88,7 +99,7 @@
     <div style="overflow-x:auto">
       <table>
         <thead><tr>
-          <th>Fecha</th><th>Beneficiario</th><th>Concepto</th>
+          <th>Fecha</th><th>Tipo</th><th>Beneficiario</th><th>Concepto</th>
           <th style="text-align:right">Importe</th><th>Acciones</th>
         </tr></thead>
         <tbody id="tabla"><tr><td colspan="5" class="sin-datos">Cargando…</td></tr></tbody>
@@ -108,37 +119,66 @@ function fmtFecha(s) {
 }
 function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
 
+const COLORES_TIPO = {
+  justificante_bancario: ['#1565C0', 'Pago'],
+  cobro_bancario:        ['#2E7D32', 'Cobro'],
+  gasto_bancario:        ['#c0392b', 'Gasto'],
+  extracto_tpv:          ['#7E57C2', 'Extr. TPV'],
+  extracto_cuenta:       ['#0288D1', 'Extr. cta'],
+  devolucion:            ['#EF6C00', 'Devolución'],
+  notificacion:          ['#888',    'Notif.'],
+};
+
 async function cargar() {
+  const tipo  = document.getElementById('fTipo').value;
   const desde = document.getElementById('fDesde').value;
   const hasta = document.getElementById('fHasta').value;
   const ben   = document.getElementById('fBeneficiario').value.trim();
-  let url = '/api/facturas?tipo=justificante_bancario&page=1';
+  // Si no hay tipo seleccionado, pedimos hasta 500 de cada para tener panorámica.
+  let url = '/api/facturas?page=1';
+  if (tipo)  url += '&tipo=' + encodeURIComponent(tipo);
   if (desde) url += '&desde=' + desde;
   if (hasta) url += '&hasta=' + hasta;
   if (ben)   url += '&proveedor=' + encodeURIComponent(ben);
   try {
-    const data = await window.api(url);
-    if (!data) return;
-    const filas = data.facturas;
-    document.getElementById('stNum').textContent = data.total;
-    const total = filas.reduce((s, f) => s + Number(f.importe || 0), 0);
-    document.getElementById('stImporte').textContent = fmt(total);
-    document.getElementById('stPendientes').textContent = data.total;
+    let filas = [], total = 0;
+    if (tipo) {
+      const data = await window.api(url);
+      if (!data) return;
+      filas = data.facturas;
+      total = data.total;
+    } else {
+      // Sin tipo: recorremos todos los tipos bancarios
+      const tipos = Object.keys(COLORES_TIPO);
+      for (const t of tipos) {
+        const d = await window.api(url + '&tipo=' + t);
+        if (d) { filas.push(...d.facturas); total += d.total; }
+      }
+      filas.sort((a, b) => (b.fecha_factura || '').localeCompare(a.fecha_factura || ''));
+    }
+    document.getElementById('stNum').textContent = total;
+    const totalE = filas.reduce((s, f) => s + Number(f.importe || 0), 0);
+    document.getElementById('stImporte').textContent = fmt(totalE);
+    document.getElementById('stPendientes').textContent = filas.filter(f => f.importe == null).length;
     document.getElementById('tabla').innerHTML = filas.length
-      ? filas.map(f => `
-        <tr>
-          <td>${fmtFecha(f.fecha_factura)}</td>
-          <td>${esc(f.proveedor || '—')}</td>
-          <td style="color:#555;font-size:.8rem">${esc(f.concepto || '—')}</td>
-          <td class="importe">${fmt(f.importe)}</td>
-          <td>
-            <button class="btn-outline" onclick="verPDF(${f.id})">PDF</button>
-            <a class="btn-outline" href="/facturas?id=${f.id}" style="margin-left:.3rem">Editar</a>
-          </td>
-        </tr>`).join('')
-      : '<tr><td colspan="5" class="sin-datos">Sin justificantes con esos filtros.</td></tr>';
+      ? filas.map(f => {
+          const [col, lab] = COLORES_TIPO[f.tipo] || ['#666', f.tipo];
+          return `
+          <tr>
+            <td>${fmtFecha(f.fecha_factura)}</td>
+            <td><span style="background:${col};color:#fff;padding:.1rem .5rem;border-radius:99px;font-size:.7rem;font-weight:600">${lab}</span></td>
+            <td>${esc(f.proveedor || '—')}</td>
+            <td style="color:#555;font-size:.8rem">${esc(f.concepto || '—')}</td>
+            <td class="importe" style="${f.importe == null ? 'color:#aaa;font-style:italic' : ''}">${f.importe == null ? 'sin importe' : fmt(f.importe)}</td>
+            <td>
+              <button class="btn-outline" onclick="verPDF(${f.id})">PDF</button>
+              <a class="btn-outline" href="/facturas?id=${f.id}" style="margin-left:.3rem">Editar</a>
+            </td>
+          </tr>`;
+        }).join('')
+      : '<tr><td colspan="6" class="sin-datos">Sin movimientos con esos filtros.</td></tr>';
   } catch (e) {
-    document.getElementById('tabla').innerHTML = `<tr><td colspan="5" style="color:var(--rojo);text-align:center;padding:1rem">Error: ${esc(e.message)}</td></tr>`;
+    document.getElementById('tabla').innerHTML = `<tr><td colspan="6" style="color:var(--rojo);text-align:center;padding:1rem">Error: ${esc(e.message)}</td></tr>`;
   }
 }
 
