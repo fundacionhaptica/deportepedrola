@@ -1327,20 +1327,6 @@ window.duplicarTemporada = async function () {
     mostrarAvisoPrecios('Error al duplicar: ' + e.message, true);
   }
 };
-  });
-
-  try {
-    const r = await window.api('/api/precios', {
-      method: 'PUT',
-      body: JSON.stringify({ precios }),
-    });
-    mostrarAvisoPrecios(`Precios guardados. Cuotas recalculadas para ${r.socios_actualizados} socios.`, false);
-    // Refrescar tabla socios si está en caché
-    if (_sociosCache.length) await cargarSocios();
-  } catch (e) {
-    mostrarAvisoPrecios('Error al guardar: ' + e.message, true);
-  }
-};
 
 // ── Inicializar ──────────────────────────────────────────────────────────────
 document.getElementById('desde').value = primerDiaMes();
