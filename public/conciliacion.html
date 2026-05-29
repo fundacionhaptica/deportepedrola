@@ -255,22 +255,46 @@ async function cargarSugerencias() {
         <td class="importe">${fmt(s.justif_importe)}</td>
         <td class="importe">${fmt(s.dif_importe)}</td>
         <td style="text-align:right">${s.dif_dias}</td>
-        <td><button class="btn-verde" onclick="conciliarPar(${s.factura_id},${s.justif_id})">✓ Vincular</button></td>
+        <td><button class="btn-verde" onclick="conciliarPar(${s.factura_id},${s.justif_id},${s.factura_importe},${s.justif_importe})">✓ Vincular</button></td>
       </tr>`).join('');
   } catch (e) {
     document.getElementById('tablaSug').innerHTML = `<tr><td colspan="10" style="color:var(--rojo);padding:1rem;text-align:center">Error: ${esc(e.message)}</td></tr>`;
   }
 }
 
-async function conciliarPar(factura_id, justificante_id) {
-  if (!confirm(`Vincular factura #${factura_id} con justificante #${justificante_id}?`)) return;
+async function conciliarPar(factura_id, justificante_id, fImporte, jImporte) {
+  // Si nos pasan los importes, detectamos diff de comision IberCaja
+  let conComision = false;
+  let confirmMsg = `Vincular factura #${factura_id} con justificante #${justificante_id}?`;
+  if (fImporte != null && jImporte != null) {
+    const diff = Math.round((Number(jImporte) - Number(fImporte)) * 100) / 100;
+    if (diff >= 0.01 && diff <= 0.55) {
+      conComision = confirm(`Vincular factura #${factura_id} (${fImporte}€) con justificante #${justificante_id} (${jImporte}€).
+
+Diferencia: ${diff}€ → parece comisión IberCaja.
+
+¿Registrar automáticamente esa comisión como gasto_bancario? (Aceptar = Sí)`);
+    } else if (Math.abs(diff) > 0.55) {
+      if (!confirm(`Vincular factura #${factura_id} (${fImporte}€) con justificante #${justificante_id} (${jImporte}€).
+
+Diferencia: ${diff}€ (mayor que comisión típica). Quedará como 'discrepancia'.
+
+¿Continuar?`)) return;
+    } else {
+      if (!confirm(confirmMsg)) return;
+    }
+  } else {
+    if (!confirm(confirmMsg)) return;
+  }
   try {
     const r = await window.api('/api/conciliacion', {
       method: 'POST',
-      body: JSON.stringify({ factura_id, justificante_id }),
+      body: JSON.stringify({ factura_id, justificante_id, con_comision: conComision }),
     });
     if (!r) return;
-    alert('Vinculación creada.');
+    let msg = 'Vinculación creada.';
+    if (r.comision) msg += ` Comisión IberCaja ${r.comision.importe}€ registrada (id=${r.comision.id}).`;
+    alert(msg);
     cargarResumen();
     cargarSugerencias();
     cargarEstado();
@@ -296,7 +320,7 @@ async function abrirConciliar(factura_id) {
         </div>
         <div class="importe" style="min-width:90px">${fmt(j.importe)}</div>
         <span class="estado-${j.estado_conciliacion}">${j.estado_conciliacion.replace('_',' ')}</span>
-        <button class="btn-verde" onclick="conciliarPar(${factura_id},${j.id})">Vincular</button>
+        <button class="btn-verde" onclick="conciliarPar(${factura_id},${j.id},null,${j.importe})">Vincular</button>
       </div>`).join('') || '<div style="padding:.6rem;color:#888">Sin justificantes disponibles.</div>';
   } catch (e) { lista.innerHTML = `<div style="padding:.6rem;color:var(--rojo)">Error: ${esc(e.message)}</div>`; }
 }
@@ -318,7 +342,7 @@ async function abrirConciliarJustif(justif_id) {
         </div>
         <div class="importe" style="min-width:90px">${fmt(f.importe)}</div>
         <span class="estado-${f.estado_conciliacion}">${f.estado_conciliacion.replace('_',' ')}</span>
-        <button class="btn-verde" onclick="conciliarPar(${f.id},${justif_id})">Vincular</button>
+        <button class="btn-verde" onclick="conciliarPar(${f.id},${justif_id},${f.importe},null)">Vincular</button>
       </div>`).join('') || '<div style="padding:.6rem;color:#888">Sin facturas disponibles.</div>';
   } catch (e) { lista.innerHTML = `<div style="padding:.6rem;color:var(--rojo)">Error: ${esc(e.message)}</div>`; }
 }

@@ -86,21 +86,24 @@ router.get('/sugerencias', async (_req, res) => {
 // POST /api/conciliacion  { factura_id, justificante_id, importe?, nota? }
 router.post('/', async (req, res) => {
   try {
-    const { factura_id, justificante_id, importe_conciliado = null, nota = null } = req.body;
+    const { factura_id, justificante_id, importe_conciliado = null, nota = null, con_comision = false } = req.body;
     if (!factura_id || !justificante_id) {
       return res.status(400).json({ error: 'factura_id y justificante_id son obligatorios' });
     }
-    // Validar tipos
-    const { rows: tipos } = await pool.query(
-      "SELECT id, tipo FROM facturas WHERE id IN ($1,$2)",
+    // Cargar datos completos de ambos
+    const { rows: ambas } = await pool.query(
+      "SELECT id, tipo, importe, fecha_factura, proveedor FROM facturas WHERE id IN ($1,$2)",
       [factura_id, justificante_id]
     );
-    const mapaT = Object.fromEntries(tipos.map(t => [t.id, t.tipo]));
-    if (mapaT[factura_id] !== 'factura') {
-      return res.status(400).json({ error: `id=${factura_id} no tiene tipo 'factura' (es '${mapaT[factura_id]}')` });
+    const factura = ambas.find(x => x.id == factura_id);
+    const justif  = ambas.find(x => x.id == justificante_id);
+    const tiposGasto = ['factura','licencias','recibo_arbitraje','recibo_premio','recibo'];
+    const tiposBanco = ['justificante_bancario','gasto_bancario'];
+    if (!factura || !tiposGasto.includes(factura.tipo)) {
+      return res.status(400).json({ error: `id=${factura_id} no es un gasto valido (tipo='${factura?.tipo}')` });
     }
-    if (mapaT[justificante_id] !== 'justificante_bancario') {
-      return res.status(400).json({ error: `id=${justificante_id} no tiene tipo 'justificante_bancario' (es '${mapaT[justificante_id]}')` });
+    if (!justif || !tiposBanco.includes(justif.tipo)) {
+      return res.status(400).json({ error: `id=${justificante_id} no es justificante/gasto bancario (tipo='${justif?.tipo}')` });
     }
     const { rows } = await pool.query(`
       INSERT INTO conciliaciones (factura_id, justificante_id, importe_conciliado, nota, creada_por)
@@ -110,7 +113,31 @@ router.post('/', async (req, res) => {
             nota = COALESCE(EXCLUDED.nota, conciliaciones.nota)
       RETURNING *
     `, [factura_id, justificante_id, importe_conciliado, nota, req.usuario || 'admin']);
-    res.status(201).json(rows[0]);
+    // Si difieren entre 0.01 y 0.55, crear gasto_bancario "Comision transferencia IberCaja"
+    let comisionCreada = null;
+    if (con_comision && factura.importe != null && justif.importe != null) {
+      const diff = Math.round((Number(justif.importe) - Number(factura.importe)) * 100) / 100;
+      if (diff >= 0.01 && diff <= 0.55) {
+        const { rows: [com] } = await pool.query(
+          `INSERT INTO facturas (nombre_archivo, ruta_archivo, tipo, proveedor, concepto,
+             fecha_factura, importe, ocr_revisado)
+           VALUES ($1, '(generado automáticamente)', 'gasto_bancario', 'IberCaja',
+                   'Comisión transferencia (auto-conciliación factura #' || $2 || ')',
+                   $3, $4, true)
+           RETURNING id, importe`,
+          [`comision_auto_${factura_id}_${justificante_id}_${Date.now()}.txt`, factura_id, justif.fecha_factura, diff]
+        );
+        // Vincular también esa comisión con el justificante para que el cuadre sea exacto
+        await pool.query(
+          `INSERT INTO conciliaciones (factura_id, justificante_id, importe_conciliado, nota, creada_por)
+           VALUES ($1, $2, $3, 'Comisión IberCaja generada automáticamente', $4)
+           ON CONFLICT DO NOTHING`,
+          [com.id, justificante_id, diff, req.usuario || 'admin']
+        );
+        comisionCreada = { id: com.id, importe: com.importe };
+      }
+    }
+    res.status(201).json({ ...rows[0], comision: comisionCreada });
   } catch (e) {
     console.error('[conciliacion] POST /', e.message);
     res.status(500).json({ error: 'Error interno del servidor' });
