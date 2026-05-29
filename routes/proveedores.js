@@ -3,6 +3,9 @@
 const router = require('express').Router();
 const pool   = require('../db/pool');
 
+// IMPORTANTE: las rutas específicas (/duplicados, /merge) van ANTES de /:id
+// para que Express no las interprete como id numérico.
+
 // GET /api/proveedores?q=
 router.get('/', async (req, res) => {
   try {
@@ -30,12 +33,76 @@ router.get('/', async (req, res) => {
   }
 });
 
-// GET /api/proveedores/:id
+// GET /api/proveedores/duplicados
+router.get('/duplicados', async (_req, res) => {
+  try {
+    const { rows } = await pool.query(`
+      WITH normalizado AS (
+        SELECT id, nombre, nif, direccion, email,
+               (SELECT COUNT(*) FROM facturas f WHERE f.proveedor_id = proveedores.id) AS num_facturas,
+               regexp_replace(LOWER(nombre), '[^a-z0-9]', '', 'g') AS norm
+        FROM proveedores
+      )
+      SELECT norm,
+             json_agg(json_build_object(
+               'id', id, 'nombre', nombre, 'nif', nif,
+               'direccion', direccion, 'email', email,
+               'num_facturas', num_facturas
+             ) ORDER BY num_facturas DESC) AS grupo
+      FROM normalizado
+      GROUP BY norm
+      HAVING COUNT(*) > 1
+      ORDER BY COUNT(*) DESC
+    `);
+    res.json(rows);
+  } catch (e) {
+    console.error('[proveedores] GET /duplicados', e.message);
+    res.status(500).json({ error: 'Error interno del servidor' });
+  }
+});
+
+// POST /api/proveedores/merge { destino_id, origen_ids: [] }
+router.post('/merge', async (req, res) => {
+  const client = await pool.connect();
+  try {
+    const { destino_id, origen_ids } = req.body || {};
+    if (!destino_id || !Array.isArray(origen_ids) || !origen_ids.length) {
+      return res.status(400).json({ error: 'destino_id y origen_ids (array) son obligatorios' });
+    }
+    if (origen_ids.includes(Number(destino_id))) {
+      return res.status(400).json({ error: 'destino_id no puede estar en origen_ids' });
+    }
+    await client.query('BEGIN');
+    const { rows: dest } = await client.query('SELECT id, nombre FROM proveedores WHERE id = $1', [destino_id]);
+    if (!dest[0]) { await client.query('ROLLBACK'); return res.status(404).json({ error: 'destino_id no existe' }); }
+    const { rowCount: nFacturas } = await client.query(
+      'UPDATE facturas SET proveedor_id = $1, proveedor = $2 WHERE proveedor_id = ANY($3::int[])',
+      [destino_id, dest[0].nombre, origen_ids]
+    );
+    const { rowCount: nProv } = await client.query(
+      'DELETE FROM proveedores WHERE id = ANY($1::int[])',
+      [origen_ids]
+    );
+    await client.query('COMMIT');
+    res.json({
+      ok: true, destino: dest[0],
+      facturas_reasignadas: nFacturas,
+      proveedores_borrados: nProv,
+    });
+  } catch (e) {
+    await client.query('ROLLBACK').catch(() => {});
+    console.error('[proveedores] POST /merge', e.message);
+    res.status(500).json({ error: 'Error interno del servidor' });
+  } finally {
+    client.release();
+  }
+});
+
+// GET /api/proveedores/:id  (DESPUES de los específicos)
 router.get('/:id', async (req, res) => {
   try {
-    const { rows } = await pool.query(
-      'SELECT * FROM proveedores WHERE id = $1', [req.params.id]
-    );
+    if (!/^\d+$/.test(req.params.id)) return res.status(404).json({ error: 'No encontrado' });
+    const { rows } = await pool.query('SELECT * FROM proveedores WHERE id = $1', [req.params.id]);
     if (!rows[0]) return res.status(404).json({ error: 'No encontrado' });
     res.json(rows[0]);
   } catch (e) {
@@ -96,7 +163,6 @@ router.patch('/:id', async (req, res) => {
 // DELETE /api/proveedores/:id
 router.delete('/:id', async (req, res) => {
   try {
-    // Comprobar si hay facturas
     const { rows: ref } = await pool.query(
       'SELECT COUNT(*) AS n FROM facturas WHERE proveedor_id = $1', [req.params.id]
     );

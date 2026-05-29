@@ -66,6 +66,7 @@
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.8rem;flex-wrap:wrap;gap:.5rem">
       <h2 style="margin:0">Listado de proveedores</h2>
       <button class="btn" onclick="nuevoProveedor()">+ Nuevo proveedor</button>
+      <button class="btn" style="background:#1565C0;color:#fff;margin-left:.5rem" onclick="detectarDuplicados()">🔍 Detectar duplicados</button>
     </div>
     <div class="filtros">
       <input type="text" id="q" placeholder="Buscar por nombre, NIF o email…" oninput="cargar()">
@@ -73,16 +74,23 @@
     <div style="overflow:auto">
       <table>
         <thead><tr>
+          <th style="width:30px"><input type="checkbox" id="chkAll" onchange="toggleAllProv(this.checked)"></th>
           <th>Nombre</th><th>NIF</th><th>Dirección</th><th>Email</th><th>Teléfono</th>
           <th style="text-align:right">Nº facturas</th>
           <th style="text-align:right">Total facturado</th>
           <th>Acciones</th>
         </tr></thead>
-        <tbody id="tabla"><tr><td colspan="8" style="padding:1rem;text-align:center;color:#888">Cargando…</td></tr></tbody>
+        <tbody id="tabla"><tr><td colspan="9" style="padding:1rem;text-align:center;color:#888">Cargando…</td></tr></tbody>
       </table>
     </div>
   </div>
 </div>
+<div id="barraSel" style="display:none;position:fixed;bottom:1rem;left:50%;transform:translateX(-50%);background:#1565C0;color:#fff;padding:.7rem 1rem;border-radius:8px;box-shadow:0 4px 12px rgba(0,0,0,.3);z-index:50;display:none;align-items:center;gap:.8rem">
+  <span id="barraSelTexto"></span>
+  <button class="btn-verde" onclick="fusionarSeleccion()" style="padding:.4rem .8rem">→ Fusionar seleccionados</button>
+  <button class="btn-outline" onclick="limpiarSelProv()" style="background:rgba(255,255,255,.2);color:#fff;border-color:rgba(255,255,255,.4)">✕</button>
+</div>
+
 
 <!-- Modal editar/crear -->
 <div class="modal-bg" id="modal">
@@ -120,9 +128,10 @@ async function cargar() {
     const data = await window.api(url);
     if (!data) return;
     const tb = document.getElementById('tabla');
-    if (!data.length) { tb.innerHTML = '<tr><td colspan="8" style="padding:1rem;text-align:center;color:#888">Sin resultados.</td></tr>'; return; }
+    if (!data.length) { tb.innerHTML = '<tr><td colspan="9" style="padding:1rem;text-align:center;color:#888">Sin resultados.</td></tr>'; return; }
     tb.innerHTML = data.map(p => `
       <tr>
+        <td><input type="checkbox" class="chk-prov" value="${p.id}" data-nombre="${esc(p.nombre)}" onchange="actualizarSelProv()"></td>
         <td><strong>${esc(p.nombre)}</strong></td>
         <td>${esc(p.nif || '—')}</td>
         <td style="font-size:.75rem;color:#666">${esc(p.direccion || '—')}</td>
@@ -136,7 +145,7 @@ async function cargar() {
         </td>
       </tr>`).join('');
   } catch (e) {
-    document.getElementById('tabla').innerHTML = `<tr><td colspan="8" style="color:var(--rojo);text-align:center;padding:1rem">Error: ${esc(e.message)}</td></tr>`;
+    document.getElementById('tabla').innerHTML = `<tr><td colspan="9" style="color:var(--rojo);text-align:center;padding:1rem">Error: ${esc(e.message)}</td></tr>`;
   }
 }
 
@@ -206,5 +215,18 @@ else {
   cargar();
 }
 </script>
+
+<!-- Modal duplicados -->
+<div class="modal-bg" id="modalDup">
+  <div class="modal" style="max-width:800px">
+    <h3>Posibles proveedores duplicados</h3>
+    <p style="font-size:.8rem;color:#666;margin-bottom:1rem">Grupos detectados por nombre normalizado (sin espacios, mayúsculas, puntuación). Elige el destino ⋆ y marca los origenes a fusionar.</p>
+    <div id="dupContenido" style="max-height:60vh;overflow:auto"></div>
+    <div style="display:flex;gap:.6rem;justify-content:flex-end;margin-top:1rem">
+      <button class="btn-outline" onclick="document.getElementById('modalDup').style.display='none'">Cerrar</button>
+    </div>
+  </div>
+</div>
+
 </body>
 </html>
