@@ -187,6 +187,11 @@
               title="Envía un correo a cada socio activo con su cuota prevista">
         ✉ Avisar cuotas por correo…
       </button>
+      <button class="btn-filtro" id="btnVerLog"
+              style="background:#fff;color:#333;border:1px solid #999"
+              title="Historial de correos enviados">
+        🔍 Ver log de envíos
+      </button>
     </div>
 
     <div class="aviso-err" id="avisoErr"></div>
@@ -198,29 +203,63 @@
     <div id="modalAvisoCuotas"
          style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);
                 z-index:99;align-items:center;justify-content:center">
-      <div style="background:#fff;border-radius:8px;max-width:680px;width:92%;
-                  max-height:90vh;overflow:auto;padding:1.4rem">
-        <h2 style="font-size:1.05rem;margin-bottom:.6rem">
-          Enviar previsión de cuota por correo
-        </h2>
-        <p id="avisoCuotasResumen" style="font-size:.88rem;color:#555;margin-bottom:.8rem">
-          Calculando destinatarios…
+      <div style="background:#fff;border-radius:8px;max-width:820px;width:94%;
+                  max-height:92vh;overflow:auto;padding:1.4rem">
+        <h2 style="font-size:1.05rem;margin-bottom:.6rem">Enviar previsión de cuota por correo</h2>
+        <p id="avisoCuotasResumen" style="font-size:.88rem;color:#555;margin-bottom:.5rem">Calculando destinatarios…</p>
+
+        <!-- Chips de recuento -->
+        <div id="avisoCuotasChips" style="display:flex;gap:.4rem;flex-wrap:wrap;margin-bottom:.8rem"></div>
+
+        <!-- Destinatarios colapsable -->
+        <details style="margin-bottom:.7rem">
+          <summary style="cursor:pointer;font-size:.83rem;color:#1565C0;font-weight:600">Ver lista de destinatarios y omitidos</summary>
+          <div style="max-height:240px;overflow:auto;border:1px solid #eee;border-radius:4px;margin-top:.4rem;font-size:.78rem">
+            <table style="width:100%"><thead><tr style="background:#f0f0f0">
+              <th style="text-align:left;padding:.3rem .5rem">Socio</th>
+              <th style="text-align:left;padding:.3rem .5rem">Email</th>
+              <th style="text-align:right;padding:.3rem .5rem">Importe</th>
+              <th style="padding:.3rem .5rem">Estado</th>
+            </tr></thead><tbody id="avisoCuotasListaTbody"></tbody></table>
+          </div>
+        </details>
+
+        <!-- Preview HTML del correo -->
+        <div style="font-size:.72rem;color:#888;text-transform:uppercase;margin-bottom:.3rem;font-weight:600">Vista previa del correo</div>
+        <div id="avisoCuotasPreview" style="border:1px solid var(--borde);border-radius:6px;max-height:340px;overflow:auto;background:#fafafa;padding:.6rem;font-size:.78rem;display:none"></div>
+
+        <p style="font-size:.75rem;color:#888;margin-top:.8rem;font-style:italic">
+          Plantilla en <code>lib/email.js</code> (función <code>construirEmailPrevisionCuota</code>).
+          Si quieres cambiar tono o redacción, edítala ahí y rebuild.
         </p>
-        <div id="avisoCuotasPreview"
-             style="border:1px solid var(--borde);border-radius:6px;
-                    max-height:340px;overflow:auto;background:#fafafa;
-                    padding:.6rem;font-size:.78rem;display:none"></div>
-        <p style="font-size:.78rem;color:#888;margin-top:.8rem">
-          Se enviará un correo individual a cada socio con su desglose y un aviso
-          sobre el posible recargo por desplazamientos en deportes de equipo.
-        </p>
+
         <div style="display:flex;gap:.6rem;justify-content:flex-end;margin-top:1rem">
-          <button class="btn-filtro" id="btnAvisarCancelar"
-                  style="background:#eee;color:#333">Cancelar</button>
-          <button class="btn-filtro" id="btnAvisarConfirmar"
-                  style="background:var(--verde);color:#fff" disabled>
-            Enviar ahora
-          </button>
+          <button class="btn-filtro" id="btnAvisarCancelar" style="background:#eee;color:#333">Cancelar</button>
+          <button class="btn-filtro" id="btnAvisarConfirmar" style="background:var(--verde);color:#fff" disabled>Enviar ahora</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal log de envíos -->
+    <div id="modalLogEnvios"
+         style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);
+                z-index:99;align-items:center;justify-content:center">
+      <div style="background:#fff;border-radius:8px;max-width:980px;width:94%;
+                  max-height:92vh;overflow:auto;padding:1.4rem">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.7rem">
+          <h2 style="font-size:1.05rem;margin:0">Historial de envíos de correo</h2>
+          <button class="btn-filtro" onclick="cerrarModalLog()" style="background:#eee;color:#333">Cerrar</button>
+        </div>
+        <p style="font-size:.82rem;color:#666;margin-bottom:.6rem" id="logEnviosResumen">Últimos 50 envíos.</p>
+        <div style="overflow:auto">
+          <table style="width:100%;font-size:.8rem"><thead><tr style="background:#f0f0f0">
+            <th style="text-align:left;padding:.4rem .5rem">Fecha</th>
+            <th style="text-align:left;padding:.4rem .5rem">Socio</th>
+            <th style="text-align:left;padding:.4rem .5rem">Email</th>
+            <th style="text-align:right;padding:.4rem .5rem">Importe</th>
+            <th style="padding:.4rem .5rem">Estado</th>
+            <th style="text-align:left;padding:.4rem .5rem">Motivo</th>
+          </tr></thead><tbody id="logEnviosTbody"></tbody></table>
         </div>
       </div>
     </div>
@@ -648,6 +687,8 @@ function escHtmlSimple(s) {
 async function abrirModalAvisoCuotas() {
   const modal    = document.getElementById('modalAvisoCuotas');
   const resumen  = document.getElementById('avisoCuotasResumen');
+  const chips    = document.getElementById('avisoCuotasChips');
+  const listaTb  = document.getElementById('avisoCuotasListaTbody');
   const previewE = document.getElementById('avisoCuotasPreview');
   const btnConf  = document.getElementById('btnAvisarConfirmar');
   const temporada = document.getElementById('selTemporada').value;
@@ -655,6 +696,8 @@ async function abrirModalAvisoCuotas() {
   modal.style.display = 'flex';
   previewE.style.display = 'none';
   previewE.innerHTML = '';
+  chips.innerHTML = '';
+  listaTb.innerHTML = '<tr><td colspan="4" style="padding:.5rem;color:#888">Cargando...</td></tr>';
   btnConf.disabled = true;
   resumen.textContent = 'Calculando destinatarios…';
 
@@ -662,20 +705,28 @@ async function abrirModalAvisoCuotas() {
     const r = await apiPost('/api/cuotas/email-prevision', { temporada, dry_run: true });
     const e = r.detalle.enviados.length;
     const o = r.detalle.omitidos.length;
-    resumen.innerHTML = `
-      Se enviará a <strong>${e} socio${e === 1 ? '' : 's'}</strong>
-      con cuotas generadas para la temporada <strong>${escHtmlSimple(temporada)}</strong>.
-      ${o ? `<br><span style="color:#888">Se omitirán ${o} socios sin email o sin cuotas.</span>` : ''}
-    `;
+    // Resumen principal
+    resumen.innerHTML = `Temporada <strong>${escHtmlSimple(temporada)}</strong>: ${e + o} socios analizados.`;
+    // Chips visuales
+    const chip = (color, label, n) => `<span style="background:${color};color:#fff;padding:.2rem .6rem;border-radius:99px;font-size:.78rem;font-weight:600">${label}: ${n}</span>`;
+    chips.innerHTML = chip('#2E7D32', 'Recibirán correo', e)
+      + (o ? chip('#888', 'Omitidos', o) : '');
+    // Lista detallada (enviados + omitidos)
+    const filas = [
+      ...r.detalle.enviados.map(x => ({ id: x.id, email: x.email, total: x.total, estado: 'enviará', color: '#2E7D32' })),
+      ...r.detalle.omitidos.map(x => ({ id: x.id, email: x.email || '—', total: null, estado: x.motivo || 'omitido', color: '#888' })),
+    ];
+    listaTb.innerHTML = filas.length ? filas.map(f => `
+      <tr style="border-bottom:1px solid #f0f0f0">
+        <td style="padding:.3rem .5rem">#${f.id}</td>
+        <td style="padding:.3rem .5rem">${escHtmlSimple(f.email)}</td>
+        <td style="padding:.3rem .5rem;text-align:right;font-family:'Courier New',monospace">${f.total != null ? Number(f.total).toFixed(2) + ' €' : '—'}</td>
+        <td style="padding:.3rem .5rem;color:${f.color};font-weight:600;font-size:.75rem">${escHtmlSimple(f.estado)}</td>
+      </tr>`).join('') : '<tr><td colspan="4" style="padding:.5rem;color:#aaa;text-align:center">Sin destinatarios.</td></tr>';
+    // Preview
     if (r.preview) {
       previewE.style.display = 'block';
-      previewE.innerHTML = `
-        <div style="font-size:.72rem;color:#888;text-transform:uppercase;margin-bottom:.4rem">
-          Vista previa del correo para ${escHtmlSimple(r.preview.nombre || r.preview.email)}
-        </div>
-        <div style="background:#fff;border:1px solid #eee;border-radius:4px;padding:.4rem">
-          ${r.preview.html}
-        </div>`;
+      previewE.innerHTML = `<div style="font-size:.7rem;color:#888;margin-bottom:.3rem">Ejemplo para ${escHtmlSimple(r.preview.nombre || r.preview.email)} (${escHtmlSimple(r.preview.email)}) — asunto: <em>${escHtmlSimple(r.preview.subject)}</em></div><div style="background:#fff;border:1px solid #eee;border-radius:4px;padding:.5rem">${r.preview.html}</div>`;
     }
     btnConf.disabled = e === 0;
     btnConf.dataset.temporada = temporada;
@@ -683,6 +734,45 @@ async function abrirModalAvisoCuotas() {
     resumen.innerHTML = `<span style="color:var(--rojo)">Error: ${escHtmlSimple(err.message)}</span>`;
   }
 }
+
+// Modal log de envíos
+async function abrirModalLog() {
+  const modal = document.getElementById('modalLogEnvios');
+  const tbody = document.getElementById('logEnviosTbody');
+  const resumen = document.getElementById('logEnviosResumen');
+  modal.style.display = 'flex';
+  tbody.innerHTML = '<tr><td colspan="6" style="padding:.6rem;text-align:center;color:#888">Cargando…</td></tr>';
+  try {
+    const data = await window.api('/api/cuotas/email-log?limit=100');
+    if (!data) return;
+    if (data.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="6" style="padding:.6rem;text-align:center;color:#888">Sin envíos registrados todavía.</td></tr>';
+      resumen.textContent = 'Sin envíos previos.';
+      return;
+    }
+    const okN = data.filter(x => x.estado === 'enviado').length;
+    const erN = data.filter(x => x.estado === 'error').length;
+    const omN = data.filter(x => x.estado === 'omitido').length;
+    resumen.innerHTML = `Mostrando últimos <strong>${data.length}</strong>: ${okN} enviados ✅ · ${erN} con error ⚠️ · ${omN} omitidos.`;
+    tbody.innerHTML = data.map(l => {
+      const color = l.estado === 'enviado' ? '#2E7D32'
+                 : l.estado === 'error'   ? '#c0392b'
+                 : '#888';
+      const fecha = new Date(l.fecha).toLocaleString('es-ES');
+      return `<tr style="border-bottom:1px solid #f0f0f0">
+        <td style="padding:.35rem .5rem;font-size:.76rem;color:#555">${fecha}</td>
+        <td style="padding:.35rem .5rem">${escHtmlSimple(l.nombre_socio || ('#' + l.socio_id))}</td>
+        <td style="padding:.35rem .5rem">${escHtmlSimple(l.email_destino || '—')}</td>
+        <td style="padding:.35rem .5rem;text-align:right;font-family:'Courier New',monospace">${l.total_eur != null ? Number(l.total_eur).toFixed(2) + ' €' : '—'}</td>
+        <td style="padding:.35rem .5rem;color:${color};font-weight:600">${escHtmlSimple(l.estado)}</td>
+        <td style="padding:.35rem .5rem;font-size:.72rem;color:#888">${escHtmlSimple(l.motivo || '')}</td>
+      </tr>`;
+    }).join('');
+  } catch (e) {
+    tbody.innerHTML = `<tr><td colspan="6" style="padding:.6rem;color:var(--rojo);text-align:center">Error: ${escHtmlSimple(e.message)}</td></tr>`;
+  }
+}
+function cerrarModalLog() { document.getElementById('modalLogEnvios').style.display = 'none'; }
 
 function cerrarModalAvisoCuotas() {
   document.getElementById('modalAvisoCuotas').style.display = 'none';
@@ -723,6 +813,7 @@ function iniciarDashboard() {
   document.getElementById('selTemporada').addEventListener('change', cargarDatos);
   document.getElementById('btnAvisarCuotas').addEventListener('click', abrirModalAvisoCuotas);
   document.getElementById('btnAvisarCancelar').addEventListener('click', cerrarModalAvisoCuotas);
+document.getElementById('btnVerLog').addEventListener('click', abrirModalLog);
   document.getElementById('btnAvisarConfirmar').addEventListener('click', confirmarEnvioCuotas);
   cargarDatos();
 }

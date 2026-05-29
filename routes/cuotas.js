@@ -280,10 +280,12 @@ router.post('/email-prevision', async (req, res) => {
 
     if (!cuotasSocio.length) {
       omitidos.push({ id: s.id, email: s.email, motivo: 'sin cuotas generadas en esta temporada' });
+      if (!dry_run) await pool.query(`INSERT INTO email_envios_log (tipo, temporada, socio_id, email_destino, estado, motivo) VALUES ('prevision_cuotas',$1,$2,$3,'omitido','sin cuotas generadas')`, [temporada, s.id, s.email]);
       continue;
     }
     if (!s.email) {
       omitidos.push({ id: s.id, email: null, motivo: 'sin email' });
+      if (!dry_run) await pool.query(`INSERT INTO email_envios_log (tipo, temporada, socio_id, estado, motivo) VALUES ('prevision_cuotas',$1,$2,'omitido','sin email')`, [temporada, s.id]);
       continue;
     }
 
@@ -313,9 +315,11 @@ router.post('/email-prevision', async (req, res) => {
     try {
       const r = await email.sendMail({ to: s.email, subject, html, text });
       enviados.push({ id: s.id, email: s.email, total, message_id: r.id });
+      await pool.query(`INSERT INTO email_envios_log (tipo, temporada, socio_id, email_destino, asunto, estado, message_id, total_eur) VALUES ('prevision_cuotas',$1,$2,$3,$4,'enviado',$5,$6)`, [temporada, s.id, s.email, subject, r.id || null, total]);
     } catch (err) {
       console.error(`[email-prevision] socio ${s.id} (${s.email}):`, err.message);
       errores.push({ id: s.id, email: s.email, motivo: err.message });
+      await pool.query(`INSERT INTO email_envios_log (tipo, temporada, socio_id, email_destino, asunto, estado, motivo, total_eur) VALUES ('prevision_cuotas',$1,$2,$3,$4,'error',$5,$6)`, [temporada, s.id, s.email, subject, err.message, total]);
     }
   }
 
@@ -330,6 +334,32 @@ router.post('/email-prevision', async (req, res) => {
     detalle:  { enviados, omitidos, errores },
     preview,
   });
+});
+
+
+// GET /api/cuotas/email-log?limit=50&tipo=prevision_cuotas
+router.get('/email-log', async (req, res) => {
+  try {
+    const limit = Math.min(Number(req.query.limit) || 50, 500);
+    const tipo = req.query.tipo || null;
+    const params = [limit];
+    let where = '';
+    if (tipo) { params.push(tipo); where = `WHERE l.tipo = $2`; }
+    const { rows } = await pool.query(`
+      SELECT l.id, l.fecha, l.tipo, l.temporada, l.socio_id, l.email_destino,
+             l.asunto, l.estado, l.motivo, l.message_id, l.total_eur,
+             s.nombre || ' ' || COALESCE(s.apellidos,'') AS nombre_socio
+      FROM email_envios_log l
+      LEFT JOIN socios s ON s.id = l.socio_id
+      ${where}
+      ORDER BY l.fecha DESC
+      LIMIT $1
+    `, params);
+    res.json(rows);
+  } catch (e) {
+    console.error('[email-log] GET', e.message);
+    res.status(500).json({ error: 'Error interno del servidor' });
+  }
 });
 
 module.exports = router;
