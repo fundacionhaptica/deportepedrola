@@ -60,7 +60,7 @@ router.get('/', async (req, res) => {
     const { rows } = await db.query(
       `SELECT id, nombre_archivo, tipo, proveedor, nif_proveedor, numero_factura,
               fecha_factura, concepto, deporte, equipo_categoria, importe,
-              referencia_banco, ocr_revisado, created_at
+              referencia_banco, ocr_revisado, created_at, categoria_ingreso
        FROM facturas ${where}
        ORDER BY COALESCE(fecha_factura, created_at::date) DESC
        LIMIT $${params.length - 1} OFFSET $${params.length}`,
@@ -197,7 +197,7 @@ router.post('/upload', upload.array('archivos', 20), async (req, res) => {
          RETURNING id, tipo, proveedor, nif_proveedor, numero_factura,
                    fecha_factura, concepto, base_imponible, iva_porcentaje,
                    iva_importe, importe, nombre_archivo, deporte, equipo_categoria,
-                   referencia_banco, ocr_revisado`,
+                   referencia_banco, ocr_revisado, categoria_ingreso`,
         [
           file.originalname,
           file.path,
@@ -230,6 +230,26 @@ router.post('/upload', upload.array('archivos', 20), async (req, res) => {
   res.json({ resultados });
 });
 
+// PATCH /api/facturas/:id/categoria-ingreso { categoria_ingreso }
+router.patch('/:id/categoria-ingreso', async (req, res) => {
+  try {
+    const { categoria_ingreso } = req.body || {};
+    const valid = [null, 'subvencion', 'cuota_socio', 'donacion', 'inscripcion'];
+    if (!valid.includes(categoria_ingreso)) {
+      return res.status(400).json({ error: 'categoria_ingreso invalida' });
+    }
+    const { rows } = await db.query(
+      'UPDATE facturas SET categoria_ingreso = $1 WHERE id = $2 RETURNING id, categoria_ingreso',
+      [categoria_ingreso, req.params.id]
+    );
+    if (!rows[0]) return res.status(404).json({ error: 'No encontrada' });
+    res.json(rows[0]);
+  } catch (e) {
+    console.error('[facturas] PATCH categoria-ingreso', e.message);
+    res.status(500).json({ error: 'Error interno del servidor' });
+  }
+});
+
 // PATCH /api/facturas/:id — corrige campos tras revisión OCR
 router.patch('/:id', async (req, res) => {
   const client = await db.connect();
@@ -237,7 +257,7 @@ router.patch('/:id', async (req, res) => {
     const { tipo, proveedor, nif_proveedor, numero_factura, fecha_factura,
             concepto, deporte, equipo_categoria,
             base_imponible, iva_porcentaje, iva_importe, importe,
-            referencia_banco, distribuciones } = req.body;
+            referencia_banco, distribuciones, categoria_ingreso } = req.body;
 
     // Determinar deporte efectivo en factura principal
     let deportePrincipal = deporte || null;
@@ -263,8 +283,9 @@ router.patch('/:id', async (req, res) => {
          iva_importe      = COALESCE($11, iva_importe),
          importe          = COALESCE($12, importe),
          referencia_banco = COALESCE($13, referencia_banco),
+         categoria_ingreso = COALESCE($14, categoria_ingreso),
          ocr_revisado     = true
-       WHERE id = $14
+       WHERE id = $15
        RETURNING id, tipo, proveedor, nif_proveedor, numero_factura, fecha_factura,
                  concepto, deporte, equipo_categoria, referencia_banco,
                  base_imponible, iva_porcentaje, iva_importe, importe`,
@@ -276,6 +297,7 @@ router.patch('/:id', async (req, res) => {
        iva_importe    != null ? iva_importe    : null,
        importe        != null ? importe        : null,
        referencia_banco || null,
+       categoria_ingreso || null,
        req.params.id]
     );
     if (!factura) { await client.query('ROLLBACK'); return res.status(404).json({ error: 'Factura no encontrada.' }); }

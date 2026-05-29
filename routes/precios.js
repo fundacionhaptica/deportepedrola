@@ -175,12 +175,12 @@ router.put('/', async (req, res) => {
 
       const hoy = new Date();
       for (const s of socios) {
+        // JJEE va por AÑO DE NACIMIENTO (categorias escolares), no por edad real.
+        // En 2026 son JJEE los nacidos en 2010 o despues (2026 - 2010 = 16).
         let esJjee = s.es_jjee;
         if (!esJjee && s.fecha_nacimiento) {
-          const nac = new Date(s.fecha_nacimiento);
-          const edad = hoy.getFullYear() - nac.getFullYear() -
-            (hoy < new Date(hoy.getFullYear(), nac.getMonth(), nac.getDate()) ? 1 : 0);
-          esJjee = edad < 16;
+          const anioNac = new Date(s.fecha_nacimiento).getFullYear();
+          esJjee = (hoy.getFullYear() - anioNac) <= 16;
         }
         let cuota = 0;
         for (const act of Object.keys(mapa)) {

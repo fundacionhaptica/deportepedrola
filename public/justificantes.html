@@ -82,8 +82,8 @@
     <h2>Listado</h2>
     <div class="filtros">
       <select id="fTipo" onchange="cargar()">
-        <option value="">Todos los movimientos bancarios</option>
-        <option value="justificante_bancario" selected>Pagos (justificantes)</option>
+        <option value="" selected>Todos los movimientos bancarios</option>
+        <option value="justificante_bancario">Pagos (justificantes)</option>
         <option value="cobro_bancario">Cobros / abonos</option>
         <option value="gasto_bancario">Gastos bancarios (comisiones, cargos)</option>
         <option value="extracto_tpv">Extractos TPV / liquidación</option>
@@ -100,6 +100,7 @@
       <table>
         <thead><tr>
           <th>Fecha</th><th>Tipo</th><th>Beneficiario</th><th>Concepto</th>
+          <th>Categoría ingreso</th>
           <th style="text-align:right">Importe</th><th>Acciones</th>
         </tr></thead>
         <tbody id="tabla"><tr><td colspan="5" class="sin-datos">Cargando…</td></tr></tbody>
@@ -169,6 +170,14 @@ async function cargar() {
             <td><span style="background:${col};color:#fff;padding:.1rem .5rem;border-radius:99px;font-size:.7rem;font-weight:600">${lab}</span></td>
             <td>${esc(f.proveedor || '—')}</td>
             <td style="color:#555;font-size:.8rem">${esc(f.concepto || '—')}</td>
+            <td>${f.tipo === 'cobro_bancario' || (f.tipo === 'factura' && f.categoria_ingreso) ? `
+              <select onchange="setCategoriaIngreso(${f.id}, this.value)" style="font-size:.74rem;padding:.15rem .3rem;border:1px solid #ddd;border-radius:3px">
+                <option value="">— sin clasificar —</option>
+                <option value="subvencion" ${f.categoria_ingreso==='subvencion'?'selected':''}>Subvención</option>
+                <option value="cuota_socio" ${f.categoria_ingreso==='cuota_socio'?'selected':''}>Cuota socio</option>
+                <option value="donacion" ${f.categoria_ingreso==='donacion'?'selected':''}>Donación / colaboración</option>
+                <option value="inscripcion" ${f.categoria_ingreso==='inscripcion'?'selected':''}>Inscripción competición</option>
+              </select>` : '<span style="color:#ccc;font-size:.72rem">N/A</span>'}</td>
             <td class="importe" style="${f.importe == null ? 'color:#aaa;font-style:italic' : ''}">${f.importe == null ? 'sin importe' : fmt(f.importe)}</td>
             <td>
               <button class="btn-outline" onclick="verPDF(${f.id})">PDF</button>
@@ -176,9 +185,9 @@ async function cargar() {
             </td>
           </tr>`;
         }).join('')
-      : '<tr><td colspan="6" class="sin-datos">Sin movimientos con esos filtros.</td></tr>';
+      : '<tr><td colspan="7" class="sin-datos">Sin movimientos con esos filtros.</td></tr>';
   } catch (e) {
-    document.getElementById('tabla').innerHTML = `<tr><td colspan="6" style="color:var(--rojo);text-align:center;padding:1rem">Error: ${esc(e.message)}</td></tr>`;
+    document.getElementById('tabla').innerHTML = `<tr><td colspan="7" style="color:var(--rojo);text-align:center;padding:1rem">Error: ${esc(e.message)}</td></tr>`;
   }
 }
 
@@ -199,6 +208,16 @@ function verPDF(id) {
 window.verPDF = verPDF;
 
 // Init: usa el mismo patron que facturas.html / ingresos.html
+async function setCategoriaIngreso(id, valor) {
+  try {
+    await window.api(`/api/facturas/${id}/categoria-ingreso`, {
+      method: 'PATCH',
+      body: JSON.stringify({ categoria_ingreso: valor || null }),
+    });
+  } catch (e) { alert('Error: ' + e.message); }
+}
+window.setCategoriaIngreso = setCategoriaIngreso;
+
 const jwtGuardado = sessionStorage.getItem('token');
 if (!jwtGuardado) {
   window.location.href = '/';

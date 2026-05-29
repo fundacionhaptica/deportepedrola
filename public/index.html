@@ -368,6 +368,7 @@
                     onchange="toggleTodos(this.checked)" style="cursor:pointer"></th>
                 <th>#</th>
                 <th>Nombre</th>
+                <th>Categoría</th>
                 <th>Email</th>
                 <th>Actividades</th>
                 <th>Cuota</th>
@@ -377,7 +378,7 @@
               </tr>
             </thead>
             <tbody id="tablaSocios">
-              <tr><td colspan="8" style="color:#aaa;text-align:center;padding:1rem">Cargando...</td></tr>
+              <tr><td colspan="9" style="color:#aaa;text-align:center;padding:1rem">Cargando...</td></tr>
             </tbody>
           </table>
           </div>
@@ -688,7 +689,7 @@ function renderFilasSocios(socios) {
   if (thChk) thChk.style.display = puedeEliminar() ? '' : 'none';
 
   if (!socios.length) {
-    tbody.innerHTML = '<tr><td colspan="9" style="color:#aaa;text-align:center;padding:1rem">Sin socios.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="10" style="color:#aaa;text-align:center;padding:1rem">Sin socios.</td></tr>';
     return;
   }
   tbody.innerHTML = socios.map(s => {
@@ -715,6 +716,7 @@ function renderFilasSocios(socios) {
              onclick="abrirModal(${s.id});return false">
         ${escHtml(s.apellidos ? s.apellidos+', '+s.nombre : s.nombre)}
       </a></td>
+      <td>${s.categoria ? `<span class="badge" style="background:#e3f2fd;color:#0d47a1;font-weight:600;font-size:.72rem">${escHtml(s.categoria)}</span>${s.edad != null ? `<br><small style="color:#999">${s.edad} años</small>` : ''}` : '<span style="color:#bbb">—</span>'}</td>
       <td style="font-size:.78rem;color:#666">${escHtml(s.email || '')}</td>
       <td>${actsHtml}</td>
       <td style="font-weight:700;white-space:nowrap">${fmtCuota(s.cuota)}</td>

@@ -126,4 +126,29 @@ router.get('/resumen', async (req, res) => {
   }
 });
 
+
+// GET /api/ingresos/por-categoria?desde=&hasta=
+// Desglose por categoria_ingreso (subvencion, cuota_socio, donacion, inscripcion)
+router.get('/por-categoria', async (req, res) => {
+  try {
+    const desde = req.query.desde || '1970-01-01';
+    const hasta = req.query.hasta || new Date().toISOString().slice(0, 10);
+    const { rows } = await pool.query(`
+      SELECT COALESCE(categoria_ingreso, 'sin_clasificar') AS categoria,
+             COUNT(*) AS n,
+             COALESCE(SUM(importe), 0)::numeric(10,2) AS total
+      FROM facturas
+      WHERE (tipo IN ('cobro_bancario','factura'))
+        AND fecha_factura BETWEEN $1 AND $2
+        AND importe IS NOT NULL
+      GROUP BY categoria_ingreso
+      ORDER BY total DESC NULLS LAST
+    `, [desde, hasta]);
+    res.json(rows);
+  } catch (e) {
+    console.error('[ingresos] por-categoria', e.message);
+    res.status(500).json({ error: 'Error interno del servidor' });
+  }
+});
+
 module.exports = router;

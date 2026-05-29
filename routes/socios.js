@@ -22,7 +22,10 @@ const SELECT_FIELDS = `
 `;
 
 router.get('/', async (_req, res) => {
-  const { rows } = await pool.query(`SELECT ${SELECT_FIELDS} FROM socios ORDER BY apellidos, nombre`);
+  const { rows } = await pool.query(`
+    SELECT ${SELECT_FIELDS}, edad, categoria, es_jjee_calculado
+    FROM v_socios_con_categoria ORDER BY apellidos, nombre
+  `);
   res.json(rows);
 });
 
