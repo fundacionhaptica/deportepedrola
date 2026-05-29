@@ -7,13 +7,15 @@ const pool   = require('../db/pool');
 // Devuelve la vista unificada de facturas + justificantes con su estado.
 router.get('/', async (req, res) => {
   try {
-    const { estado, desde, hasta, tipo } = req.query;
+    const { estado, desde, hasta, tipo, lado, proveedor } = req.query;
     const conds = [];
     const params = [];
-    if (estado)  { params.push(estado); conds.push(`estado_conciliacion = $${params.length}`); }
-    if (tipo)    { params.push(tipo);   conds.push(`tipo = $${params.length}`); }
-    if (desde)   { params.push(desde);  conds.push(`fecha_factura >= $${params.length}`); }
-    if (hasta)   { params.push(hasta);  conds.push(`fecha_factura <= $${params.length}`); }
+    if (estado)    { params.push(estado);             conds.push(`estado_conciliacion = $${params.length}`); }
+    if (lado)      { params.push(lado);               conds.push(`lado = $${params.length}`); }
+    if (tipo)      { params.push(tipo);               conds.push(`tipo = $${params.length}`); }
+    if (desde)     { params.push(desde);              conds.push(`fecha_factura >= $${params.length}`); }
+    if (hasta)     { params.push(hasta);              conds.push(`fecha_factura <= $${params.length}`); }
+    if (proveedor) { params.push('%' + proveedor + '%'); conds.push(`(proveedor ILIKE $${params.length} OR concepto ILIKE $${params.length})`); }
     const where = conds.length ? `WHERE ${conds.join(' AND ')}` : '';
     const { rows } = await pool.query(
       `SELECT * FROM v_conciliacion_estado ${where} ORDER BY fecha_factura DESC NULLS LAST, id DESC LIMIT 500`,

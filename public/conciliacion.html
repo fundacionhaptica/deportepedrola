@@ -115,7 +115,7 @@
     <div style="overflow:auto;max-height:65vh">
       <table>
         <thead><tr>
-          <th>Fecha</th><th>Tipo</th><th>Proveedor / concepto</th><th>Nº</th>
+          <th>Fecha</th><th>Lado</th><th>Proveedor / concepto</th><th>Nº</th>
           <th style="text-align:right">Importe</th><th>Estado</th><th>Conciliada con</th><th>Acciones</th>
         </tr></thead>
         <tbody id="tabla"><tr><td colspan="8" style="text-align:center;padding:1rem;color:#888">Cargando…</td></tr></tbody>
@@ -168,15 +168,15 @@ async function cargarResumen() {
     if (!data) return;
     const stats = document.getElementById('stats');
     const reduce = (arr, fn) => arr.reduce((s, x) => s + fn(x), 0);
-    const total_f = reduce(data.filter(x => x.tipo==='factura'), x => Number(x.importe_total));
-    const total_j = reduce(data.filter(x => x.tipo==='justificante_bancario'), x => Number(x.importe_total));
+    const total_f = reduce(data.filter(x => ['factura','licencias','recibo_arbitraje','recibo_premio','recibo'].includes(x.tipo)), x => Number(x.importe_total));
+    const total_j = reduce(data.filter(x => ['justificante_bancario','gasto_bancario','cobro_bancario'].includes(x.tipo)), x => Number(x.importe_total));
     const n_completo = reduce(data.filter(x => x.estado==='completo'), x => Number(x.n));
     const n_falta_j  = reduce(data.filter(x => x.estado==='falta_justificante'), x => Number(x.n));
     const n_falta_f  = reduce(data.filter(x => x.estado==='falta_factura'), x => Number(x.n));
     const n_dis      = reduce(data.filter(x => x.estado==='discrepancia'), x => Number(x.n));
     stats.innerHTML = `
-      <div class="stat"><div class="label">Facturas totales €</div><div class="valor">${fmt(total_f)}</div></div>
-      <div class="stat"><div class="label">Justificantes €</div><div class="valor">${fmt(total_j)}</div></div>
+      <div class="stat"><div class="label">Gastos totales €</div><div class="valor">${fmt(total_f)}</div></div>
+      <div class="stat"><div class="label">Movimientos banco €</div><div class="valor">${fmt(total_j)}</div></div>
       <div class="stat" style="background:#e8f5e9"><div class="label">Completas</div><div class="valor" style="color:#2E7D32">${n_completo}</div></div>
       <div class="stat" style="background:#fff8e1"><div class="label">Falta justificante</div><div class="valor" style="color:#b8860b">${n_falta_j}</div></div>
       <div class="stat" style="background:#ffebee"><div class="label">Falta factura</div><div class="valor" style="color:#c0392b">${n_falta_f}</div></div>
@@ -207,14 +207,20 @@ async function cargarEstado() {
     }
     tbody.innerHTML = data.map(f => {
       const ids = (f.conciliada_con || []).join(', ');
-      const esFactura = f.tipo === 'factura';
-      const btnConciliar = esFactura
+      const lados = {
+        gasto:         ['#c0392b', 'Gasto'],
+        salida_banco:  ['#1565C0', 'Banco → sale'],
+        entrada_banco: ['#2E7D32', 'Banco ← entra'],
+      };
+      const [ladoCol, ladoLab] = lados[f.lado] || ['#666', f.tipo];
+      const btnConciliar = f.lado === 'gasto'
         ? `<button class="btn-verde" onclick="abrirConciliar(${f.id})">Vincular</button>`
-        : `<button class="btn-verde" onclick="abrirConciliarJustif(${f.id})">Vincular</button>`;
+        : (f.lado === 'salida_banco'
+           ? `<button class="btn-verde" onclick="abrirConciliarJustif(${f.id})">Vincular</button>` : '');
       const btnDesconciliar = ids ? `<button class="btn-rojo" onclick="verConciliacionesPara(${f.id},'${f.tipo}')">Editar vínculos</button>` : '';
       return `<tr>
         <td>${fmtFecha(f.fecha_factura)}</td>
-        <td><span style="font-size:.7rem;text-transform:uppercase;color:${esFactura?'#1565C0':'#7E57C2'};font-weight:700">${esFactura?'Factura':'Justif. banco'}</span></td>
+        <td><span style="background:${ladoCol};color:#fff;padding:.1rem .5rem;border-radius:99px;font-size:.7rem;font-weight:600">${ladoLab}</span><br><small style="color:#888;font-size:.7rem">${f.tipo}</small></td>
         <td>${esc(f.proveedor || '—')}<br><small style="color:#888;font-size:.7rem">${esc(f.concepto || '')}</small></td>
         <td>${esc(f.numero_factura || '—')}</td>
         <td class="importe">${fmt(f.importe)}</td>
