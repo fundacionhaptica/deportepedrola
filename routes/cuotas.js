@@ -125,6 +125,33 @@ router.post('/generar', async (req, res) => {
         esJjee = anioNac > anioInicioTemp - 16;
       }
 
+      // === Régimen especial Escuelas (categoria <= 5 anios) ===
+      // 2025/2026: 20 EUR unico. 2026/2027 en adelante: 3 plazos de 20 EUR
+      // (jun-inscripcion, ene, abr). Se ignoran los precios por deporte.
+      const edadAprox = s.fecha_nacimiento
+        ? anioInicioTemp - new Date(s.fecha_nacimiento).getFullYear()
+        : null;
+      const esEscuelas = edadAprox != null && edadAprox <= 5;
+      if (esEscuelas) {
+        const plazos = (temporada === '2025/2026')
+          ? [{ d: 'escuelas', c: `Cuota Escuelas ${temporada} (pago unico)` }]
+          : [
+              { d: 'escuelas_jun' + anioInicioTemp,     c: `Cuota Escuelas ${temporada} - 1º plazo (junio)` },
+              { d: 'escuelas_ene' + (anioInicioTemp+1), c: `Cuota Escuelas ${temporada} - 2º plazo (enero)` },
+              { d: 'escuelas_abr' + (anioInicioTemp+1), c: `Cuota Escuelas ${temporada} - 3º plazo (abril)` },
+            ];
+        for (const pl of plazos) {
+          const { rowCount } = await client.query(`
+            INSERT INTO cuotas_socio
+              (socio_id, temporada, tipo, deporte, concepto, importe)
+            VALUES ($1, $2, 'cuota_escuelas', $3, $4, 20.00)
+            ON CONFLICT (socio_id, temporada, tipo, deporte) DO NOTHING
+          `, [s.id, temporada, pl.d, pl.c]);
+          if (rowCount) generadas++; else omitidas++;
+        }
+        continue; // no calcular cuotas por deporte para Escuelas
+      }
+
       // Fichas: calcular cuál paga el club (la más cara)
       const fichasDelSocio = deportesActivos.map(deporte => {
         const catFicha = esJjee && mapaFichas[deporte]?.jjee != null ? 'jjee' : 'regular';
