@@ -595,8 +595,9 @@ window.cargarDashboard = async function () {
       return '<span class="badge badge-naranja">Pendiente</span>';
     };
 
-    document.getElementById('tablaPagos').innerHTML = data.pagos_recientes.length
-      ? data.pagos_recientes.map(p => `
+    const pagos = Array.isArray(data.pagos_recientes) ? data.pagos_recientes : [];
+    document.getElementById('tablaPagos').innerHTML = pagos.length
+      ? pagos.map(p => `
           <tr>
             <td>#${p.id}</td>
             <td>${p.concepto}</td>

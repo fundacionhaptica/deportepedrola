@@ -815,6 +815,7 @@ async function cargarFacturas(pagina) {
             <td class="importe">${fmt(f.importe)}</td>
             <td>
               <button class="btn-outline" onclick="verDetalle(${f.id})">Ver</button>
+              <button class="btn-outline btn-small" onclick="verPDF(${f.id})" style="margin-left:.3rem" title="Abrir PDF original">PDF</button>
               <button class="btn-outline btn-small" onclick="editarFactura(${f.id})" style="margin-left:.3rem">Editar</button>
             </td>
           </tr>`;
@@ -868,7 +869,7 @@ async function verDetalle(id) {
     campo('Importe+IVA',   fmt(data.importe)) +
     sec('Info') +
     campo('Revisada',       data.ocr_revisado ? '✓ Sí' : 'Pendiente') +
-    campo('Archivo',        data.nombre_archivo);
+    campo('Archivo',        data.nombre_archivo ? `<a href="#" onclick="verPDF(${data.id});return false" style="color:var(--azul);text-decoration:underline">${escHtml(data.nombre_archivo)}</a>` : '—');
 
   if (data.distribuciones && data.distribuciones.length > 0) {
     let distHtml = sec('Distribución');
@@ -1142,6 +1143,21 @@ if (!jwtGuardado) {
   cargarFacturas(1);
   cargarOCRStats();
 }
+
+function verPDF(id) {
+  const token = localStorage.getItem('jwt');
+  if (!token) { alert('Sesión caducada'); return; }
+  // Abrir en nueva pestaña con autorización via fetch + blob
+  fetch(`/api/facturas/${id}/archivo`, { headers: { Authorization: `Bearer ${token}` } })
+    .then(r => r.ok ? r.blob() : Promise.reject(`HTTP ${r.status}`))
+    .then(blob => {
+      const url = URL.createObjectURL(blob);
+      window.open(url, '_blank');
+      setTimeout(() => URL.revokeObjectURL(url), 60_000);
+    })
+    .catch(e => alert('No se pudo abrir el PDF: ' + e));
+}
+window.verPDF = verPDF;
 </script>
 </body>
 </html>

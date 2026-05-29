@@ -13,7 +13,7 @@ router.get('/', async (req, res) => {
   const hasta = req.query.hasta || new Date().toISOString().slice(0, 10);
 
   try {
-    const [socios, balance, recientes, contadores] = await Promise.all([
+    const [socios, balance, recientes, contadores, pagos] = await Promise.all([
       pool.query('SELECT COUNT(*) FROM socios WHERE activo = true'),
       pool.query(`
         SELECT
@@ -37,6 +37,13 @@ router.get('/', async (req, res) => {
           (SELECT COUNT(*) FROM movimientos WHERE es_tesoreria = false) AS movimientos_manuales,
           (SELECT COUNT(*) FROM pagos WHERE estado = 'pagado') AS pagos_stripe
       `),
+      pool.query(`
+        SELECT id, concepto, importe, estado,
+               TO_CHAR(COALESCE(fecha, created_at::date), 'YYYY-MM-DD') AS fecha
+        FROM pagos
+        ORDER BY COALESCE(fecha, created_at::date) DESC NULLS LAST, id DESC
+        LIMIT 10
+      `),
     ]);
 
     const ingresos = parseFloat(balance.rows[0].ingresos);
@@ -49,6 +56,7 @@ router.get('/', async (req, res) => {
       gastos,
       saldo:           Math.round((ingresos - gastos) * 100) / 100,
       movimientos_recientes: recientes.rows,
+      pagos_recientes: pagos.rows,
       contadores: contadores.rows[0],
     });
   } catch (err) {
