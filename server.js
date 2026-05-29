@@ -94,6 +94,10 @@ app.get('/certificados', (_req, res) => {
 });
 
 // Dashboard de gastos (requiere auth, resuelta en cliente)
+app.get('/justificantes', (_req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'justificantes.html'));
+});
+
 app.get('/gastos', (_req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'gastos.html'));
 });

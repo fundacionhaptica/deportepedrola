@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Justificantes bancarios · CDE Deporte Pedrola</title>
+  <style>
+    :root {
+      --amarillo: #FFD400; --negro: #111; --azul: #1E88E5;
+      --gris: #f4f4f4; --borde: #e0e0e0; --rojo: #c0392b; --verde: #2E7D32;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+           background: var(--gris); color: var(--negro); line-height: 1.5; }
+    header {
+      background: var(--negro); color: var(--amarillo);
+      padding: 1rem 1.5rem; border-bottom: 5px solid var(--amarillo);
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    header h1 { font-size: 1.2rem; }
+    header small { color: #fff; font-weight: 400; font-size: .8rem; display: block; opacity: .8; }
+    nav { background: #1a1a1a; padding: .4rem 1.5rem; display: flex; gap: .3rem; }
+    nav a {
+      color: #ccc; text-decoration: none; font-size: .83rem; font-weight: 600;
+      padding: .35rem .8rem; border-radius: 4px;
+    }
+    nav a:hover { background: #333; color: #fff; }
+    nav a.activa { background: var(--amarillo); color: var(--negro); }
+    .wrap { max-width: 1200px; margin: 0 auto; padding: 1.5rem 1rem; }
+    .card { background: #fff; padding: 1.5rem; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,.08); }
+    h2 { margin-bottom: 1rem; }
+    .aviso { background: #fff3cd; border-left: 4px solid #ffc107; padding: .75rem 1rem; margin-bottom: 1rem; font-size: .85rem; }
+    table { width: 100%; border-collapse: collapse; font-size: .85rem; }
+    th { text-align: left; padding: .6rem .5rem; background: #f0f0f0; font-weight: 600; border-bottom: 2px solid var(--borde); }
+    td { padding: .6rem .5rem; border-bottom: 1px solid var(--borde); vertical-align: top; }
+    tr:hover { background: #fafafa; }
+    .importe { text-align: right; font-weight: 700; font-family: "Courier New", monospace; }
+    .btn { background: var(--amarillo); color: var(--negro); padding: .35rem .6rem; border: none;
+           border-radius: 4px; cursor: pointer; font-size: .78rem; font-weight: 600; }
+    .btn-outline { background: #fff; border: 1px solid var(--borde); padding: .3rem .55rem;
+                   border-radius: 4px; cursor: pointer; font-size: .76rem; }
+    .filtros { display: flex; gap: .8rem; margin-bottom: 1rem; flex-wrap: wrap; }
+    .filtros input, .filtros select { padding: .4rem .6rem; border: 1px solid var(--borde); border-radius: 4px; font-size: .85rem; }
+    .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 1rem; margin-bottom: 1.5rem; }
+    .stat { background: #fff; padding: 1rem; border-radius: 6px; box-shadow: 0 1px 2px rgba(0,0,0,.05); }
+    .stat .label { font-size: .75rem; color: #666; text-transform: uppercase; letter-spacing: .5px; }
+    .stat .valor { font-size: 1.4rem; font-weight: 700; margin-top: .25rem; }
+    .sin-datos { text-align: center; color: #888; padding: 2rem; }
+  </style>
+</head>
+<body>
+
+<header>
+  <div><h1>CDE Deporte Pedrola</h1><small>Justificantes bancarios</small></div>
+  <div><span id="userNameHeader" style="font-size:.8rem;color:#ccc"></span></div>
+</header>
+
+<nav>
+  <a href="/">Panel</a>
+  <a href="/facturas">Facturas</a>
+  <a href="/justificantes" class="activa">Justificantes</a>
+  <a href="/gastos">Gastos</a>
+  <a href="/ingresos">Ingresos</a>
+  <a href="/certificados">Certificados</a>
+</nav>
+
+<div class="wrap">
+  <div class="aviso">
+    <strong>Justificantes bancarios.</strong> Transferencias IberCaja registradas como gasto pero a las que les falta la factura original.
+    Aparecen aquí porque se cargaron sin factura desde el Excel.
+    Cuando recibas la factura, edita la entrada y cambia el <em>tipo</em> a “factura” para reclasificarla.
+  </div>
+
+  <div class="stats">
+    <div class="stat"><div class="label">Nº justificantes</div><div class="valor" id="stNum">—</div></div>
+    <div class="stat"><div class="label">Importe total</div><div class="valor" id="stImporte">—</div></div>
+    <div class="stat"><div class="label">Pendientes de factura</div><div class="valor" id="stPendientes">—</div></div>
+  </div>
+
+  <div class="card">
+    <h2>Listado</h2>
+    <div class="filtros">
+      <input type="date" id="fDesde" title="Desde">
+      <input type="date" id="fHasta" title="Hasta">
+      <input type="text" id="fBeneficiario" placeholder="Beneficiario…">
+      <button class="btn" onclick="cargar()">Filtrar</button>
+    </div>
+    <table>
+      <thead><tr>
+        <th>Fecha</th><th>Beneficiario</th><th>Concepto</th>
+        <th style="text-align:right">Importe</th><th>Acciones</th>
+      </tr></thead>
+      <tbody id="tabla"><tr><td colspan="5" class="sin-datos">Cargando…</td></tr></tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+const token = localStorage.getItem('jwt');
+if (!token) { location.href='/'; }
+
+async function api(path) {
+  const r = await fetch(path, { headers: { Authorization: 'Bearer ' + token } });
+  if (r.status === 401) { localStorage.removeItem('jwt'); location.href='/'; return null; }
+  if (!r.ok) { alert('Error ' + r.status); return null; }
+  return r.json();
+}
+
+function fmt(n) {
+  if (n == null) return '—';
+  return Number(n).toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €';
+}
+function fmtFecha(s) {
+  if (!s) return '—';
+  return new Date(s).toLocaleDateString('es-ES');
+}
+function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+
+async function cargar() {
+  const desde = document.getElementById('fDesde').value;
+  const hasta = document.getElementById('fHasta').value;
+  const ben   = document.getElementById('fBeneficiario').value.trim();
+  let url = '/api/facturas?tipo=justificante_bancario&page=1';
+  if (desde) url += '&desde=' + desde;
+  if (hasta) url += '&hasta=' + hasta;
+  if (ben)   url += '&proveedor=' + encodeURIComponent(ben);
+  const data = await api(url);
+  if (!data) return;
+  const filas = data.facturas;
+  document.getElementById('stNum').textContent = data.total;
+  const total = filas.reduce((s, f) => s + Number(f.importe || 0), 0);
+  document.getElementById('stImporte').textContent = fmt(total);
+  document.getElementById('stPendientes').textContent = data.total;
+
+  document.getElementById('tabla').innerHTML = filas.length
+    ? filas.map(f => `
+      <tr>
+        <td>${fmtFecha(f.fecha_factura)}</td>
+        <td>${esc(f.proveedor || '—')}</td>
+        <td style="color:#555;font-size:.8rem">${esc(f.concepto || '—')}</td>
+        <td class="importe">${fmt(f.importe)}</td>
+        <td>
+          <button class="btn-outline" onclick="verPDF(${f.id})">PDF</button>
+          <a class="btn-outline" href="/facturas?id=${f.id}" style="text-decoration:none">Editar</a>
+        </td>
+      </tr>`).join('')
+    : '<tr><td colspan="5" class="sin-datos">Sin justificantes con esos filtros.</td></tr>';
+}
+
+function verPDF(id) {
+  fetch('/api/facturas/' + id + '/archivo', { headers: { Authorization: 'Bearer ' + token } })
+    .then(r => r.ok ? r.blob() : Promise.reject('HTTP ' + r.status))
+    .then(blob => {
+      const url = URL.createObjectURL(blob);
+      window.open(url, '_blank');
+      setTimeout(() => URL.revokeObjectURL(url), 60000);
+    })
+    .catch(e => alert('No se pudo abrir el PDF: ' + e));
+}
+
+cargar();
+</script>
+</body>
+</html>
