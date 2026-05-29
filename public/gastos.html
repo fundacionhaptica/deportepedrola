@@ -271,6 +271,29 @@
       </div>
     </div>
 
+    <!-- Drill-down facturas -->
+    <div id="drillCard" class="card" style="margin-top:1.5rem;display:none">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.7rem;gap:1rem;flex-wrap:wrap">
+        <h2 id="drillTitulo" style="margin:0">Facturas seleccionadas</h2>
+        <button class="btn-outline btn-small" onclick="cerrarDrill()">✕ Cerrar</button>
+      </div>
+      <div id="drillSubtitulo" style="font-size:.8rem;color:#666;margin-bottom:.7rem"></div>
+      <div style="overflow-x:auto">
+        <table style="width:100%;font-size:.85rem">
+          <thead><tr>
+            <th style="text-align:left;padding:.5rem;background:#f0f0f0">Fecha</th>
+            <th style="text-align:left;padding:.5rem;background:#f0f0f0">Proveedor</th>
+            <th style="text-align:left;padding:.5rem;background:#f0f0f0">Nº</th>
+            <th style="text-align:left;padding:.5rem;background:#f0f0f0">Deporte/Equipo</th>
+            <th style="text-align:right;padding:.5rem;background:#f0f0f0">Importe</th>
+            <th style="padding:.5rem;background:#f0f0f0"></th>
+          </tr></thead>
+          <tbody id="drillTbody"></tbody>
+          <tfoot id="drillTfoot"></tfoot>
+        </table>
+      </div>
+    </div>
+
   </div><!-- /mainContent -->
 </div>
 
@@ -393,6 +416,61 @@ function colores(n) {
 }
 
 /* ─── Instancias de charts (para destruirlos al recargar) ─── */
+/* ─── Drill-down: click en gráfica -> facturas relacionadas ─── */
+function escHtml(z) { return String(z == null ? '' : z).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+async function drillDown(filtros, titulo, subtitulo) {
+  document.getElementById('drillTitulo').textContent = titulo;
+  document.getElementById('drillSubtitulo').textContent = subtitulo;
+  document.getElementById('drillCard').style.display = 'block';
+  document.getElementById('drillTbody').innerHTML = '<tr><td colspan="6" style="text-align:center;padding:1rem;color:#888">Cargando...</td></tr>';
+  document.getElementById('drillTfoot').innerHTML = '';
+  const r = getRango();
+  const params = new URLSearchParams();
+  // Si el chart pasó un rango de mes, prevalece sobre el rango del filtro general
+  const desdeFinal = filtros._mes_desde || r.desde;
+  const hastaFinal = filtros._mes_hasta || r.hasta;
+  if (desdeFinal) params.set('desde', desdeFinal);
+  if (hastaFinal) params.set('hasta', hastaFinal);
+  Object.entries(filtros).forEach(([k,v]) => {
+    if (k.startsWith('_')) return; // claves especiales (_mes_desde/_mes_hasta)
+    if (v != null) params.set(k, v);
+  });
+  params.set('page', 1);
+  try {
+    const data = await window.api('/api/facturas?' + params.toString());
+    if (!data) return;
+    const filas = data.facturas;
+    const total = filas.reduce((s, f) => s + Number(f.importe || 0), 0);
+    document.getElementById('drillTbody').innerHTML = filas.length
+      ? filas.map(f => `
+          <tr style="border-bottom:1px solid #eee">
+            <td style="padding:.5rem">${f.fecha_factura ? new Date(f.fecha_factura).toLocaleDateString('es-ES') : '—'}</td>
+            <td style="padding:.5rem">${escHtml(f.proveedor || '—')}</td>
+            <td style="padding:.5rem">${escHtml(f.numero_factura || '—')}</td>
+            <td style="padding:.5rem;font-size:.78rem;color:#555">${escHtml(f.deporte || '—')} / ${escHtml(f.equipo_categoria || '—')}</td>
+            <td style="padding:.5rem;text-align:right;font-weight:700;font-family:'Courier New',monospace">${fmt.format(parseFloat(f.importe || 0))}</td>
+            <td style="padding:.5rem"><button class="btn-outline btn-small" onclick="window.open('/facturas?id=' + ${f.id}, '_blank')">Ver</button></td>
+          </tr>`).join('')
+      : '<tr><td colspan="6" style="text-align:center;padding:1rem;color:#888">Sin facturas con esos filtros.</td></tr>';
+    document.getElementById('drillTfoot').innerHTML = filas.length
+      ? `<tr><td colspan="4" style="padding:.5rem;text-align:right;font-weight:600;border-top:2px solid #ddd">Total mostrado (${filas.length} de ${data.total}):</td><td style="padding:.5rem;text-align:right;font-weight:700;border-top:2px solid #ddd">${fmt.format(total)}</td><td style="border-top:2px solid #ddd"></td></tr>`
+      : '';
+  } catch (e) {
+    document.getElementById('drillTbody').innerHTML = `<tr><td colspan="6" style="text-align:center;color:var(--rojo);padding:1rem">Error: ${e.message}</td></tr>`;
+  }
+}
+function cerrarDrill() { document.getElementById('drillCard').style.display = 'none'; }
+function clickChartFactory(labels, mapper) {
+  return (_evt, elements) => {
+    if (!elements.length) return;
+    const idx = elements[0].index;
+    const label = labels[idx];
+    const { filtros, titulo, subtitulo } = mapper(label, idx);
+    drillDown(filtros, titulo, subtitulo);
+    setTimeout(() => document.getElementById('drillCard').scrollIntoView({behavior:'smooth', block:'start'}), 100);
+  };
+}
+
 const charts = {};
 
 function crearOActualizar(id, config) {
@@ -417,6 +495,11 @@ function renderDeporte(datos) {
     },
     options: {
       responsive: true, maintainAspectRatio: false,
+      onClick: clickChartFactory(labels, (label) => ({
+        filtros: { deporte: label === 'Sin clasificar' ? null : label },
+        titulo: 'Facturas: ' + label,
+        subtitulo: 'Deporte: ' + label,
+      })),
       plugins: {
         legend: { position: 'right', labels: { font: { size: 11 }, padding: 10, boxWidth: 14 } },
         tooltip: { callbacks: { label: ctx => ` ${ctx.label}: ${fmt.format(ctx.parsed)}` } },
@@ -440,6 +523,11 @@ function renderTipo(datos) {
     },
     options: {
       indexAxis: 'y', responsive: true, maintainAspectRatio: false,
+      onClick: clickChartFactory(labels, (label) => ({
+        filtros: { tipo: label },
+        titulo: 'Facturas tipo: ' + label,
+        subtitulo: 'Tipo: ' + label,
+      })),
       plugins: {
         legend: { display: false },
         tooltip: { callbacks: { label: ctx => ` ${fmt.format(ctx.parsed.x)}` } },
@@ -468,6 +556,18 @@ function renderMensual(datos) {
     },
     options: {
       responsive: true, maintainAspectRatio: false,
+      onClick: clickChartFactory(labels, (label) => {
+        // label = 'YYYY-MM' o similar. Construir desde/hasta del mes.
+        const m = String(label).match(/(\d{4})-(\d{2})/);
+        if (!m) return { filtros: {}, titulo: 'Mes ' + label, subtitulo: label };
+        const yyyy = m[1], mm = m[2];
+        const lastDay = new Date(Number(yyyy), Number(mm), 0).getDate();
+        return {
+          filtros: { _mes_desde: `${yyyy}-${mm}-01`, _mes_hasta: `${yyyy}-${mm}-${String(lastDay).padStart(2,'0')}` },
+          titulo: 'Facturas de ' + label,
+          subtitulo: 'Mes: ' + label,
+        };
+      }),
       plugins: {
         legend: { display: false },
         tooltip: { callbacks: { label: ctx => ` ${fmt.format(ctx.parsed.y)}` } },
@@ -495,6 +595,11 @@ function renderProveedores(datos) {
     },
     options: {
       indexAxis: 'y', responsive: true, maintainAspectRatio: false,
+      onClick: clickChartFactory(labels, (label) => ({
+        filtros: { proveedor: label },
+        titulo: 'Facturas de ' + label,
+        subtitulo: 'Proveedor: ' + label,
+      })),
       plugins: {
         legend: { display: false },
         tooltip: {
@@ -529,6 +634,11 @@ function renderEquipos(datos) {
     },
     options: {
       indexAxis: 'y', responsive: true, maintainAspectRatio: false,
+      onClick: clickChartFactory(labels, (label) => ({
+        filtros: { equipo_categoria: label },
+        titulo: 'Facturas equipo: ' + label,
+        subtitulo: 'Equipo / categoría: ' + label,
+      })),
       plugins: {
         legend: { display: false },
         tooltip: { callbacks: { label: ctx => ` ${fmt.format(ctx.parsed.x)}` } },

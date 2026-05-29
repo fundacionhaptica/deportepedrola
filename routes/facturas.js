@@ -40,7 +40,7 @@ const upload = multer({
 // GET /api/facturas — lista paginada con filtros
 router.get('/', async (req, res) => {
   try {
-    const { desde, hasta, proveedor, tipo, deporte, page = 1 } = req.query;
+    const { desde, hasta, proveedor, tipo, deporte, equipo_categoria, concepto, page = 1 } = req.query;
     const limit  = 30;
     const offset = (Number(page) - 1) * limit;
     const params = [];
@@ -51,6 +51,8 @@ router.get('/', async (req, res) => {
     if (proveedor){ params.push(`%${proveedor}%`);  conds.push(`proveedor ILIKE $${params.length}`); }
     if (tipo)     { params.push(tipo);              conds.push(`tipo = $${params.length}`); }
     if (deporte)  { params.push(deporte);           conds.push(`deporte = $${params.length}`); }
+    if (equipo_categoria){ params.push(equipo_categoria); conds.push(`equipo_categoria = $${params.length}`); }
+    if (concepto) { params.push(`%${concepto}%`);   conds.push(`concepto ILIKE $${params.length}`); }
 
     const where = conds.length ? `WHERE ${conds.join(' AND ')}` : '';
     params.push(limit, offset);
