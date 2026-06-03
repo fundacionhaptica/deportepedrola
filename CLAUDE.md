@@ -1,3 +1,35 @@
+
+---
+## Ecosistema NAS — Contexto transversal
+
+> Documento maestro del ecosistema: `/volume1/docker/CLAUDE.md` — léelo para el mapa completo.
+
+**Este repo** es independiente del monorepo `ruizespana/`. Vive en `/volume1/docker/club/`.
+
+### Otros servicios corriendo en el mismo NAS
+
+| Servicio | Puerto | Descripción |
+|---|---|---|
+| Portal Hnos. Ruiz | 5353/5354 | SSO + portal FastAPI (hruiz-net) |
+| `nas-mcp` | 8002 | MCP server para Claude → `mcp.ruizespana.com` |
+| `n8n` | 5100 | Automatizaciones + WhatsApp (evolution-api:8100) |
+| `happtica-app` | 5010 | App Fundación Haptica |
+| `familycare_web` | 5253 | App médicos/cuidados |
+| ERP Hnos. Ruiz | 8080 | ERP interno |
+
+### Deploy de este repo
+```bash
+# SIEMPRE con -p club
+docker compose -p club -f /volume1/docker/club/docker-compose.yml up -d --build
+```
+NUNCA `docker stop/rm` directamente — crear contenedores huérfanos que Container Manager no puede gestionar.
+
+### Red: `club_deporte-net`
+Aislada del resto. Solo `club-app`, `club-db` y `cloudflare-tunnel` la comparten.
+
+### Puertos libres para nuevos servicios: **8300–8999**
+
+---
 # CLAUDE.md — Reglas del repo deporte-pedrola
 
 ## Reglas críticas
