@@ -37,6 +37,8 @@ router.get('/', async (req, res) => {
 });
 
 // GET /api/proveedores/duplicados
+// Agrupa por los primeros 30 chars del nombre normalizado (sin espacios ni puntuacion)
+// para detectar variantes del mismo proveedor, ej. "Comite X (detalle1)" y "Comite X (detalle2)"
 router.get('/duplicados', async (_req, res) => {
   try {
     const { rows } = await pool.query(`
@@ -46,7 +48,8 @@ router.get('/duplicados', async (_req, res) => {
                 WHERE f.proveedor_id = proveedores.id
                    OR (f.proveedor_id IS NULL AND LOWER(TRIM(f.proveedor)) = LOWER(TRIM(proveedores.nombre))))
                 AS num_facturas,
-               regexp_replace(LOWER(nombre), '[^a-z0-9]', '', 'g') AS norm
+               -- Prefijo de 35 chars del nombre normalizado (sin espacios, puntuacion, parentesis)
+               LEFT(regexp_replace(LOWER(nombre), '[^a-z0-9]', '', 'g'), 35) AS norm
         FROM proveedores
       )
       SELECT norm,
@@ -54,11 +57,12 @@ router.get('/duplicados', async (_req, res) => {
                'id', id, 'nombre', nombre, 'nif', nif,
                'direccion', direccion, 'email', email,
                'num_facturas', num_facturas
-             ) ORDER BY num_facturas DESC) AS grupo
+             ) ORDER BY num_facturas DESC, nombre ASC) AS grupo
       FROM normalizado
+      WHERE LENGTH(norm) >= 6
       GROUP BY norm
       HAVING COUNT(*) > 1
-      ORDER BY COUNT(*) DESC
+      ORDER BY SUM(num_facturas) DESC
     `);
     res.json(rows);
   } catch (e) {
@@ -82,20 +86,22 @@ router.post('/merge', async (req, res) => {
     const { rows: dest } = await client.query('SELECT id, nombre FROM proveedores WHERE id = $1', [destino_id]);
     if (!dest[0]) { await client.query('ROLLBACK'); return res.status(404).json({ error: 'destino_id no existe' }); }
 
+    // Reasignar por proveedor_id
     const { rowCount: nPorId } = await client.query(
       'UPDATE facturas SET proveedor_id = $1, proveedor = $2 WHERE proveedor_id = ANY($3::int[])',
       [destino_id, dest[0].nombre, origen_ids]
     );
+    // Reasignar por nombre texto (sin proveedor_id)
     const { rows: origenNombres } = await client.query(
       'SELECT nombre FROM proveedores WHERE id = ANY($1::int[])', [origen_ids]
     );
-    const nombres = origenNombres.map(r => r.nombre);
+    const nombres = origenNombres.map(r => r.nombre.toLowerCase().trim());
     let nPorNombre = 0;
     if (nombres.length) {
       const { rowCount } = await client.query(
         `UPDATE facturas SET proveedor_id = $1, proveedor = $2
          WHERE proveedor_id IS NULL AND LOWER(TRIM(proveedor)) = ANY($3::text[])`,
-        [destino_id, dest[0].nombre, nombres.map(n => n.toLowerCase().trim())]
+        [destino_id, dest[0].nombre, nombres]
       );
       nPorNombre = rowCount;
     }
@@ -150,11 +156,14 @@ router.post('/', async (req, res) => {
 });
 
 // PATCH /api/proveedores/:id
+// Ademas de actualizar la tabla proveedores, actualiza facturas.proveedor en cascada.
 router.patch('/:id', async (req, res) => {
+  const client = await pool.connect();
   try {
     const { nombre, nif, direccion, email, telefono, notas } = req.body;
     const sets = [], vals = [];
-    if (nombre    !== undefined) { vals.push(String(nombre).trim()); sets.push(`nombre = $${vals.length}`); }
+    const nuevoNombre = nombre !== undefined ? String(nombre).trim() : null;
+    if (nuevoNombre !== null) { vals.push(nuevoNombre); sets.push(`nombre = $${vals.length}`); }
     if (nif       !== undefined) { vals.push(nif);       sets.push(`nif = $${vals.length}`); }
     if (direccion !== undefined) { vals.push(direccion); sets.push(`direccion = $${vals.length}`); }
     if (email     !== undefined) { vals.push(email);     sets.push(`email = $${vals.length}`); }
@@ -163,19 +172,41 @@ router.patch('/:id', async (req, res) => {
     if (!sets.length) return res.status(400).json({ error: 'Sin cambios' });
     sets.push('updated_at = NOW()');
     vals.push(req.params.id);
-    const { rows } = await pool.query(
+
+    await client.query('BEGIN');
+
+    // Guardar nombre anterior para actualizar facturas en cascada
+    const { rows: antes } = await client.query('SELECT nombre FROM proveedores WHERE id = $1', [req.params.id]);
+    if (!antes[0]) { await client.query('ROLLBACK'); return res.status(404).json({ error: 'No encontrado' }); }
+    const nombreAnterior = antes[0].nombre;
+
+    const { rows } = await client.query(
       `UPDATE proveedores SET ${sets.join(', ')} WHERE id = $${vals.length} RETURNING *`,
       vals
     );
-    if (!rows[0]) return res.status(404).json({ error: 'No encontrado' });
+    if (!rows[0]) { await client.query('ROLLBACK'); return res.status(404).json({ error: 'No encontrado' }); }
+
+    // Si cambio el nombre, actualizar facturas.proveedor en cascada
+    if (nuevoNombre && nuevoNombre !== nombreAnterior) {
+      await client.query(
+        `UPDATE facturas SET proveedor = $1
+         WHERE proveedor_id = $2
+            OR (proveedor_id IS NULL AND LOWER(TRIM(proveedor)) = LOWER(TRIM($3)))`,
+        [nuevoNombre, req.params.id, nombreAnterior]
+      );
+    }
+
+    await client.query('COMMIT');
     res.json(rows[0]);
   } catch (e) {
+    await client.query('ROLLBACK').catch(() => {});
     console.error('[proveedores] PATCH /:id', e.message);
-    // Constraint de nombre duplicado -> mensaje amigable
     if (e.code === '23505') {
-      return res.status(409).json({ error: 'Ya existe un proveedor con ese nombre. Usa "Fusionar" si quieres unificarlos.' });
+      return res.status(409).json({ error: 'Ya existe un proveedor con ese nombre. Usa "Fusionar" para unificarlos.' });
     }
     res.status(500).json({ error: 'Error interno del servidor' });
+  } finally {
+    client.release();
   }
 });
 
