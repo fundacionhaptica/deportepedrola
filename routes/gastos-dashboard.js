@@ -3,7 +3,7 @@
 const router = require('express').Router();
 const pool   = require('../db/pool');
 
-// Siempre 4 parámetros: $1=desde $2=hasta $3=filtDeporte|null $4=filtTipo|null
+// Siempre 4 parametros: $1=desde $2=hasta $3=filtDeporte|null $4=filtConcepto|null
 const CTE_BASE = `
   WITH base AS (
     SELECT
@@ -26,32 +26,32 @@ const CTE_BASE = `
   )
 `;
 
-// Condición reutilizable sobre la vista base
+// Condicion reutilizable sobre la vista base
 const FILTRO_BASE = `
   ($3::text IS NULL OR COALESCE(NULLIF(TRIM(deporte),''),'Sin clasificar') = $3)
-  AND ($4::text IS NULL OR COALESCE(NULLIF(TRIM(tipo),''),'Sin tipo') = $4)
+  AND ($4::text IS NULL OR COALESCE(NULLIF(TRIM(concepto),''),'Sin concepto') = $4)
 `;
 
-// Condición sobre la tabla facturas directa (incluye distribuciones para el filtro de deporte)
+// Condicion sobre la tabla facturas directa
 const FILTRO_FACTURAS = `
   ($3::text IS NULL OR f.deporte = $3
      OR EXISTS (SELECT 1 FROM factura_distribuciones fd WHERE fd.factura_id = f.id AND fd.deporte = $3))
-  AND ($4::text IS NULL OR f.tipo = $4)
+  AND ($4::text IS NULL OR f.concepto = $4)
 `;
 
-// GET /api/gastos/resumen?desde=...&hasta=...&deporte=...&tipo=...&desde_ant=...&hasta_ant=...
+// GET /api/gastos/resumen?desde=...&hasta=...&deporte=...&concepto=...&desde_ant=...&hasta_ant=...
 router.get('/resumen', async (req, res) => {
-  const desde    = req.query.desde    || '1970-01-01';
-  const hasta    = req.query.hasta    || new Date().toISOString().slice(0, 10);
-  const desdeAnt = req.query.desde_ant || null;
-  const hastaAnt = req.query.hasta_ant || null;
-  const filtDep  = req.query.deporte  || null;
-  const filtTipo = req.query.tipo     || null;
+  const desde      = req.query.desde      || '1970-01-01';
+  const hasta      = req.query.hasta      || new Date().toISOString().slice(0, 10);
+  const desdeAnt   = req.query.desde_ant  || null;
+  const hastaAnt   = req.query.hasta_ant  || null;
+  const filtDep    = req.query.deporte    || null;
+  const filtConc   = req.query.concepto   || null;
 
-  const p = [desde, hasta, filtDep, filtTipo];
+  const p = [desde, hasta, filtDep, filtConc];
 
   try {
-    const [totales, porDeporte, porTipo, porEquipo, porMes, topProveedores] = await Promise.all([
+    const [totales, porDeporte, porConcepto, porEquipo, porMes, topProveedores] = await Promise.all([
       pool.query(`
         SELECT
           COALESCE(SUM(importe), 0)                              AS total_gastos,
@@ -72,13 +72,14 @@ router.get('/resumen', async (req, res) => {
         ORDER BY total DESC
       `, p),
 
+      // Agrupado por CONCEPTO (antes era por tipo de documento)
       pool.query(`${CTE_BASE}
         SELECT
-          COALESCE(NULLIF(TRIM(tipo), ''), 'Sin tipo') AS tipo,
+          COALESCE(NULLIF(TRIM(concepto), ''), 'Sin concepto') AS concepto,
           SUM(importe) AS total
         FROM base
         WHERE ${FILTRO_BASE}
-        GROUP BY tipo
+        GROUP BY concepto
         ORDER BY total DESC
         LIMIT 20
       `, p),
@@ -108,7 +109,7 @@ router.get('/resumen', async (req, res) => {
 
       pool.query(`
         SELECT
-          proveedor,
+          COALESCE(NULLIF(TRIM(proveedor),''), 'Sin proveedor') AS proveedor,
           SUM(importe)  AS total,
           COUNT(*)      AS num_facturas
         FROM facturas f
@@ -123,7 +124,7 @@ router.get('/resumen', async (req, res) => {
 
     let comparativa = null;
     if (desdeAnt && hastaAnt) {
-      const pAnt = [desdeAnt, hastaAnt, filtDep, filtTipo];
+      const pAnt = [desdeAnt, hastaAnt, filtDep, filtConc];
       const comp = await pool.query(`
         SELECT
           COALESCE(SUM(importe), 0) AS total_gastos,
@@ -138,7 +139,7 @@ router.get('/resumen', async (req, res) => {
     res.json({
       totales:         totales.rows[0],
       por_deporte:     porDeporte.rows,
-      por_tipo:        porTipo.rows,
+      por_concepto:    porConcepto.rows,   // antes: por_tipo
       por_equipo:      porEquipo.rows,
       por_mes:         porMes.rows,
       top_proveedores: topProveedores.rows,

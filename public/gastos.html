@@ -202,8 +202,8 @@
         </select>
       </label>
       <label>
-        Tipo
-        <select id="selTipo">
+        Concepto
+        <select id="selConcepto">
           <option value="">Todos</option>
         </select>
       </label>
@@ -240,9 +240,9 @@
         </div>
       </div>
       <div class="card">
-        <h2>Gasto por tipo de concepto</h2>
+        <h2>Gasto por concepto</h2>
         <div class="chart-wrap">
-          <canvas id="chartTipo"></canvas>
+          <canvas id="chartConcepto"></canvas>
         </div>
       </div>
     </div>
@@ -516,10 +516,10 @@ function renderDeporte(datos) {
   });
 }
 
-function renderTipo(datos) {
+function renderConcepto(datos) {
   const labels  = datos.map(d => d.tipo);
   const valores = datos.map(d => parseFloat(d.total));
-  crearOActualizar('chartTipo', {
+  crearOActualizar('chartConcepto', {
     type: 'bar',
     data: {
       labels,
@@ -532,9 +532,9 @@ function renderTipo(datos) {
     options: {
       indexAxis: 'y', responsive: true, maintainAspectRatio: false,
       onClick: clickChartFactory(labels, (label) => ({
-        filtros: { tipo: label },
-        titulo: 'Facturas tipo: ' + label,
-        subtitulo: 'Tipo: ' + label,
+        filtros: { concepto: label },
+        titulo: 'Facturas concepto: ' + label,
+        subtitulo: 'Concepto: ' + label,
       })),
       plugins: {
         legend: { display: false },
@@ -677,7 +677,7 @@ function poblarSelect(id, datos, valKey, labelKey) {
 async function cargarDatos() {
   const { desde, hasta, desde_ant, hasta_ant } = getRango();
   const dep    = document.getElementById('selDeporte').value;
-  const tipo   = document.getElementById('selTipo').value;
+  const tipo   = document.getElementById('selConcepto').value;
   const spinner  = document.getElementById('spinner');
   const avisoErr = document.getElementById('avisoErr');
   avisoErr.classList.remove('visible');
@@ -687,7 +687,7 @@ async function cargarDatos() {
     let url = `/api/gastos/resumen?desde=${desde}&hasta=${hasta}`;
     if (desde_ant) url += `&desde_ant=${desde_ant}&hasta_ant=${hasta_ant}`;
     if (dep)       url += `&deporte=${encodeURIComponent(dep)}`;
-    if (tipo)      url += `&tipo=${encodeURIComponent(tipo)}`;
+    if (tipo)      url += `&concepto=${encodeURIComponent(tipo)}`;
 
     const data = await apiGet(url);
 
@@ -720,11 +720,11 @@ async function cargarDatos() {
 
     /* Poblar selects con valores disponibles (solo si no hay filtro activo) */
     poblarSelect('selDeporte', data.por_deporte, 'deporte', 'deporte');
-    poblarSelect('selTipo',    data.por_tipo,    'tipo',    'tipo');
+    poblarSelect('selConcepto', data.por_concepto, 'concepto', 'concepto');
 
     /* Gráficos */
     if (data.por_deporte.length)     renderDeporte(data.por_deporte);
-    if (data.por_tipo.length)        renderTipo(data.por_tipo);
+    if (data.por_concepto.length) renderConcepto(data.por_concepto);
     if (data.por_mes.length)         renderMensual(data.por_mes);
     if (data.top_proveedores.length) renderProveedores(data.top_proveedores);
     renderEquipos(data.por_equipo);

@@ -219,7 +219,7 @@ function editInline(id, celda) {
 
   const guardarInline = async () => {
     const nuevo = input.value.trim();
-    if (!nuevo || nuevo === valorActual) {
+    if (!nuevo || nuevo === valorActual.trim()) {
       input.remove();
       span.style.display = '';
       return;
