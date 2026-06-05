@@ -910,8 +910,16 @@ async function editarFactura(id) {
       </div>
       <div class="campo-ocr">
         <label>Importe total (€)
-          <input type="number" step="0.01" id="e-${id}-total" value="${data.importe ?? ''}">
+          <input type="number" step="0.01" id="e-${id}-total" value="${data.importe ?? ''}" oninput="actualizarDistCounter('edit-'+${id})">
         </label>
+      </div>
+      <div class="seccion-label">Distribución por equipo / deporte <span style="font-weight:400;color:#bbb">(opcional)</span></div>
+      <div class="campo-full">
+        <div id="dist-lines-edit-${id}"></div>
+        <div style="display:flex;gap:.6rem;align-items:center;margin-top:.4rem;flex-wrap:wrap">
+          <button class="btn-outline btn-small" onclick="addDistLine('edit-'+${id})">+ Añadir línea</button>
+          <span id="dist-counter-edit-${id}" class="dist-resumen"></span>
+        </div>
       </div>
     </div>`;
   document.getElementById('modalEditarFooter').innerHTML = `
@@ -921,6 +929,23 @@ async function editarFactura(id) {
     <button class="btn-outline" onclick="cerrarModalEditar()">Cancelar</button>`;
   document.getElementById('modalEditarBg').classList.add('open');
   cargarPreviewEditar(id, data.nombre_archivo || '');
+  // Cargar distribuciones existentes
+  if (data.distribuciones && data.distribuciones.length > 0) {
+    data.distribuciones.forEach(d => {
+      addDistLine('edit-' + id);
+      const container = document.getElementById(`dist-lines-edit-${id}`);
+      const line = container.lastElementChild;
+      if (!line) return;
+      const selDep = line.querySelector('.dl-deporte');
+      const selConc = line.querySelector('.dl-concepto');
+      const inpEquipo = line.querySelector('.dl-equipo');
+      const inpImp = line.querySelector('.dl-importe');
+      if (selDep)    selDep.value    = d.deporte || '';
+      if (selConc)   selConc.value   = d.concepto || '';
+      if (inpEquipo) inpEquipo.value = d.equipo_categoria || '';
+      if (inpImp)    { inpImp.value  = d.importe ?? ''; actualizarDistCounter('edit-' + id); }
+    });
+  }
 }
 
 function cerrarModalEditar() {
@@ -989,6 +1014,7 @@ async function guardarEdicion(id) {
     iva_porcentaje:   getNum('ivapct'),
     iva_importe:      getNum('ivaimp'),
     importe:          getNum('total'),
+    distribuciones:   getDistLines('edit-' + id),
   };
   try {
     const res = await fetch(`/api/facturas/${id}`, {
