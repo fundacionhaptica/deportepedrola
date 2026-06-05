@@ -8,6 +8,11 @@ services:
     volumes:
       # PDFs almacenados en el NAS, fuera del repositorio git
       - /volume1/docker/club/documentos:/app/uploads
+      # Codigo fuente montado en vivo: cambios en .js y .html se aplican sin rebuild
+      - /volume1/docker/club/public:/app/public
+      - /volume1/docker/club/routes:/app/routes
+      - /volume1/docker/club/lib:/app/lib
+      - /volume1/docker/club/server.js:/app/server.js
     depends_on:
       db:
         condition: service_healthy
