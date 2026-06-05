@@ -6,8 +6,8 @@
   <title>Proveedores · CDE Deporte Pedrola</title>
   <script src="/app.js"></script>
   <style>
-    :root { --amarillo:#FFD400; --negro:#111; --gris:#f4f4f4; --borde:#e0e0e0; --rojo:#c0392b; --verde:#2E7D32; }
-    * { box-sizing: border-box; margin: 0; padding: 0; }
+    :root { --amarillo:#FFD400; --negro:#111; --gris:#f4f4f4; --borde:#e0e0e0; --rojo:#c0392b; --verde:#2E7D32; --azul:#1565C0; }
+    * { box-sizing:border-box; margin:0; padding:0; }
     body { font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif; background:var(--gris); color:var(--negro); line-height:1.5; }
     header { background:var(--negro); color:var(--amarillo); padding:1rem 1.5rem; border-bottom:5px solid var(--amarillo); display:flex; justify-content:space-between; }
     header h1 { font-size:1.2rem; }
@@ -20,23 +20,51 @@
     .card { background:#fff; padding:1.2rem; border-radius:8px; box-shadow:0 1px 3px rgba(0,0,0,.08); }
     h2 { margin-bottom:1rem; font-size:1.05rem; }
     table { width:100%; border-collapse:collapse; font-size:.85rem; }
-    th { text-align:left; padding:.5rem; background:#f0f0f0; font-weight:600; border-bottom:2px solid var(--borde); }
-    td { padding:.5rem; border-bottom:1px solid var(--borde); vertical-align:top; }
+    th { text-align:left; padding:.5rem; background:#f0f0f0; font-weight:600; border-bottom:2px solid var(--borde); white-space:nowrap; }
+    td { padding:.4rem .5rem; border-bottom:1px solid var(--borde); vertical-align:middle; }
     tr:hover { background:#fafafa; }
     .btn { background:var(--amarillo); color:var(--negro); padding:.4rem .8rem; border:none; border-radius:4px; cursor:pointer; font-size:.82rem; font-weight:600; }
     .btn-outline { background:#fff; border:1px solid var(--borde); padding:.25rem .5rem; border-radius:4px; cursor:pointer; font-size:.75rem; }
-    .btn-verde { background:var(--verde); color:#fff; border:none; padding:.3rem .6rem; border-radius:4px; cursor:pointer; font-size:.78rem; }
+    .btn-verde { background:var(--verde); color:#fff; border:none; padding:.3rem .6rem; border-radius:4px; cursor:pointer; font-size:.78rem; font-weight:600; }
+    .btn-azul { background:var(--azul); color:#fff; border:none; padding:.3rem .6rem; border-radius:4px; cursor:pointer; font-size:.78rem; font-weight:600; }
     .btn-rojo { background:var(--rojo); color:#fff; border:none; padding:.25rem .5rem; border-radius:4px; cursor:pointer; font-size:.72rem; }
     .filtros { display:flex; gap:.6rem; margin-bottom:1rem; flex-wrap:wrap; }
     .filtros input { padding:.45rem .6rem; border:1px solid var(--borde); border-radius:4px; font-size:.85rem; flex:1; min-width:200px; }
+    .num { text-align:right; font-family:"Courier New",monospace; font-weight:700; }
+    .info { background:#fff3cd; border-left:4px solid #ffc107; padding:.6rem 1rem; margin-bottom:1rem; font-size:.83rem; }
+    /* Edicion inline */
+    .nombre-cell { cursor:pointer; }
+    .nombre-cell:hover .nombre-texto { border-bottom:1px dashed #aaa; }
+    .nombre-input {
+      border:1px solid var(--amarillo); border-radius:4px; padding:.25rem .4rem;
+      font-size:.85rem; font-family:inherit; width:100%; min-width:120px;
+      outline:none; box-shadow:0 0 0 2px rgba(255,212,0,.3);
+    }
+    /* Barra de fusion */
+    #barraSel {
+      display:none; position:fixed; bottom:1.2rem; left:50%; transform:translateX(-50%);
+      background:var(--azul); color:#fff; padding:.8rem 1.2rem;
+      border-radius:8px; box-shadow:0 4px 16px rgba(0,0,0,.3); z-index:50;
+      align-items:center; gap:.8rem; white-space:nowrap;
+    }
+    #barraSel.visible { display:flex; }
+    /* Modales */
     .modal-bg { display:none; position:fixed; inset:0; background:rgba(0,0,0,.5); z-index:99; align-items:center; justify-content:center; }
-    .modal { background:#fff; border-radius:8px; max-width:520px; width:92%; padding:1.4rem; }
+    .modal-bg.open { display:flex; }
+    .modal { background:#fff; border-radius:8px; max-width:520px; width:92%; padding:1.4rem; max-height:90vh; overflow:auto; }
     .modal h3 { font-size:1rem; margin-bottom:.8rem; }
     .modal label { display:block; font-size:.78rem; font-weight:600; color:#555; margin:.7rem 0 .2rem; }
     .modal input, .modal textarea { width:100%; padding:.45rem .6rem; border:1px solid var(--borde); border-radius:4px; font-size:.85rem; font-family:inherit; }
     .modal textarea { min-height:60px; resize:vertical; }
-    .num { text-align:right; font-family:"Courier New",monospace; font-weight:700; }
-    .info { background:#fff3cd; border-left:4px solid #ffc107; padding:.6rem 1rem; margin-bottom:1rem; font-size:.83rem; }
+    .modal-footer { display:flex; gap:.6rem; justify-content:flex-end; margin-top:1rem; }
+    /* Grupos duplicados */
+    .dup-grupo { border:1px solid var(--borde); border-radius:6px; margin-bottom:.8rem; overflow:hidden; }
+    .dup-grupo-header { background:#f0f0f0; padding:.5rem .8rem; font-size:.8rem; font-weight:600; }
+    .dup-item { display:flex; align-items:center; gap:.6rem; padding:.4rem .8rem; border-top:1px solid var(--borde); font-size:.83rem; }
+    .dup-item:hover { background:#fafafa; }
+    .dup-item .nombre { flex:1; font-weight:600; }
+    .dup-item .meta { color:#888; font-size:.75rem; }
+    .badge-destino { background:var(--amarillo); color:var(--negro); font-size:.68rem; font-weight:700; padding:.1rem .35rem; border-radius:3px; }
   </style>
 </head>
 <body>
@@ -59,14 +87,16 @@
 
 <div class="wrap">
   <div class="info">
-    <strong>Ficha de proveedores.</strong> Aquí se centraliza nombre, NIF, dirección, email y teléfono de cada proveedor que aparece en facturas o justificantes. Al OCR una factura nueva, el sistema buscará aquí para autocompletar.
+    <strong>Consejo:</strong> Haz clic en el nombre de un proveedor para editarlo directamente. Marca con los checkboxes los que quieras fusionar y pulsa «Fusionar» en la barra inferior.
   </div>
 
   <div class="card">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.8rem;flex-wrap:wrap;gap:.5rem">
       <h2 style="margin:0">Listado de proveedores</h2>
-      <button class="btn" onclick="nuevoProveedor()">+ Nuevo proveedor</button>
-      <button class="btn" style="background:#1565C0;color:#fff;margin-left:.5rem" onclick="detectarDuplicados()">🔍 Detectar duplicados</button>
+      <div style="display:flex;gap:.5rem;flex-wrap:wrap">
+        <button class="btn" onclick="nuevoProveedor()">+ Nuevo</button>
+        <button class="btn-azul" onclick="detectarDuplicados()">🔍 Detectar duplicados</button>
+      </div>
     </div>
     <div class="filtros">
       <input type="text" id="q" placeholder="Buscar por nombre, NIF o email…" oninput="cargar()">
@@ -74,43 +104,55 @@
     <div style="overflow:auto">
       <table>
         <thead><tr>
-          <th style="width:30px"><input type="checkbox" id="chkAll" onchange="toggleAllProv(this.checked)"></th>
-          <th>Nombre</th><th>NIF</th><th>Dirección</th><th>Email</th><th>Teléfono</th>
-          <th style="text-align:right">Nº facturas</th>
-          <th style="text-align:right">Total facturado</th>
+          <th style="width:28px"><input type="checkbox" id="chkAll" onchange="toggleAll(this.checked)"></th>
+          <th>Nombre <small style="font-weight:400;color:#888">(clic para editar)</small></th>
+          <th>NIF</th>
+          <th>Email</th>
+          <th>Teléfono</th>
+          <th class="num">Facturas</th>
+          <th class="num">Total facturado</th>
           <th>Acciones</th>
         </tr></thead>
-        <tbody id="tabla"><tr><td colspan="9" style="padding:1rem;text-align:center;color:#888">Cargando…</td></tr></tbody>
+        <tbody id="tabla"><tr><td colspan="8" style="padding:1rem;text-align:center;color:#888">Cargando…</td></tr></tbody>
       </table>
     </div>
   </div>
 </div>
-<div id="barraSel" style="display:none;position:fixed;bottom:1rem;left:50%;transform:translateX(-50%);background:#1565C0;color:#fff;padding:.7rem 1rem;border-radius:8px;box-shadow:0 4px 12px rgba(0,0,0,.3);z-index:50;display:none;align-items:center;gap:.8rem">
-  <span id="barraSelTexto"></span>
-  <button class="btn-verde" onclick="fusionarSeleccion()" style="padding:.4rem .8rem">→ Fusionar seleccionados</button>
-  <button class="btn-outline" onclick="limpiarSelProv()" style="background:rgba(255,255,255,.2);color:#fff;border-color:rgba(255,255,255,.4)">✕</button>
-</div>
 
+<!-- Barra de fusión -->
+<div id="barraSel">
+  <span id="barraSelTexto"></span>
+  <button class="btn-verde" onclick="fusionarSeleccion()">→ Fusionar seleccionados</button>
+  <button class="btn-outline" onclick="limpiarSel()" style="background:rgba(255,255,255,.2);color:#fff;border-color:rgba(255,255,255,.4)">✕ Cancelar</button>
+</div>
 
 <!-- Modal editar/crear -->
 <div class="modal-bg" id="modal">
   <div class="modal">
     <h3 id="modalTitulo">Proveedor</h3>
-    <label>Nombre *</label>
-    <input type="text" id="mNombre">
-    <label>NIF / CIF</label>
-    <input type="text" id="mNif" placeholder="B-12345678">
-    <label>Dirección</label>
-    <input type="text" id="mDireccion">
-    <label>Email</label>
-    <input type="email" id="mEmail">
-    <label>Teléfono</label>
-    <input type="text" id="mTelefono">
-    <label>Notas</label>
-    <textarea id="mNotas"></textarea>
-    <div style="display:flex;gap:.6rem;justify-content:flex-end;margin-top:1rem">
+    <label>Nombre *</label><input type="text" id="mNombre">
+    <label>NIF / CIF</label><input type="text" id="mNif" placeholder="B-12345678">
+    <label>Dirección</label><input type="text" id="mDireccion">
+    <label>Email</label><input type="email" id="mEmail">
+    <label>Teléfono</label><input type="text" id="mTelefono">
+    <label>Notas</label><textarea id="mNotas"></textarea>
+    <div class="modal-footer">
       <button class="btn-outline" onclick="cerrarModal()">Cancelar</button>
-      <button class="btn-verde" id="btnGuardar" onclick="guardar()">Guardar</button>
+      <button class="btn-verde" onclick="guardar()">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal duplicados -->
+<div class="modal-bg" id="modalDup">
+  <div class="modal" style="max-width:740px">
+    <h3>Posibles proveedores duplicados</h3>
+    <p style="font-size:.8rem;color:#666;margin-bottom:1rem">
+      Grupos con nombre similar. Para fusionar: en cada grupo marca el <strong>destino</strong> (el que se queda) con el botón ★, y los orígenes con el checkbox; luego pulsa «Fusionar grupo».
+    </p>
+    <div id="dupContenido" style="max-height:62vh;overflow:auto"></div>
+    <div style="display:flex;gap:.6rem;justify-content:flex-end;margin-top:1rem">
+      <button class="btn-outline" onclick="document.getElementById('modalDup').classList.remove('open')">Cerrar</button>
     </div>
   </div>
 </div>
@@ -119,8 +161,10 @@
 function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
 function fmt(n){return n==null?'—':Number(n).toLocaleString('es-ES',{minimumFractionDigits:2,maximumFractionDigits:2})+' €';}
 
-let _editId = null;
+let _editId  = null;
+let _selIds  = new Set();  // ids seleccionados con checkbox
 
+// ── Carga principal ─────────────────────────────────────────
 async function cargar() {
   const q = document.getElementById('q').value.trim();
   const url = '/api/proveedores' + (q ? '?q=' + encodeURIComponent(q) : '');
@@ -128,84 +172,267 @@ async function cargar() {
     const data = await window.api(url);
     if (!data) return;
     const tb = document.getElementById('tabla');
-    if (!data.length) { tb.innerHTML = '<tr><td colspan="9" style="padding:1rem;text-align:center;color:#888">Sin resultados.</td></tr>'; return; }
-    tb.innerHTML = data.map(p => `
-      <tr>
-        <td><input type="checkbox" class="chk-prov" value="${p.id}" data-nombre="${esc(p.nombre)}" onchange="actualizarSelProv()"></td>
-        <td><strong>${esc(p.nombre)}</strong></td>
-        <td>${esc(p.nif || '—')}</td>
-        <td style="font-size:.75rem;color:#666">${esc(p.direccion || '—')}</td>
-        <td>${esc(p.email || '—')}</td>
-        <td>${esc(p.telefono || '—')}</td>
-        <td class="num">${p.num_facturas}</td>
-        <td class="num">${fmt(p.total_facturado)}</td>
-        <td style="white-space:nowrap">
-          <button class="btn-outline" onclick="editar(${p.id})">Editar</button>
-          <button class="btn-rojo" onclick="borrar(${p.id})">✕</button>
-        </td>
-      </tr>`).join('');
+    if (!data.length) {
+      tb.innerHTML = '<tr><td colspan="8" style="padding:1rem;text-align:center;color:#888">Sin resultados.</td></tr>';
+      return;
+    }
+    tb.innerHTML = data.map(p => {
+      const sel = _selIds.has(p.id);
+      return `
+        <tr data-id="${p.id}">
+          <td><input type="checkbox" class="chk-prov" value="${p.id}" ${sel?'checked':''} onchange="onChkChange(this)"></td>
+          <td class="nombre-cell" onclick="editInline(${p.id}, this)">
+            <span class="nombre-texto">${esc(p.nombre)}</span>
+          </td>
+          <td>${esc(p.nif || '—')}</td>
+          <td>${esc(p.email || '—')}</td>
+          <td>${esc(p.telefono || '—')}</td>
+          <td class="num">${p.num_facturas}</td>
+          <td class="num">${fmt(p.total_facturado)}</td>
+          <td style="white-space:nowrap">
+            <button class="btn-outline" onclick="abrirModal(${p.id})">Editar todo</button>
+            <button class="btn-rojo" onclick="borrar(${p.id})">✕</button>
+          </td>
+        </tr>`;
+    }).join('');
+    // Sincronizar chkAll
+    document.getElementById('chkAll').checked = false;
   } catch (e) {
-    document.getElementById('tabla').innerHTML = `<tr><td colspan="9" style="color:var(--rojo);text-align:center;padding:1rem">Error: ${esc(e.message)}</td></tr>`;
+    document.getElementById('tabla').innerHTML = `<tr><td colspan="8" style="color:var(--rojo);text-align:center;padding:1rem">Error: ${esc(e.message)}</td></tr>`;
   }
 }
 
+// ── Edicion inline de nombre ───────────────────────────────────
+function editInline(id, celda) {
+  // Evitar doble edicion
+  if (celda.querySelector('input')) return;
+  const span = celda.querySelector('.nombre-texto');
+  const valorActual = span.textContent;
+  span.style.display = 'none';
+  const input = document.createElement('input');
+  input.type = 'text';
+  input.className = 'nombre-input';
+  input.value = valorActual;
+  celda.appendChild(input);
+  input.focus();
+  input.select();
+
+  const guardarInline = async () => {
+    const nuevo = input.value.trim();
+    if (!nuevo || nuevo === valorActual) {
+      input.remove();
+      span.style.display = '';
+      return;
+    }
+    try {
+      await window.api('/api/proveedores/' + id, {
+        method: 'PATCH',
+        body: JSON.stringify({ nombre: nuevo }),
+      });
+      span.textContent = nuevo;
+    } catch (e) {
+      alert('Error al guardar: ' + e.message);
+    }
+    input.remove();
+    span.style.display = '';
+  };
+
+  input.addEventListener('blur', guardarInline);
+  input.addEventListener('keydown', e => {
+    if (e.key === 'Enter')  { e.preventDefault(); guardarInline(); }
+    if (e.key === 'Escape') { input.remove(); span.style.display = ''; }
+  });
+}
+
+// ── Checkboxes y barra de fusion ────────────────────────────────
+function onChkChange(chk) {
+  const id = Number(chk.value);
+  if (chk.checked) _selIds.add(id); else _selIds.delete(id);
+  actualizarBarra();
+}
+
+function toggleAll(checked) {
+  document.querySelectorAll('.chk-prov').forEach(chk => {
+    chk.checked = checked;
+    const id = Number(chk.value);
+    if (checked) _selIds.add(id); else _selIds.delete(id);
+  });
+  actualizarBarra();
+}
+
+function actualizarBarra() {
+  const barra = document.getElementById('barraSel');
+  const n = _selIds.size;
+  if (n >= 2) {
+    document.getElementById('barraSelTexto').textContent = `${n} proveedores seleccionados`;
+    barra.classList.add('visible');
+  } else {
+    barra.classList.remove('visible');
+  }
+}
+
+function limpiarSel() {
+  _selIds.clear();
+  document.querySelectorAll('.chk-prov').forEach(c => c.checked = false);
+  document.getElementById('chkAll').checked = false;
+  actualizarBarra();
+}
+
+async function fusionarSeleccion() {
+  if (_selIds.size < 2) return;
+  const ids = [..._selIds];
+  // El destino es el que tenga mas facturas — pedimos al servidor
+  const lista = await Promise.all(ids.map(id => window.api('/api/proveedores/' + id).catch(() => null)));
+  const validos = lista.filter(Boolean);
+  if (!validos.length) return;
+  // Ordenar por num_facturas desc, el primero es el destino
+  validos.sort((a, b) => Number(b.num_facturas) - Number(a.num_facturas));
+  const destino = validos[0];
+  const origenes = validos.slice(1).map(p => p.id);
+  const nombres = validos.map(p => `  • ${p.nombre} (${p.num_facturas} facturas)`).join('\n');
+  if (!confirm(`Fusionar ${validos.length} proveedores?\n\nSe quedará con el nombre que tiene más facturas:\n  ★ ${destino.nombre}\n\nLos demás serán eliminados:\n${validos.slice(1).map(p=>`  • ${p.nombre}`).join('\n')}\n\n¿Continuar?`)) return;
+  try {
+    const r = await window.api('/api/proveedores/merge', {
+      method: 'POST',
+      body: JSON.stringify({ destino_id: destino.id, origen_ids: origenes }),
+    });
+    alert(`✓ Fusionados. ${r.facturas_reasignadas} facturas reasignadas a "${r.destino.nombre}".`);
+    limpiarSel();
+    cargar();
+  } catch (e) { alert('Error: ' + e.message); }
+}
+
+// ── Detectar duplicados ────────────────────────────────────────
+async function detectarDuplicados() {
+  document.getElementById('modalDup').classList.add('open');
+  document.getElementById('dupContenido').innerHTML = '<div style="padding:1rem;color:#888">Analizando…</div>';
+  try {
+    const data = await window.api('/api/proveedores/duplicados');
+    if (!data || !data.length) {
+      document.getElementById('dupContenido').innerHTML = '<div style="padding:1rem;color:#888">No se detectaron duplicados.</div>';
+      return;
+    }
+    document.getElementById('dupContenido').innerHTML = data.map((g, gi) => {
+      const grupo = g.grupo;
+      const items = grupo.map((p, pi) => {
+        const esPrimero = pi === 0;
+        return `
+          <div class="dup-item" id="dup-item-${gi}-${pi}">
+            <input type="radio" name="dest-${gi}" value="${p.id}" ${esPrimero?'checked':''}>
+            <span class="nombre">${esc(p.nombre)} ${esPrimero?'<span class="badge-destino">★ destino</span>':''}</span>
+            <span class="meta">${p.num_facturas} facturas · ${esc(p.nif||'sin NIF')}</span>
+          </div>`;
+      }).join('');
+      return `
+        <div class="dup-grupo">
+          <div class="dup-grupo-header">Grupo similar: "${esc(grupo[0].nombre)}" (${grupo.length} proveedores)</div>
+          ${items}
+          <div style="padding:.5rem .8rem;border-top:1px solid var(--borde)">
+            <button class="btn-verde" onclick="fusionarGrupo(${gi})">→ Fusionar este grupo</button>
+            <small style="margin-left:.8rem;color:#888">El marcado con ★ será el destino</small>
+          </div>
+        </div>`;
+    }).join('');
+
+    // Guardar grupos en JS para acceder desde fusionarGrupo
+    window._dupGrupos = data;
+  } catch (e) {
+    document.getElementById('dupContenido').innerHTML = `<div style="color:var(--rojo);padding:1rem">Error: ${esc(e.message)}</div>`;
+  }
+}
+
+async function fusionarGrupo(gi) {
+  const grupo = window._dupGrupos[gi].grupo;
+  const destinoIdStr = document.querySelector(`input[name="dest-${gi}"]:checked`)?.value;
+  if (!destinoIdStr) return;
+  const destinoId = Number(destinoIdStr);
+  const destino   = grupo.find(p => p.id === destinoId);
+  const origenes  = grupo.filter(p => p.id !== destinoId).map(p => p.id);
+  if (!origenes.length) { alert('Solo hay un proveedor en el grupo.'); return; }
+  if (!confirm(`Fusionar ${grupo.length} proveedores en "${destino.nombre}"?\nSe eliminarán: ${grupo.filter(p=>p.id!==destinoId).map(p=>p.nombre).join(', ')}`)) return;
+  try {
+    const r = await window.api('/api/proveedores/merge', {
+      method: 'POST',
+      body: JSON.stringify({ destino_id: destinoId, origen_ids: origenes }),
+    });
+    alert(`✓ ${r.facturas_reasignadas} facturas reasignadas a "${r.destino.nombre}".`);
+    document.getElementById('modalDup').classList.remove('open');
+    cargar();
+  } catch (e) { alert('Error: ' + e.message); }
+}
+
+// ── Modal editar/crear ──────────────────────────────────────────
 function nuevoProveedor() {
   _editId = null;
   document.getElementById('modalTitulo').textContent = 'Nuevo proveedor';
   ['mNombre','mNif','mDireccion','mEmail','mTelefono','mNotas'].forEach(id => document.getElementById(id).value = '');
-  document.getElementById('modal').style.display = 'flex';
+  document.getElementById('modal').classList.add('open');
 }
 
-async function editar(id) {
+async function abrirModal(id) {
   try {
     const p = await window.api('/api/proveedores/' + id);
     if (!p) return;
     _editId = id;
-    document.getElementById('modalTitulo').textContent = 'Editar ' + p.nombre;
-    document.getElementById('mNombre').value = p.nombre || '';
-    document.getElementById('mNif').value = p.nif || '';
+    document.getElementById('modalTitulo').textContent = 'Editar: ' + p.nombre;
+    document.getElementById('mNombre').value    = p.nombre    || '';
+    document.getElementById('mNif').value       = p.nif       || '';
     document.getElementById('mDireccion').value = p.direccion || '';
-    document.getElementById('mEmail').value = p.email || '';
-    document.getElementById('mTelefono').value = p.telefono || '';
-    document.getElementById('mNotas').value = p.notas || '';
-    document.getElementById('modal').style.display = 'flex';
+    document.getElementById('mEmail').value     = p.email     || '';
+    document.getElementById('mTelefono').value  = p.telefono  || '';
+    document.getElementById('mNotas').value     = p.notas     || '';
+    document.getElementById('modal').classList.add('open');
   } catch (e) { alert('Error: ' + e.message); }
 }
 
 async function guardar() {
   const body = {
-    nombre: document.getElementById('mNombre').value.trim(),
-    nif: document.getElementById('mNif').value.trim() || null,
-    direccion: document.getElementById('mDireccion').value.trim() || null,
-    email: document.getElementById('mEmail').value.trim() || null,
-    telefono: document.getElementById('mTelefono').value.trim() || null,
-    notas: document.getElementById('mNotas').value.trim() || null,
+    nombre:   document.getElementById('mNombre').value.trim(),
+    nif:      document.getElementById('mNif').value.trim()       || null,
+    direccion:document.getElementById('mDireccion').value.trim() || null,
+    email:    document.getElementById('mEmail').value.trim()     || null,
+    telefono: document.getElementById('mTelefono').value.trim()  || null,
+    notas:    document.getElementById('mNotas').value.trim()     || null,
   };
   if (!body.nombre) { alert('El nombre es obligatorio'); return; }
   try {
-    const path = _editId ? '/api/proveedores/' + _editId : '/api/proveedores';
+    const path   = _editId ? '/api/proveedores/' + _editId : '/api/proveedores';
     const method = _editId ? 'PATCH' : 'POST';
-    const r = await window.api(path, { method, body: JSON.stringify(body) });
-    if (!r) return;
+    await window.api(path, { method, body: JSON.stringify(body) });
     cerrarModal();
     cargar();
   } catch (e) { alert('Error: ' + e.message); }
 }
 
 async function borrar(id) {
-  if (!confirm('¿Eliminar este proveedor? Si tiene facturas, no se podrá.')) return;
+  if (!confirm('¿Eliminar este proveedor? Si tiene facturas vinculadas no se podrá.')) return;
   try {
-    const r = await window.api('/api/proveedores/' + id, { method: 'DELETE' });
-    if (!r) return;
+    await window.api('/api/proveedores/' + id, { method: 'DELETE' });
+    _selIds.delete(id);
+    actualizarBarra();
     cargar();
   } catch (e) { alert(e.message); }
 }
 
-function cerrarModal() { document.getElementById('modal').style.display = 'none'; }
-window.editar = editar;
+function cerrarModal() { document.getElementById('modal').classList.remove('open'); }
+
+// Cerrar modales al hacer clic fuera
+document.getElementById('modal').addEventListener('click', e => { if (e.target === document.getElementById('modal')) cerrarModal(); });
+document.getElementById('modalDup').addEventListener('click', e => { if (e.target === document.getElementById('modalDup')) document.getElementById('modalDup').classList.remove('open'); });
+
+window.cargar = cargar;
+window.editInline = editInline;
+window.abrirModal = abrirModal;
 window.borrar = borrar;
 window.nuevoProveedor = nuevoProveedor;
+window.toggleAll = toggleAll;
+window.onChkChange = onChkChange;
+window.fusionarSeleccion = fusionarSeleccion;
+window.limpiarSel = limpiarSel;
+window.detectarDuplicados = detectarDuplicados;
+window.fusionarGrupo = fusionarGrupo;
 
+// Init
 const jwtGuardado = sessionStorage.getItem('token');
 if (!jwtGuardado) { window.location.href = '/'; }
 else {
@@ -215,18 +442,5 @@ else {
   cargar();
 }
 </script>
-
-<!-- Modal duplicados -->
-<div class="modal-bg" id="modalDup">
-  <div class="modal" style="max-width:800px">
-    <h3>Posibles proveedores duplicados</h3>
-    <p style="font-size:.8rem;color:#666;margin-bottom:1rem">Grupos detectados por nombre normalizado (sin espacios, mayúsculas, puntuación). Elige el destino ⋆ y marca los origenes a fusionar.</p>
-    <div id="dupContenido" style="max-height:60vh;overflow:auto"></div>
-    <div style="display:flex;gap:.6rem;justify-content:flex-end;margin-top:1rem">
-      <button class="btn-outline" onclick="document.getElementById('modalDup').style.display='none'">Cerrar</button>
-    </div>
-  </div>
-</div>
-
 </body>
 </html>

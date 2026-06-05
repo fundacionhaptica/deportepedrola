@@ -29,7 +29,6 @@ router.get('/', async (req, res) => {
 });
 
 // GET /api/conciliacion/resumen
-// Estadísticas globales.
 router.get('/resumen', async (_req, res) => {
   try {
     const { rows } = await pool.query(`
@@ -46,15 +45,13 @@ router.get('/resumen', async (_req, res) => {
 });
 
 // GET /api/conciliacion/sugerencias
-// Para cada factura sin conciliar, sugiere justificantes candidatos por
-// (importe ± 1 EUR, fecha ± 60 días, beneficiario sim. al proveedor).
 router.get('/sugerencias', async (_req, res) => {
   try {
     const { rows } = await pool.query(`
       WITH facturas_pendientes AS (
         SELECT id, fecha_factura, importe, proveedor, numero_factura
         FROM v_conciliacion_estado
-        WHERE tipo='factura' AND estado_conciliacion IN ('falta_justificante','discrepancia')
+        WHERE tipo='factura_recibo' AND estado_conciliacion IN ('falta_justificante','discrepancia')
       ),
       justificantes_pendientes AS (
         SELECT id, fecha_factura, importe, proveedor, concepto
@@ -90,15 +87,15 @@ router.post('/', async (req, res) => {
     if (!factura_id || !justificante_id) {
       return res.status(400).json({ error: 'factura_id y justificante_id son obligatorios' });
     }
-    // Cargar datos completos de ambos
     const { rows: ambas } = await pool.query(
-      "SELECT id, tipo, importe, fecha_factura, proveedor FROM facturas WHERE id IN ($1,$2)",
+      'SELECT id, tipo, importe, fecha_factura, proveedor FROM facturas WHERE id IN ($1,$2)',
       [factura_id, justificante_id]
     );
     const factura = ambas.find(x => x.id == factura_id);
     const justif  = ambas.find(x => x.id == justificante_id);
-    const tiposGasto = ['factura','licencias','recibo_arbitraje','recibo_premio','recibo'];
-    const tiposBanco = ['justificante_bancario','gasto_bancario'];
+    // Tipos actualizados a la nueva nomenclatura
+    const tiposGasto = ['factura_recibo'];
+    const tiposBanco = ['justificante_bancario', 'gasto_bancario'];
     if (!factura || !tiposGasto.includes(factura.tipo)) {
       return res.status(400).json({ error: `id=${factura_id} no es un gasto valido (tipo='${factura?.tipo}')` });
     }
@@ -113,7 +110,7 @@ router.post('/', async (req, res) => {
             nota = COALESCE(EXCLUDED.nota, conciliaciones.nota)
       RETURNING *
     `, [factura_id, justificante_id, importe_conciliado, nota, req.usuario || 'admin']);
-    // Si difieren entre 0.01 y 0.55, crear gasto_bancario "Comision transferencia IberCaja"
+    // Comision IberCaja automatica si la diferencia es 0.01-0.55
     let comisionCreada = null;
     if (con_comision && factura.importe != null && justif.importe != null) {
       const diff = Math.round((Number(justif.importe) - Number(factura.importe)) * 100) / 100;
@@ -121,16 +118,15 @@ router.post('/', async (req, res) => {
         const { rows: [com] } = await pool.query(
           `INSERT INTO facturas (nombre_archivo, ruta_archivo, tipo, proveedor, concepto,
              fecha_factura, importe, ocr_revisado)
-           VALUES ($1, '(generado automáticamente)', 'gasto_bancario', 'IberCaja',
-                   'Comisión transferencia (auto-conciliación factura #' || $2 || ')',
+           VALUES ($1, '(generado automaticamente)', 'gasto_bancario', 'IberCaja',
+                   'Comision transferencia (auto-conciliacion factura #' || $2 || ')',
                    $3, $4, true)
            RETURNING id, importe`,
           [`comision_auto_${factura_id}_${justificante_id}_${Date.now()}.txt`, factura_id, justif.fecha_factura, diff]
         );
-        // Vincular también esa comisión con el justificante para que el cuadre sea exacto
         await pool.query(
           `INSERT INTO conciliaciones (factura_id, justificante_id, importe_conciliado, nota, creada_por)
-           VALUES ($1, $2, $3, 'Comisión IberCaja generada automáticamente', $4)
+           VALUES ($1, $2, $3, 'Comision IberCaja generada automaticamente', $4)
            ON CONFLICT DO NOTHING`,
           [com.id, justificante_id, diff, req.usuario || 'admin']
         );
