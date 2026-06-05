@@ -4,10 +4,14 @@ const router = require('express').Router();
 const pool   = require('../db/pool');
 
 // Siempre 4 parametros: $1=desde $2=hasta $3=filtDeporte|null $4=filtConcepto|null
+// En distribuciones, si fd.concepto es NULL usamos f.concepto como fallback.
 const CTE_BASE = `
   WITH base AS (
     SELECT
-      fd.deporte, fd.equipo_categoria, fd.concepto, fd.importe,
+      COALESCE(fd.deporte, f.deporte)                     AS deporte,
+      COALESCE(fd.equipo_categoria, f.equipo_categoria)   AS equipo_categoria,
+      COALESCE(fd.concepto, f.concepto)                   AS concepto,
+      fd.importe,
       f.tipo, f.proveedor, f.fecha_factura
     FROM factura_distribuciones fd
     JOIN facturas f ON f.id = fd.factura_id
@@ -26,20 +30,24 @@ const CTE_BASE = `
   )
 `;
 
-// Condicion reutilizable sobre la vista base
+// Filtro sobre la vista base (para graficos de distribucion)
 const FILTRO_BASE = `
   ($3::text IS NULL OR COALESCE(NULLIF(TRIM(deporte),''),'Sin clasificar') = $3)
   AND ($4::text IS NULL OR COALESCE(NULLIF(TRIM(concepto),''),'Sin concepto') = $4)
 `;
 
-// Condicion sobre la tabla facturas directa
+// Filtro sobre facturas directas (para totales, mensual, top proveedores)
+// Solo cuenta facturas de gasto (factura_recibo) para el dashboard de gastos
 const FILTRO_FACTURAS = `
-  ($3::text IS NULL OR f.deporte = $3
+  f.tipo = 'factura_recibo'
+  AND ($3::text IS NULL OR f.deporte = $3
      OR EXISTS (SELECT 1 FROM factura_distribuciones fd WHERE fd.factura_id = f.id AND fd.deporte = $3))
-  AND ($4::text IS NULL OR f.concepto = $4)
+  AND ($4::text IS NULL OR f.concepto = $4
+     OR EXISTS (SELECT 1 FROM factura_distribuciones fd WHERE fd.factura_id = f.id
+                AND COALESCE(fd.concepto, f.concepto) = $4))
 `;
 
-// GET /api/gastos/resumen?desde=...&hasta=...&deporte=...&concepto=...&desde_ant=...&hasta_ant=...
+// GET /api/gastos/resumen
 router.get('/resumen', async (req, res) => {
   const desde      = req.query.desde      || '1970-01-01';
   const hasta      = req.query.hasta      || new Date().toISOString().slice(0, 10);
@@ -68,17 +76,18 @@ router.get('/resumen', async (req, res) => {
           SUM(importe) AS total
         FROM base
         WHERE ${FILTRO_BASE}
+          AND tipo = 'factura_recibo'
         GROUP BY deporte
         ORDER BY total DESC
       `, p),
 
-      // Agrupado por CONCEPTO (antes era por tipo de documento)
       pool.query(`${CTE_BASE}
         SELECT
           COALESCE(NULLIF(TRIM(concepto), ''), 'Sin concepto') AS concepto,
           SUM(importe) AS total
         FROM base
         WHERE ${FILTRO_BASE}
+          AND tipo = 'factura_recibo'
         GROUP BY concepto
         ORDER BY total DESC
         LIMIT 20
@@ -90,6 +99,7 @@ router.get('/resumen', async (req, res) => {
           SUM(importe) AS total
         FROM base
         WHERE ${FILTRO_BASE}
+          AND tipo = 'factura_recibo'
         GROUP BY equipo_categoria
         ORDER BY total DESC
         LIMIT 20
@@ -139,7 +149,7 @@ router.get('/resumen', async (req, res) => {
     res.json({
       totales:         totales.rows[0],
       por_deporte:     porDeporte.rows,
-      por_concepto:    porConcepto.rows,   // antes: por_tipo
+      por_concepto:    porConcepto.rows,
       por_equipo:      porEquipo.rows,
       por_mes:         porMes.rows,
       top_proveedores: topProveedores.rows,
