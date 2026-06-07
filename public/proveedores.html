@@ -32,7 +32,7 @@
     .filtros input { padding:.45rem .6rem; border:1px solid var(--borde); border-radius:4px; font-size:.85rem; flex:1; min-width:200px; }
     .num { text-align:right; font-family:"Courier New",monospace; font-weight:700; }
     .info { background:#fff3cd; border-left:4px solid #ffc107; padding:.6rem 1rem; margin-bottom:1rem; font-size:.83rem; }
-    /* Edicion inline */
+    /* Edicion inline nombre */
     .nombre-cell { cursor:pointer; }
     .nombre-cell:hover .nombre-texto { border-bottom:1px dashed #aaa; }
     .nombre-input {
@@ -40,6 +40,36 @@
       font-size:.85rem; font-family:inherit; width:100%; min-width:120px;
       outline:none; box-shadow:0 0 0 2px rgba(255,212,0,.3);
     }
+    /* Boton de facturas (numero clicable) */
+    .btn-num-facturas {
+      background:none; border:none; cursor:pointer;
+      font-family:"Courier New",monospace; font-weight:700; font-size:.85rem;
+      color:var(--azul); text-decoration:underline dotted;
+      padding:0; line-height:1;
+    }
+    .btn-num-facturas:hover { color:#0d3b76; }
+    .btn-num-facturas.abierto { color:var(--rojo); }
+    /* Fila expandida de facturas */
+    .fila-facturas td {
+      background:#f0f6ff;
+      border-bottom:2px solid var(--azul);
+      padding:.6rem .8rem;
+    }
+    .subfacturas-table { width:100%; border-collapse:collapse; font-size:.8rem; }
+    .subfacturas-table th {
+      text-align:left; padding:.3rem .5rem; background:#ddeeff;
+      border-bottom:1px solid #bbd; font-size:.75rem;
+    }
+    .subfacturas-table td { padding:.3rem .5rem; border-bottom:1px solid #dde; }
+    .subfacturas-table tr:hover td { background:#e8f0fb; }
+    .tag-tipo {
+      display:inline-block; padding:.1rem .35rem; border-radius:3px;
+      font-size:.7rem; font-weight:700; text-transform:uppercase; letter-spacing:.03em;
+    }
+    .tag-factura_recibo   { background:#e3f2fd; color:#1565C0; }
+    .tag-justificante_bancario { background:#e8f5e9; color:#2E7D32; }
+    .tag-gasto_bancario   { background:#fff3e0; color:#e65100; }
+    .tag-otro             { background:#f3e5f5; color:#6a1b9a; }
     /* Barra de fusion */
     #barraSel {
       display:none; position:fixed; bottom:1.2rem; left:50%; transform:translateX(-50%);
@@ -54,10 +84,11 @@
     .modal { background:#fff; border-radius:8px; max-width:520px; width:92%; padding:1.4rem; max-height:90vh; overflow:auto; }
     .modal h3 { font-size:1rem; margin-bottom:.8rem; }
     .modal label { display:block; font-size:.78rem; font-weight:600; color:#555; margin:.7rem 0 .2rem; }
-    .modal input, .modal textarea { width:100%; padding:.45rem .6rem; border:1px solid var(--borde); border-radius:4px; font-size:.85rem; font-family:inherit; }
+    .modal input, .modal select, .modal textarea { width:100%; padding:.45rem .6rem; border:1px solid var(--borde); border-radius:4px; font-size:.85rem; font-family:inherit; }
     .modal textarea { min-height:60px; resize:vertical; }
     .modal-footer { display:flex; gap:.6rem; justify-content:flex-end; margin-top:1rem; }
-    /* Grupos duplicados */
+    .modal-2col { display:grid; grid-template-columns:1fr 1fr; gap:.5rem; }
+    /* Duplicados */
     .dup-grupo { border:1px solid var(--borde); border-radius:6px; margin-bottom:.8rem; overflow:hidden; }
     .dup-grupo-header { background:#f0f0f0; padding:.5rem .8rem; font-size:.8rem; font-weight:600; }
     .dup-item { display:flex; align-items:center; gap:.6rem; padding:.4rem .8rem; border-top:1px solid var(--borde); font-size:.83rem; }
@@ -87,7 +118,9 @@
 
 <div class="wrap">
   <div class="info">
-    <strong>Consejo:</strong> Haz clic en el nombre de un proveedor para editarlo directamente. Marca con los checkboxes los que quieras fusionar y pulsa «Fusionar» en la barra inferior.
+    <strong>Consejo:</strong> Haz clic en el nombre de un proveedor para editarlo directamente.
+    Haz clic en el <strong>número de facturas</strong> para desplegarlas y editarlas.
+    Marca con los checkboxes los que quieras fusionar y pulsa «Fusionar» en la barra inferior.
   </div>
 
   <div class="card">
@@ -102,7 +135,7 @@
       <input type="text" id="q" placeholder="Buscar por nombre, NIF o email…" oninput="cargar()">
     </div>
     <div style="overflow:auto">
-      <table>
+      <table id="tablaProveedores">
         <thead><tr>
           <th style="width:28px"><input type="checkbox" id="chkAll" onchange="toggleAll(this.checked)"></th>
           <th>Nombre <small style="font-weight:400;color:#888">(clic para editar)</small></th>
@@ -122,11 +155,11 @@
 <!-- Barra de fusión -->
 <div id="barraSel">
   <span id="barraSelTexto"></span>
-  <button class="btn-verde" onclick="fusionarSeleccion()">→ Fusionar seleccionados</button>
+  <button class="btn-verde" onclick="fusionarSeleccion()">&#8594; Fusionar seleccionados</button>
   <button class="btn-outline" onclick="limpiarSel()" style="background:rgba(255,255,255,.2);color:#fff;border-color:rgba(255,255,255,.4)">✕ Cancelar</button>
 </div>
 
-<!-- Modal editar/crear -->
+<!-- Modal editar/crear proveedor -->
 <div class="modal-bg" id="modal">
   <div class="modal">
     <h3 id="modalTitulo">Proveedor</h3>
@@ -139,6 +172,54 @@
     <div class="modal-footer">
       <button class="btn-outline" onclick="cerrarModal()">Cancelar</button>
       <button class="btn-verde" onclick="guardar()">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal editar factura (desde desplegable de proveedor) -->
+<div class="modal-bg" id="modalFactura">
+  <div class="modal" style="max-width:580px">
+    <h3 id="mfTitulo">Editar factura</h3>
+    <div class="modal-2col">
+      <div>
+        <label>Fecha</label>
+        <input type="date" id="mfFecha">
+      </div>
+      <div>
+        <label>Número factura</label>
+        <input type="text" id="mfNumero">
+      </div>
+    </div>
+    <label>Tipo</label>
+    <select id="mfTipo">
+      <option value="factura_recibo">Factura / Recibo</option>
+      <option value="justificante_bancario">Justificante bancario</option>
+      <option value="gasto_bancario">Gasto bancario</option>
+      <option value="ingreso_cobro">Ingreso / Cobro</option>
+      <option value="notificacion_otros">Notificación / Otros</option>
+    </select>
+    <label>Concepto</label>
+    <input type="text" id="mfConcepto">
+    <div class="modal-2col">
+      <div>
+        <label>Deporte</label>
+        <select id="mfDeporte">
+          <option value="">Sin clasificar</option>
+          <option>Atletismo</option><option>Baloncesto</option>
+          <option>Fútbol</option><option>Fútbol 7</option><option>Fútbol Sala</option>
+          <option>Gimnasia Rítmica</option><option>Kenpo</option><option>Kickboxing</option>
+          <option>Múltiple</option><option>Patinaje</option><option>Trail</option><option>Voleibol</option>
+          <option>Gestión</option><option>General</option>
+        </select>
+      </div>
+      <div>
+        <label>Importe (€)</label>
+        <input type="number" step="0.01" id="mfImporte">
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-outline" onclick="cerrarModalFactura()">Cancelar</button>
+      <button class="btn-verde" onclick="guardarFactura()">Guardar cambios</button>
     </div>
   </div>
 </div>
@@ -160,11 +241,14 @@
 <script>
 function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
 function fmt(n){return n==null?'—':Number(n).toLocaleString('es-ES',{minimumFractionDigits:2,maximumFractionDigits:2})+' €';}
+function fmtFecha(d){if(!d)return '—';return d.slice(0,10);}
 
-let _editId  = null;
-let _selIds  = new Set();  // ids seleccionados con checkbox
+let _editId    = null;
+_editFacturaId = null;
+let _selIds    = new Set();
+let _abiertos  = new Set(); // ids de proveedores con desplegable abierto
 
-// ── Carga principal ─────────────────────────────────────────
+// ── Carga principal ──────────────────────────────────────
 async function cargar() {
   const q = document.getElementById('q').value.trim();
   const url = '/api/proveedores' + (q ? '?q=' + encodeURIComponent(q) : '');
@@ -176,10 +260,16 @@ async function cargar() {
       tb.innerHTML = '<tr><td colspan="8" style="padding:1rem;text-align:center;color:#888">Sin resultados.</td></tr>';
       return;
     }
+    // Cerrar todos los desplegables al recargar
+    _abiertos.clear();
     tb.innerHTML = data.map(p => {
       const sel = _selIds.has(p.id);
+      const numFac = Number(p.num_facturas);
+      const btnFac = numFac > 0
+        ? `<button class="btn-num-facturas" id="btn-fac-${p.id}" onclick="toggleFacturas(${p.id})">${numFac}</button>`
+        : `<span style="color:#aaa;font-family:'Courier New',monospace">0</span>`;
       return `
-        <tr data-id="${p.id}">
+        <tr data-id="${p.id}" class="fila-prov">
           <td><input type="checkbox" class="chk-prov" value="${p.id}" ${sel?'checked':''} onchange="onChkChange(this)"></td>
           <td class="nombre-cell" onclick="editInline(${p.id}, this)">
             <span class="nombre-texto">${esc(p.nombre)}</span>
@@ -187,7 +277,7 @@ async function cargar() {
           <td>${esc(p.nif || '—')}</td>
           <td>${esc(p.email || '—')}</td>
           <td>${esc(p.telefono || '—')}</td>
-          <td class="num">${p.num_facturas}</td>
+          <td class="num">${btnFac}</td>
           <td class="num">${fmt(p.total_facturado)}</td>
           <td style="white-space:nowrap">
             <button class="btn-outline" onclick="abrirModal(${p.id})">Editar todo</button>
@@ -195,16 +285,132 @@ async function cargar() {
           </td>
         </tr>`;
     }).join('');
-    // Sincronizar chkAll
     document.getElementById('chkAll').checked = false;
   } catch (e) {
     document.getElementById('tabla').innerHTML = `<tr><td colspan="8" style="color:var(--rojo);text-align:center;padding:1rem">Error: ${esc(e.message)}</td></tr>`;
   }
 }
 
-// ── Edicion inline de nombre ───────────────────────────────────
+// ── Desplegable de facturas por proveedor ──────────────────────
+async function toggleFacturas(id) {
+  const filaExistente = document.getElementById('fila-fac-' + id);
+  if (filaExistente) {
+    filaExistente.remove();
+    _abiertos.delete(id);
+    const btn = document.getElementById('btn-fac-' + id);
+    if (btn) btn.classList.remove('abierto');
+    return;
+  }
+
+  // Marcar boton como abierto
+  const btn = document.getElementById('btn-fac-' + id);
+  if (btn) btn.classList.add('abierto');
+  _abiertos.add(id);
+
+  // Insertar fila placeholder
+  const filaProveedor = document.querySelector(`tr[data-id="${id}"]`);
+  if (!filaProveedor) return;
+  const filaExp = document.createElement('tr');
+  filaExp.id = 'fila-fac-' + id;
+  filaExp.className = 'fila-facturas';
+  filaExp.innerHTML = '<td colspan="8"><em style="color:#888">Cargando facturas…</em></td>';
+  filaProveedor.insertAdjacentElement('afterend', filaExp);
+
+  try {
+    const facturas = await window.api('/api/proveedores/' + id + '/facturas');
+    if (!facturas || !facturas.length) {
+      filaExp.innerHTML = '<td colspan="8" style="color:#888;font-style:italic">Sin facturas registradas.</td>';
+      return;
+    }
+    const filas = facturas.map(f => {
+      const tagClass = f.tipo ? 'tag-' + f.tipo : 'tag-otro';
+      const tagLabel = f.tipo ? f.tipo.replace('_',' ') : 'otro';
+      return `
+        <tr>
+          <td>${fmtFecha(f.fecha_factura)}</td>
+          <td>${esc(f.numero_factura || '—')}</td>
+          <td><span class="tag-tipo ${tagClass}">${esc(tagLabel)}</span></td>
+          <td>${esc(f.concepto || '—')}</td>
+          <td>${esc(f.deporte || '—')}</td>
+          <td style="text-align:right;font-family:'Courier New',monospace;font-weight:700">${fmt(f.importe)}</td>
+          <td>
+            <button class="btn-azul" style="font-size:.72rem;padding:.2rem .5rem"
+              onclick="editarFactura(${f.id},'${esc(f.numero_factura||'')}','${esc(f.concepto||'')}','${esc(f.fecha_factura||'')}','${esc(f.tipo||'')}','${esc(f.deporte||'')}',${f.importe||0})"
+            >✏ Editar</button>
+          </td>
+        </tr>`;
+    }).join('');
+    filaExp.innerHTML = `
+      <td colspan="8" style="padding:.5rem .8rem 1rem">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.5rem">
+          <strong style="font-size:.82rem">${facturas.length} factura${facturas.length!==1?'s':''}</strong>
+          <a href="/facturas" target="_blank" style="font-size:.75rem;color:var(--azul)">Ver todas en Facturas ↗</a>
+        </div>
+        <table class="subfacturas-table">
+          <thead><tr>
+            <th>Fecha</th><th>Nº Factura</th><th>Tipo</th><th>Concepto</th>
+            <th>Deporte</th><th style="text-align:right">Importe</th><th>Acción</th>
+          </tr></thead>
+          <tbody>${filas}</tbody>
+        </table>
+      </td>`;
+  } catch (e) {
+    filaExp.innerHTML = `<td colspan="8" style="color:var(--rojo)">Error: ${esc(e.message)}</td>`;
+  }
+}
+
+// ── Editar factura desde desplegable ──────────────────────────
+function editarFactura(id, numero, concepto, fecha, tipo, deporte, importe) {
+  _editFacturaId = id;
+  document.getElementById('mfTitulo').textContent = 'Editar factura #' + id;
+  document.getElementById('mfFecha').value    = fecha ? fecha.slice(0,10) : '';
+  document.getElementById('mfNumero').value   = numero || '';
+  document.getElementById('mfTipo').value     = tipo   || 'factura_recibo';
+  document.getElementById('mfConcepto').value = concepto || '';
+  document.getElementById('mfDeporte').value  = deporte || '';
+  document.getElementById('mfImporte').value  = importe != null ? importe : '';
+  document.getElementById('modalFactura').classList.add('open');
+}
+
+async function guardarFactura() {
+  if (!_editFacturaId) return;
+  const body = {
+    fecha_factura:   document.getElementById('mfFecha').value    || null,
+    numero_factura:  document.getElementById('mfNumero').value.trim() || null,
+    tipo:            document.getElementById('mfTipo').value     || null,
+    concepto:        document.getElementById('mfConcepto').value.trim() || null,
+    deporte:         document.getElementById('mfDeporte').value  || null,
+    importe:         document.getElementById('mfImporte').value !== '' ? Number(document.getElementById('mfImporte').value) : null,
+  };
+  try {
+    await window.api('/api/facturas/' + _editFacturaId, {
+      method: 'PATCH',
+      body: JSON.stringify(body),
+    });
+    cerrarModalFactura();
+    // Refrescar el desplegable del proveedor que esté abierto
+    // Buscamos en qué fila expandida estamos
+    for (const provId of _abiertos) {
+      const filaExp = document.getElementById('fila-fac-' + provId);
+      if (filaExp) {
+        _abiertos.delete(provId);
+        filaExp.remove();
+        const btn = document.getElementById('btn-fac-' + provId);
+        if (btn) btn.classList.remove('abierto');
+        await toggleFacturas(provId);
+        break;
+      }
+    }
+  } catch (e) { alert('Error al guardar: ' + e.message); }
+}
+
+function cerrarModalFactura() {
+  document.getElementById('modalFactura').classList.remove('open');
+  _editFacturaId = null;
+}
+
+// ── Edicion inline de nombre ──────────────────────────────────
 function editInline(id, celda) {
-  // Evitar doble edicion
   if (celda.querySelector('input')) return;
   const span = celda.querySelector('.nombre-texto');
   const valorActual = span.textContent;
@@ -220,9 +426,7 @@ function editInline(id, celda) {
   const guardarInline = async () => {
     const nuevo = input.value.trim();
     if (!nuevo || nuevo === valorActual.trim()) {
-      input.remove();
-      span.style.display = '';
-      return;
+      input.remove(); span.style.display = ''; return;
     }
     try {
       await window.api('/api/proveedores/' + id, {
@@ -230,11 +434,8 @@ function editInline(id, celda) {
         body: JSON.stringify({ nombre: nuevo }),
       });
       span.textContent = nuevo;
-    } catch (e) {
-      alert('Error al guardar: ' + e.message);
-    }
-    input.remove();
-    span.style.display = '';
+    } catch (e) { alert('Error al guardar: ' + e.message); }
+    input.remove(); span.style.display = '';
   };
 
   input.addEventListener('blur', guardarInline);
@@ -244,13 +445,12 @@ function editInline(id, celda) {
   });
 }
 
-// ── Checkboxes y barra de fusion ────────────────────────────────
+// ── Checkboxes y barra de fusion ─────────────────────────────────
 function onChkChange(chk) {
   const id = Number(chk.value);
   if (chk.checked) _selIds.add(id); else _selIds.delete(id);
   actualizarBarra();
 }
-
 function toggleAll(checked) {
   document.querySelectorAll('.chk-prov').forEach(chk => {
     chk.checked = checked;
@@ -259,18 +459,14 @@ function toggleAll(checked) {
   });
   actualizarBarra();
 }
-
 function actualizarBarra() {
   const barra = document.getElementById('barraSel');
   const n = _selIds.size;
   if (n >= 2) {
     document.getElementById('barraSelTexto').textContent = `${n} proveedores seleccionados`;
     barra.classList.add('visible');
-  } else {
-    barra.classList.remove('visible');
-  }
+  } else { barra.classList.remove('visible'); }
 }
-
 function limpiarSel() {
   _selIds.clear();
   document.querySelectorAll('.chk-prov').forEach(c => c.checked = false);
@@ -281,15 +477,12 @@ function limpiarSel() {
 async function fusionarSeleccion() {
   if (_selIds.size < 2) return;
   const ids = [..._selIds];
-  // El destino es el que tenga mas facturas — pedimos al servidor
   const lista = await Promise.all(ids.map(id => window.api('/api/proveedores/' + id).catch(() => null)));
   const validos = lista.filter(Boolean);
   if (!validos.length) return;
-  // Ordenar por num_facturas desc, el primero es el destino
   validos.sort((a, b) => Number(b.num_facturas) - Number(a.num_facturas));
   const destino = validos[0];
   const origenes = validos.slice(1).map(p => p.id);
-  const nombres = validos.map(p => `  • ${p.nombre} (${p.num_facturas} facturas)`).join('\n');
   if (!confirm(`Fusionar ${validos.length} proveedores?\n\nSe quedará con el nombre que tiene más facturas:\n  ★ ${destino.nombre}\n\nLos demás serán eliminados:\n${validos.slice(1).map(p=>`  • ${p.nombre}`).join('\n')}\n\n¿Continuar?`)) return;
   try {
     const r = await window.api('/api/proveedores/merge', {
@@ -297,12 +490,11 @@ async function fusionarSeleccion() {
       body: JSON.stringify({ destino_id: destino.id, origen_ids: origenes }),
     });
     alert(`✓ Fusionados. ${r.facturas_reasignadas} facturas reasignadas a "${r.destino.nombre}".`);
-    limpiarSel();
-    cargar();
+    limpiarSel(); cargar();
   } catch (e) { alert('Error: ' + e.message); }
 }
 
-// ── Detectar duplicados ────────────────────────────────────────
+// ── Detectar duplicados ────────────────────────────────────
 async function detectarDuplicados() {
   document.getElementById('modalDup').classList.add('open');
   document.getElementById('dupContenido').innerHTML = '<div style="padding:1rem;color:#888">Analizando…</div>';
@@ -328,13 +520,11 @@ async function detectarDuplicados() {
           <div class="dup-grupo-header">Grupo similar: "${esc(grupo[0].nombre)}" (${grupo.length} proveedores)</div>
           ${items}
           <div style="padding:.5rem .8rem;border-top:1px solid var(--borde)">
-            <button class="btn-verde" onclick="fusionarGrupo(${gi})">→ Fusionar este grupo</button>
+            <button class="btn-verde" onclick="fusionarGrupo(${gi})">&#8594; Fusionar este grupo</button>
             <small style="margin-left:.8rem;color:#888">El marcado con ★ será el destino</small>
           </div>
         </div>`;
     }).join('');
-
-    // Guardar grupos en JS para acceder desde fusionarGrupo
     window._dupGrupos = data;
   } catch (e) {
     document.getElementById('dupContenido').innerHTML = `<div style="color:var(--rojo);padding:1rem">Error: ${esc(e.message)}</div>`;
@@ -361,7 +551,7 @@ async function fusionarGrupo(gi) {
   } catch (e) { alert('Error: ' + e.message); }
 }
 
-// ── Modal editar/crear ──────────────────────────────────────────
+// ── Modal editar/crear proveedor ───────────────────────────────
 function nuevoProveedor() {
   _editId = null;
   document.getElementById('modalTitulo').textContent = 'Nuevo proveedor';
@@ -399,8 +589,7 @@ async function guardar() {
     const path   = _editId ? '/api/proveedores/' + _editId : '/api/proveedores';
     const method = _editId ? 'PATCH' : 'POST';
     await window.api(path, { method, body: JSON.stringify(body) });
-    cerrarModal();
-    cargar();
+    cerrarModal(); cargar();
   } catch (e) { alert('Error: ' + e.message); }
 }
 
@@ -408,29 +597,32 @@ async function borrar(id) {
   if (!confirm('¿Eliminar este proveedor? Si tiene facturas vinculadas no se podrá.')) return;
   try {
     await window.api('/api/proveedores/' + id, { method: 'DELETE' });
-    _selIds.delete(id);
-    actualizarBarra();
-    cargar();
+    _selIds.delete(id); actualizarBarra(); cargar();
   } catch (e) { alert(e.message); }
 }
 
 function cerrarModal() { document.getElementById('modal').classList.remove('open'); }
 
-// Cerrar modales al hacer clic fuera
-document.getElementById('modal').addEventListener('click', e => { if (e.target === document.getElementById('modal')) cerrarModal(); });
-document.getElementById('modalDup').addEventListener('click', e => { if (e.target === document.getElementById('modalDup')) document.getElementById('modalDup').classList.remove('open'); });
+// Cerrar modales al clic fuera
+document.getElementById('modal').addEventListener('click',       e => { if (e.target === document.getElementById('modal'))       cerrarModal(); });
+document.getElementById('modalFactura').addEventListener('click', e => { if (e.target === document.getElementById('modalFactura')) cerrarModalFactura(); });
+document.getElementById('modalDup').addEventListener('click',     e => { if (e.target === document.getElementById('modalDup'))     document.getElementById('modalDup').classList.remove('open'); });
 
-window.cargar = cargar;
-window.editInline = editInline;
-window.abrirModal = abrirModal;
-window.borrar = borrar;
-window.nuevoProveedor = nuevoProveedor;
-window.toggleAll = toggleAll;
-window.onChkChange = onChkChange;
-window.fusionarSeleccion = fusionarSeleccion;
-window.limpiarSel = limpiarSel;
-window.detectarDuplicados = detectarDuplicados;
-window.fusionarGrupo = fusionarGrupo;
+window.cargar          = cargar;
+window.editInline       = editInline;
+window.abrirModal       = abrirModal;
+window.borrar           = borrar;
+window.nuevoProveedor   = nuevoProveedor;
+window.toggleAll        = toggleAll;
+window.onChkChange      = onChkChange;
+window.fusionarSeleccion= fusionarSeleccion;
+window.limpiarSel       = limpiarSel;
+window.detectarDuplicados=detectarDuplicados;
+window.fusionarGrupo    = fusionarGrupo;
+window.toggleFacturas   = toggleFacturas;
+window.editarFactura    = editarFactura;
+window.guardarFactura   = guardarFactura;
+window.cerrarModalFactura=cerrarModalFactura;
 
 // Init
 const jwtGuardado = sessionStorage.getItem('token');
