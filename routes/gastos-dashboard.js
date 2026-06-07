@@ -77,6 +77,7 @@ router.get('/resumen', async (req, res) => {
         FROM base
         WHERE ${FILTRO_BASE}
           AND tipo = 'factura_recibo'
+          AND COALESCE(NULLIF(TRIM(deporte),''),'Sin clasificar') != 'Múltiple'
         GROUP BY deporte
         ORDER BY total DESC
       `, p),

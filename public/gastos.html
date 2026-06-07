@@ -517,7 +517,7 @@ function renderDeporte(datos) {
 }
 
 function renderConcepto(datos) {
-  const labels  = datos.map(d => d.tipo);
+  const labels  = datos.map(d => d.concepto);
   const valores = datos.map(d => parseFloat(d.total));
   crearOActualizar('chartConcepto', {
     type: 'bar',
