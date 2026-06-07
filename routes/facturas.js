@@ -37,10 +37,22 @@ const upload = multer({
   },
 });
 
+// Columnas permitidas para ordenación
+const SORT_COLS = {
+  fecha:    'COALESCE(fecha_factura, created_at::date)',
+  tipo:     'tipo',
+  deporte:  'deporte',
+  proveedor:'proveedor',
+  numero:   'numero_factura',
+  concepto: 'concepto',
+  importe:  'importe',
+};
+
 // GET /api/facturas — lista paginada con filtros
 router.get('/', async (req, res) => {
   try {
-    const { desde, hasta, proveedor, tipo, deporte, equipo_categoria, concepto, page = 1 } = req.query;
+    const { desde, hasta, proveedor, tipo, deporte, equipo_categoria, concepto,
+            sort_by, sort_dir, page = 1 } = req.query;
     const limit  = 30;
     const offset = (Number(page) - 1) * limit;
     const params = [];
@@ -54,7 +66,9 @@ router.get('/', async (req, res) => {
     if (equipo_categoria){ params.push(equipo_categoria); conds.push(`equipo_categoria = $${params.length}`); }
     if (concepto) { params.push(`%${concepto}%`);   conds.push(`concepto ILIKE $${params.length}`); }
 
-    const where = conds.length ? `WHERE ${conds.join(' AND ')}` : '';
+    const where   = conds.length ? `WHERE ${conds.join(' AND ')}` : '';
+    const orderCol = SORT_COLS[sort_by] || 'COALESCE(fecha_factura, created_at::date)';
+    const orderDir = sort_dir === 'asc' ? 'ASC' : 'DESC';
     params.push(limit, offset);
 
     const { rows } = await db.query(
@@ -62,7 +76,7 @@ router.get('/', async (req, res) => {
               fecha_factura, concepto, deporte, equipo_categoria, importe,
               referencia_banco, ocr_revisado, created_at, categoria_ingreso
        FROM facturas ${where}
-       ORDER BY COALESCE(fecha_factura, created_at::date) DESC
+       ORDER BY ${orderCol} ${orderDir} NULLS LAST
        LIMIT $${params.length - 1} OFFSET $${params.length}`,
       params
     );

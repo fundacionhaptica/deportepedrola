@@ -142,8 +142,18 @@
     }
     .tabla-scroll { overflow-x: auto; }
     table { width: 100%; border-collapse: collapse; font-size: .86rem; min-width: 750px; }
-    th { text-align: left; padding: .4rem .6rem; font-size: .72rem; color: #888;
-         text-transform: uppercase; border-bottom: 2px solid var(--borde); white-space: nowrap; }
+    th {
+      text-align: left; padding: .4rem .6rem; font-size: .72rem; color: #888;
+      text-transform: uppercase; border-bottom: 2px solid var(--borde); white-space: nowrap;
+    }
+    th.sortable {
+      cursor: pointer; user-select: none; transition: color .15s;
+    }
+    th.sortable:hover { color: var(--negro); }
+    th.sort-asc,
+    th.sort-desc { color: var(--negro); }
+    th.sort-asc::after  { content: ' \2191'; }
+    th.sort-desc::after { content: ' \2193'; }
     td { padding: .5rem .6rem; border-bottom: 1px solid var(--borde); }
     tr:last-child td { border-bottom: none; }
     .importe { font-weight: 700; text-align: right; }
@@ -281,14 +291,22 @@
         </select>
       </label>
       <label>Proveedor <input type="text" id="proveedor" placeholder="Buscar..."></label>
+      <label>Concepto <input type="text" id="filtroConcepto" placeholder="Buscar..."></label>
       <button class="btn btn-small" onclick="cargarFacturas(1)">Filtrar</button>
     </div>
     <div class="tabla-scroll">
       <table>
         <thead>
           <tr>
-            <th>#</th><th>Fecha</th><th>Tipo</th><th>Deporte</th><th>Proveedor</th>
-            <th>Nº Factura</th><th>Concepto</th><th class="importe">Importe+IVA</th><th></th>
+            <th>#</th>
+            <th class="sortable" data-col="fecha" onclick="ordenarPor('fecha')">Fecha</th>
+            <th class="sortable" data-col="tipo" onclick="ordenarPor('tipo')">Tipo</th>
+            <th class="sortable" data-col="deporte" onclick="ordenarPor('deporte')">Deporte</th>
+            <th class="sortable" data-col="proveedor" onclick="ordenarPor('proveedor')">Proveedor</th>
+            <th class="sortable" data-col="numero" onclick="ordenarPor('numero')">Nº Factura</th>
+            <th class="sortable" data-col="concepto" onclick="ordenarPor('concepto')">Concepto</th>
+            <th class="sortable importe" data-col="importe" onclick="ordenarPor('importe')">Importe+IVA</th>
+            <th></th>
           </tr>
         </thead>
         <tbody id="tablaFacturas">
@@ -338,7 +356,7 @@ const fmt = n => n != null
   : '—';
 const fmtFecha = f => f ? f.slice(0, 10) : '—';
 
-// ── Catálogos ─────────────────────────────────────────────────────────────────
+// ── Catálogos ─────────────────────────────────────────────────────────────────────────────────
 const TIPOS = [
   'factura_recibo',
   'justificante_bancario',
@@ -382,6 +400,28 @@ const DEPORTES = [
 ];
 
 let paginaActual = 1;
+let sortBy  = 'fecha';
+let sortDir = 'desc';
+
+function ordenarPor(col) {
+  if (sortBy === col) {
+    sortDir = sortDir === 'asc' ? 'desc' : 'asc';
+  } else {
+    sortBy  = col;
+    sortDir = 'desc';
+  }
+  actualizarHeadersSort();
+  cargarFacturas(1);
+}
+
+function actualizarHeadersSort() {
+  document.querySelectorAll('th.sortable').forEach(th => {
+    th.classList.remove('sort-asc', 'sort-desc');
+    if (th.dataset.col === sortBy) {
+      th.classList.add(sortDir === 'asc' ? 'sort-asc' : 'sort-desc');
+    }
+  });
+}
 
 function opcionesSelect(lista, valorActual) {
   const val = (valorActual || '').toLowerCase();
@@ -391,7 +431,7 @@ function opcionesSelect(lista, valorActual) {
   }).join('');
 }
 
-// ── Subida ────────────────────────────────────────────────────────────────────
+// ── Subida ───────────────────────────────────────────────────────────────────────────────
 const dropzone   = document.getElementById('dropzone');
 const inputFiles = document.getElementById('inputArchivos');
 
@@ -565,7 +605,7 @@ function rellenarTarjetaOCR(tarjeta, r) {
         <div class="revision-footer">
           <span class="msg" id="fm-${id}"></span>
           <button class="btn-outline btn-small" onclick="toggleRevision(${id})">Colapsar</button>
-          <button class="btn-verde" id="fc-${id}" onclick="confirmarRevision(${id})">✓ Confirmar</button>
+          <button class="btn-verde" id="fc-${id}" onclick="confirmarRevision(${id})">&#x2713; Confirmar</button>
         </div>
       </div>
     </div>`;
@@ -607,7 +647,7 @@ function addDistLine(facturaId) {
       <input type="number" step="0.01" class="dl-importe" placeholder="0.00"
         oninput="actualizarDistCounter(${facturaId})">
     </label>
-    <button class="btn-rm" title="Eliminar" onclick="removeDistLine(this,${facturaId})">✕</button>`;
+    <button class="btn-rm" title="Eliminar" onclick="removeDistLine(this,${facturaId})">&#x2715;</button>`;
   container.appendChild(div);
   actualizarDistCounter(facturaId);
 }
@@ -724,7 +764,7 @@ function apiHeaders(extra) {
   return Object.assign({ Authorization: 'Bearer ' + tok, 'X-Club-Token': tok }, extra || {});
 }
 
-// ── Listado ───────────────────────────────────────────────────────────────────
+// ── Listado ──────────────────────────────────────────────────────────────────────────────
 async function cargarFacturas(pagina) {
   paginaActual = pagina || 1;
   const desde   = document.getElementById('desde').value;
@@ -732,12 +772,14 @@ async function cargarFacturas(pagina) {
   const prov    = document.getElementById('proveedor').value;
   const tipo    = document.getElementById('filtroTipo').value;
   const deporte = document.getElementById('filtroDeporte').value;
-  const params  = new URLSearchParams({ page: paginaActual });
+  const concepto = document.getElementById('filtroConcepto').value;
+  const params  = new URLSearchParams({ page: paginaActual, sort_by: sortBy, sort_dir: sortDir });
   if (desde)   params.set('desde', desde);
   if (hasta)   params.set('hasta', hasta);
   if (prov)    params.set('proveedor', prov);
   if (tipo)    params.set('tipo', tipo);
   if (deporte) params.set('deporte', deporte);
+  if (concepto) params.set('concepto', concepto);
   try {
     const [data, dupData] = await Promise.all([
       window.api(`/api/facturas?${params}`),
@@ -791,7 +833,7 @@ async function cargarFacturas(pagina) {
   }
 }
 
-// ── Modal detalle ─────────────────────────────────────────────────────────────
+// ── Modal detalle ──────────────────────────────────────────────────────────────────────────
 async function verDetalle(id) {
   const data = await window.api(`/api/facturas/${id}`);
   if (!data) return;
@@ -843,7 +885,7 @@ async function borrarFactura(id) {
   else { const d = await res.json(); alert(d.error || 'Error al borrar'); }
 }
 
-// ── Editar factura ────────────────────────────────────────────────────────────
+// ── Editar factura ────────────────────────────────────────────────────────────────────────────
 async function editarFactura(id) {
   const data = await window.api(`/api/facturas/${id}`);
   if (!data) return;
@@ -1070,7 +1112,7 @@ async function cargarOCRStats() {
   } catch (_) {}
 }
 
-// ── Init ──────────────────────────────────────────────────────────────────────
+// ── Init ──────────────────────────────────────────────────────────────────────────────────
 const jwtGuardado = sessionStorage.getItem('token');
 if (!jwtGuardado) {
   window.location.href = '/';
@@ -1078,6 +1120,7 @@ if (!jwtGuardado) {
   window.setToken(jwtGuardado);
   const usuarioGuardado = sessionStorage.getItem('usuario');
   if (usuarioGuardado) document.getElementById('userNameHeader').textContent = usuarioGuardado;
+  actualizarHeadersSort();
   cargarConceptosDinamicos().then(() => cargarFacturas(1));
   cargarOCRStats();
 }
