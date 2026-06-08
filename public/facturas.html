@@ -77,6 +77,14 @@
     .badge-ocr       { background: #fff3cd; color: #856404; }
     .ocr-proveedor   { font-size: .7rem; color: #aaa; padding: .1rem .4rem; border: 1px solid #e0e0e0; border-radius: 3px; }
     .ocr-proveedor.ocr-fallback { color: #856404; border-color: #ffc107; background: #fff8e1; cursor: help; }
+    /* Autocomplete proveedor */
+    .prov-wrap { position: relative; }
+    .prov-wrap input { width: 100%; box-sizing: border-box; }
+    .prov-dropdown { position: absolute; z-index: 999; background: #fff; border: 1px solid #ccc;
+      border-top: none; max-height: 220px; overflow-y: auto; width: 100%; box-shadow: 0 4px 8px rgba(0,0,0,.1); }
+    .prov-dropdown .prov-opt { padding: .4rem .6rem; cursor: pointer; font-size: .85rem; border-bottom: 1px solid #f0f0f0; }
+    .prov-dropdown .prov-opt:hover, .prov-dropdown .prov-opt.active { background: #e8f0fe; }
+    .prov-dropdown .prov-opt small { color: #888; margin-left: .4rem; }
     .badge-revisada  { background: #d4edda; color: var(--verde); }
     .badge-error     { background: #f8d7da; color: var(--rojo); }
     .revision-body { display: none; }
@@ -554,7 +562,7 @@ function rellenarTarjetaOCR(tarjeta, r) {
           <div class="seccion-label">Datos del emisor</div>
           <div class="campo-ocr">
             <label>Proveedor
-              <input type="text" id="f-${id}-proveedor" value="${escAttr(r.proveedor || '')}">
+              ${buildProveedorField(`f-${id}`, r.proveedor, r.nif_proveedor, r.proveedor_id)}
             </label>
           </div>
           <div class="campo-ocr">
@@ -610,6 +618,8 @@ function rellenarTarjetaOCR(tarjeta, r) {
       </div>
     </div>`;
 
+  // Inicializar autocomplete proveedor en el formulario inline
+  initProveedorAC(`f-${id}`, `f-${id}-nif`);
   cargarPreview(id, nombre);
 }
 
@@ -698,6 +708,52 @@ function toggleRevision(id) {
   if (body) body.classList.toggle('abierto');
 }
 
+// ── Autocomplete proveedor ────────────────────────────────────────
+function buildProveedorField(prefix, name, nif, provId) {
+  return `
+    <div class="prov-wrap">
+      <input type="text" id="${prefix}-proveedor" value="${escAttr(name || '')}" placeholder="Buscar proveedor..." autocomplete="off">
+      <input type="hidden" id="${prefix}-proveedor-id" value="${provId || ''}">
+      <div class="prov-dropdown" id="${prefix}-prov-dd" style="display:none"></div>
+    </div>`;
+}
+
+function initProveedorAC(prefix, nifFieldId) {
+  const inp = document.getElementById(prefix + '-proveedor');
+  const dd  = document.getElementById(prefix + '-prov-dd');
+  const hid = document.getElementById(prefix + '-proveedor-id');
+  if (!inp || !dd) return;
+  let timer;
+  inp.addEventListener('input', () => {
+    clearTimeout(timer);
+    hid.value = '';
+    timer = setTimeout(async () => {
+      const q = inp.value.trim();
+      if (q.length < 1) { dd.style.display = 'none'; return; }
+      const rows = await window.api('/api/proveedores?q=' + encodeURIComponent(q)).catch(() => []);
+      if (!rows || !rows.length) { dd.style.display = 'none'; return; }
+      dd.innerHTML = rows.slice(0,15).map(p =>
+        `<div class="prov-opt" data-id="${p.id}" data-nombre="${escAttr(p.nombre)}" data-nif="${escAttr(p.nif||'')}">
+          ${escHtml(p.nombre)}<small>${p.nif||''}</small></div>`
+      ).join('');
+      dd.style.display = 'block';
+      dd.querySelectorAll('.prov-opt').forEach(opt => {
+        opt.addEventListener('mousedown', e => {
+          e.preventDefault();
+          inp.value  = opt.dataset.nombre;
+          hid.value  = opt.dataset.id;
+          const nifEl = document.getElementById(nifFieldId);
+          if (nifEl) nifEl.value = opt.dataset.nif || '';
+          dd.style.display = 'none';
+        });
+      });
+    }, 200);
+  });
+  inp.addEventListener('blur', () => setTimeout(() => { dd.style.display = 'none'; }, 200));
+  inp.addEventListener('focus', () => { if (inp.value.trim()) inp.dispatchEvent(new Event('input')); });
+}
+// ────────────────────────────────────────────────────────────────
+
 async function confirmarRevision(id) {
   const btn = document.getElementById(`fc-${id}`);
   const msg = document.getElementById(`fm-${id}`);
@@ -713,6 +769,7 @@ async function confirmarRevision(id) {
     tipo:             get('tipo'),
     proveedor:        get('proveedor'),
     nif_proveedor:    get('nif'),
+    proveedor_id:     document.getElementById(`f-${id}-proveedor-id`)?.value || null,
     numero_factura:   get('numero'),
     fecha_factura:    get('fecha'),
     concepto:         get('concepto'),
@@ -916,7 +973,7 @@ async function editarFactura(id) {
       <div class="seccion-label">Datos del emisor</div>
       <div class="campo-ocr">
         <label>Proveedor
-          <input type="text" id="e-${id}-proveedor" value="${escAttr(data.proveedor || '')}">
+          ${buildProveedorField(`e-${id}`, data.proveedor, data.nif_proveedor, data.proveedor_id)}
         </label>
       </div>
       <div class="campo-ocr">
@@ -970,6 +1027,7 @@ async function editarFactura(id) {
     <button class="btn-verde" onclick="guardarEdicion(${id})">Guardar</button>
     <button class="btn-outline" onclick="cerrarModalEditar()">Cancelar</button>`;
   document.getElementById('modalEditarBg').classList.add('open');
+  initProveedorAC(`e-${id}`, `e-${id}-nif`);
   cargarPreviewEditar(id, data.nombre_archivo || '');
   // Cargar distribuciones existentes
   if (data.distribuciones && data.distribuciones.length > 0) {
@@ -1026,6 +1084,8 @@ function rellenarCamposEdicion(id, data) {
   set('equipo',    data.equipo_categoria || '');
   set('proveedor', data.proveedor || '');
   set('nif',       data.nif_proveedor || '');
+  const hidProv = document.getElementById(`e-${id}-proveedor-id`);
+  if (hidProv) hidProv.value = data.proveedor_id || '';
   set('numero',    data.numero_factura || '');
   set('fecha',     data.fecha_factura ? data.fecha_factura.slice(0,10) : '');
   set('base',      data.base_imponible ?? '');
@@ -1047,6 +1107,7 @@ async function guardarEdicion(id) {
     tipo:             get('tipo'),
     proveedor:        get('proveedor'),
     nif_proveedor:    get('nif'),
+    proveedor_id:     document.getElementById(`e-${id}-proveedor-id`)?.value || null,
     numero_factura:   get('numero'),
     fecha_factura:    get('fecha'),
     concepto:         get('concepto'),

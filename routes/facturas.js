@@ -72,7 +72,7 @@ router.get('/', async (req, res) => {
     params.push(limit, offset);
 
     const { rows } = await db.query(
-      `SELECT id, nombre_archivo, tipo, proveedor, nif_proveedor, numero_factura,
+      `SELECT id, nombre_archivo, tipo, proveedor, nif_proveedor, proveedor_id, numero_factura,
               fecha_factura, concepto, deporte, equipo_categoria, importe,
               referencia_banco, ocr_revisado, created_at, categoria_ingreso
        FROM facturas ${where}
@@ -268,7 +268,7 @@ router.patch('/:id/categoria-ingreso', async (req, res) => {
 router.patch('/:id', async (req, res) => {
   const client = await db.connect();
   try {
-    const { tipo, proveedor, nif_proveedor, numero_factura, fecha_factura,
+    const { tipo, proveedor, nif_proveedor, proveedor_id, numero_factura, fecha_factura,
             concepto, deporte, equipo_categoria,
             base_imponible, iva_porcentaje, iva_importe, importe,
             referencia_banco, distribuciones, categoria_ingreso } = req.body;
@@ -298,9 +298,10 @@ router.patch('/:id', async (req, res) => {
          importe          = COALESCE($12, importe),
          referencia_banco = COALESCE($13, referencia_banco),
          categoria_ingreso = COALESCE($14, categoria_ingreso),
+         proveedor_id     = COALESCE($15::integer, proveedor_id),
          ocr_revisado     = true
-       WHERE id = $15
-       RETURNING id, tipo, proveedor, nif_proveedor, numero_factura, fecha_factura,
+       WHERE id = $16
+       RETURNING id, tipo, proveedor, nif_proveedor, proveedor_id, numero_factura, fecha_factura,
                  concepto, deporte, equipo_categoria, referencia_banco,
                  base_imponible, iva_porcentaje, iva_importe, importe`,
       [tipo || null, proveedor || null, nif_proveedor || null, numero_factura || null,
@@ -312,6 +313,7 @@ router.patch('/:id', async (req, res) => {
        importe        != null ? importe        : null,
        referencia_banco || null,
        categoria_ingreso || null,
+       proveedor_id != null ? parseInt(proveedor_id) : null,
        req.params.id]
     );
     if (!factura) { await client.query('ROLLBACK'); return res.status(404).json({ error: 'Factura no encontrada.' }); }
