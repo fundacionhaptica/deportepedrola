@@ -45,7 +45,9 @@
     .estado-falta_justificante { background: #fff3cd; color: #b8860b; padding: .15rem .5rem; border-radius: 12px; font-size: .7rem; font-weight: 700; }
     .estado-falta_factura      { background: #ffe0e0; color: #c0392b; padding: .15rem .5rem; border-radius: 12px; font-size: .7rem; font-weight: 700; }
     .estado-discrepancia       { background: #f8d7da; color: #721c24; padding: .15rem .5rem; border-radius: 12px; font-size: .7rem; font-weight: 700; }
-    .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1rem; margin-bottom: 1.5rem; }
+    .estado-parcial            { background: #fff0cc; color: #b36000; padding: .15rem .5rem; border-radius: 12px; font-size: .7rem; font-weight: 700; }
+    .saldo-pendiente { font-size: .72rem; color: #b36000; font-weight: 700; margin-top: .15rem; }
+    .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 1rem; margin-bottom: 1.5rem; }
     .stat { background: #fff; padding: 1rem; border-radius: 6px; box-shadow: 0 1px 2px rgba(0,0,0,.05); }
     .stat .label { font-size: .72rem; color: #666; text-transform: uppercase; letter-spacing: .5px; }
     .stat .valor { font-size: 1.3rem; font-weight: 700; margin-top: .2rem; }
@@ -87,6 +89,7 @@
   <div class="aviso">
     <strong>Conciliación para el interventor del ayuntamiento.</strong> Cruza cada factura con su transferencia bancaria.
     Estados: <span class="estado-completo">completo</span> (factura + justificante ±1€),
+    <span class="estado-parcial">parcial</span> (justificante con saldo pendiente — p.ej. federación/mutuas),
     <span class="estado-falta_justificante">falta justificante</span>,
     <span class="estado-falta_factura">falta factura</span>,
     <span class="estado-discrepancia">discrepancia</span>.
@@ -106,6 +109,7 @@
         <option value="">Todos los estados</option>
         <option value="falta_justificante">Falta justificante</option>
         <option value="falta_factura">Falta factura</option>
+        <option value="parcial">Parcial (saldo pendiente)</option>
         <option value="discrepancia">Discrepancia</option>
         <option value="completo">Completo</option>
       </select>
@@ -178,12 +182,12 @@ function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, c => ({'&
 function fmt(n) { return n == null ? '—' : Number(n).toLocaleString('es-ES', {minimumFractionDigits:2,maximumFractionDigits:2}) + ' €'; }
 function fmtFecha(s) { return s ? new Date(s).toLocaleDateString('es-ES') : '—'; }
 
-let _filas = [];        // cache completo para exportar y ordenar
-let _filasModal = [];   // cache para el modal
+let _filas = [];
+let _filasModal = [];
 let _sortCol = 'fecha_factura';
 let _sortDir = 'desc';
 
-// ── Resumen estadístico ────────────────────────────────────────────
+// ── Resumen estadístico ─────────────────────────────────────────
 async function cargarResumen() {
   try {
     const data = await window.api('/api/conciliacion/resumen');
@@ -193,6 +197,7 @@ async function cargarResumen() {
     const total_f = reduce(data.filter(x => x.tipo === 'factura_recibo'), x => Number(x.importe_total));
     const total_j = reduce(data.filter(x => ['justificante_bancario','gasto_bancario'].includes(x.tipo)), x => Number(x.importe_total));
     const n_completo = reduce(data.filter(x => x.estado==='completo'),            x => Number(x.n));
+    const n_parcial  = reduce(data.filter(x => x.estado==='parcial'),             x => Number(x.n));
     const n_falta_j  = reduce(data.filter(x => x.estado==='falta_justificante'),  x => Number(x.n));
     const n_falta_f  = reduce(data.filter(x => x.estado==='falta_factura'),       x => Number(x.n));
     const n_dis      = reduce(data.filter(x => x.estado==='discrepancia'),        x => Number(x.n));
@@ -202,12 +207,13 @@ async function cargarResumen() {
       <div class="stat" style="background:#e8f5e9"><div class="label">Completas</div><div class="valor" style="color:#2E7D32">${n_completo}</div></div>
       <div class="stat" style="background:#fff8e1"><div class="label">Falta justificante</div><div class="valor" style="color:#b8860b">${n_falta_j}</div></div>
       <div class="stat" style="background:#ffebee"><div class="label">Falta factura</div><div class="valor" style="color:#c0392b">${n_falta_f}</div></div>
+      <div class="stat" style="background:#fff3cc"><div class="label">Parciales (saldo)</div><div class="valor" style="color:#b36000">${n_parcial}</div></div>
       <div class="stat" style="background:#fde7ea"><div class="label">Discrepancias</div><div class="valor" style="color:#721c24">${n_dis}</div></div>
     `;
   } catch (e) { console.error(e); }
 }
 
-// ── Ordenación local ───────────────────────────────────────────────
+// ── Ordenación local ─────────────────────────────────────────
 function sortBy(col) {
   if (_sortCol === col) {
     _sortDir = _sortDir === 'asc' ? 'desc' : 'asc';
@@ -250,6 +256,12 @@ function renderTabla() {
       entrada_banco: ['#2E7D32', 'Banco ← entra'],
     };
     const [ladoCol, ladoLab] = lados[f.lado] || ['#666', f.tipo];
+
+    // Celda importe: para justificantes parciales muestra el saldo pendiente
+    const saldoInfo = (f.estado_conciliacion === 'parcial' && f.saldo_pendiente > 0)
+      ? `<div class="saldo-pendiente">Saldo: ${fmt(f.saldo_pendiente)}</div>`
+      : '';
+
     const btnConciliar = f.lado === 'gasto'
       ? `<button class="btn-verde" onclick="abrirConciliar(${f.id})">Vincular</button>`
       : (f.lado === 'salida_banco'
@@ -260,7 +272,7 @@ function renderTabla() {
       <td><span style="background:${ladoCol};color:#fff;padding:.1rem .5rem;border-radius:99px;font-size:.7rem;font-weight:600">${ladoLab}</span><br><small style="color:#888;font-size:.7rem">${f.tipo}</small></td>
       <td>${esc(f.proveedor || '—')}<br><small style="color:#888;font-size:.7rem">${esc(f.concepto || '')}</small></td>
       <td>${esc(f.numero_factura || '—')}</td>
-      <td class="importe">${fmt(f.importe)}</td>
+      <td class="importe">${fmt(f.importe)}${saldoInfo}</td>
       <td><span class="estado-${f.estado_conciliacion}">${f.estado_conciliacion.replace(/_/g,' ')}</span></td>
       <td class="ids">${ids || '<span class="nada">—</span>'}</td>
       <td style="white-space:nowrap">${btnConciliar} ${btnDesconciliar}
@@ -269,7 +281,7 @@ function renderTabla() {
   }).join('');
 }
 
-// ── Carga de datos ───────────────────────────────────────────────
+// ── Carga de datos ───────────────────────────────────────
 async function cargarEstado() {
   const params = new URLSearchParams();
   const est  = document.getElementById('fEstado').value;
@@ -292,7 +304,7 @@ async function cargarEstado() {
   }
 }
 
-// ── Sugerencias ──────────────────────────────────────────────────
+// ── Sugerencias ───────────────────────────────────────
 async function cargarSugerencias() {
   document.getElementById('tablaSug').innerHTML = '<tr><td colspan="10" style="text-align:center;padding:1rem;color:#888">Buscando…</td></tr>';
   try {
@@ -313,14 +325,14 @@ async function cargarSugerencias() {
         <td class="importe">${fmt(s.justif_importe)}</td>
         <td class="importe">${fmt(s.dif_importe)}</td>
         <td style="text-align:right">${s.dif_dias}</td>
-        <td><button class="btn-verde" onclick="conciliarPar(${s.factura_id},${s.justif_id},${s.factura_importe},${s.justif_importe})">✓ Vincular</button></td>
+        <td><button class="btn-verde" onclick="conciliarPar(${s.factura_id},${s.justif_id},${s.factura_importe},${s.justif_importe})">&#x2713; Vincular</button></td>
       </tr>`).join('');
   } catch (e) {
     document.getElementById('tablaSug').innerHTML = `<tr><td colspan="10" style="color:var(--rojo);padding:1rem;text-align:center">Error: ${esc(e.message)}</td></tr>`;
   }
 }
 
-// ── Conciliar ───────────────────────────────────────────────────
+// ── Conciliar ─────────────────────────────────────────
 async function conciliarPar(factura_id, justificante_id, fImporte, jImporte) {
   let conComision = false;
   let confirmMsg = `Vincular factura #${factura_id} con justificante #${justificante_id}?`;
@@ -329,7 +341,7 @@ async function conciliarPar(factura_id, justificante_id, fImporte, jImporte) {
     if (diff >= 0.01 && diff <= 0.55) {
       conComision = confirm(`Vincular factura #${factura_id} (${fImporte}€) con justificante #${justificante_id} (${jImporte}€).\n\nDiferencia: ${diff}€ → parece comisión IberCaja.\n\n¿Registrar automáticamente esa comisión como gasto_bancario? (Aceptar = Sí)`);
     } else if (Math.abs(diff) > 0.55) {
-      if (!confirm(`Vincular factura #${factura_id} (${fImporte}€) con justificante #${justificante_id} (${jImporte}€).\n\nDiferencia: ${diff}€ (mayor que comisión típica). Quedará como 'discrepancia'.\n\n¿Continuar?`)) return;
+      if (!confirm(`Vincular factura #${factura_id} (${fImporte}€) con justificante #${justificante_id} (${jImporte}€).\n\nDiferencia: ${diff}€. El justificante puede quedar 'parcial' si aún tiene saldo, o 'discrepancia' si se supera.\n\n¿Continuar?`)) return;
     } else {
       if (!confirm(confirmMsg)) return;
     }
@@ -354,25 +366,26 @@ async function conciliarPar(factura_id, justificante_id, fImporte, jImporte) {
 }
 
 // Abre modal para vincular una factura_recibo con justificantes disponibles.
-// Solo muestra justificantes con estado falta_factura (no conciliados aun).
+// Muestra justificantes sin conciliar (falta_factura) Y parciales (tienen saldo).
 async function abrirConciliar(factura_id) {
   document.getElementById('modal').style.display = 'flex';
   document.getElementById('modalTitulo').textContent = `Vincular factura #${factura_id}`;
-  document.getElementById('modalCuerpo').textContent = 'Elige el justificante bancario que paga esta factura (solo sin conciliar):';
+  document.getElementById('modalCuerpo').textContent = 'Elige el justificante bancario (sin conciliar o con saldo parcial):';
   document.getElementById('modalBuscar').value = '';
   const lista = document.getElementById('modalLista');
   lista.innerHTML = '<div style="padding:.6rem;color:#888">Cargando…</div>';
   try {
-    // Solo justificantes sin conciliar: estado falta_factura
-    const data = await window.api('/api/conciliacion?tipo=justificante_bancario&estado=falta_factura');
-    if (!data) return;
-    _filasModal = data;
+    // Traemos tanto los sin conciliar como los parciales (aún tienen saldo)
+    const [sinFac, parciales] = await Promise.all([
+      window.api('/api/conciliacion?tipo=justificante_bancario&estado=falta_factura'),
+      window.api('/api/conciliacion?tipo=justificante_bancario&estado=parcial'),
+    ]);
+    _filasModal = [...(sinFac || []), ...(parciales || [])];
     renderModalLista(_filasModal, factura_id, 'justif');
   } catch (e) { lista.innerHTML = `<div style="padding:.6rem;color:var(--rojo)">Error: ${esc(e.message)}</div>`; }
 }
 
 // Abre modal para vincular un justificante con facturas disponibles.
-// Solo muestra facturas con estado falta_justificante.
 async function abrirConciliarJustif(justif_id) {
   document.getElementById('modal').style.display = 'flex';
   document.getElementById('modalTitulo').textContent = `Vincular justificante #${justif_id}`;
@@ -381,7 +394,6 @@ async function abrirConciliarJustif(justif_id) {
   const lista = document.getElementById('modalLista');
   lista.innerHTML = '<div style="padding:.6rem;color:#888">Cargando…</div>';
   try {
-    // Solo facturas sin conciliar: estado falta_justificante
     const data = await window.api('/api/conciliacion?tipo=factura_recibo&estado=falta_justificante');
     if (!data) return;
     _filasModal = data;
@@ -399,10 +411,14 @@ function renderModalLista(filas, contextoId, lado) {
     const [btnFId, btnJId] = lado === 'justif'
       ? [contextoId, item.id]
       : [item.id, contextoId];
+    // Si es justificante parcial, mostrar saldo pendiente
+    const saldoTag = (item.estado_conciliacion === 'parcial' && item.saldo_pendiente > 0)
+      ? ` <span class="estado-parcial" style="margin-left:.3rem">saldo ${fmt(item.saldo_pendiente)}</span>`
+      : '';
     return `
       <div style="padding:.5rem;border-bottom:1px solid #eee;display:flex;justify-content:space-between;align-items:center;gap:.5rem">
         <div style="flex:1">
-          <div style="font-weight:600">${esc(item.proveedor || '—')}</div>
+          <div style="font-weight:600">${esc(item.proveedor || '—')}${saldoTag}</div>
           <small style="color:#888">${fmtFecha(item.fecha_factura)} · ${esc(item.concepto || '')} · ${esc(item.numero_factura || '')}</small>
         </div>
         <div class="importe" style="min-width:90px">${fmt(item.importe)}</div>
@@ -419,7 +435,6 @@ function filtrarModalLista() {
     (f.concepto  || '').toLowerCase().includes(q) ||
     (f.numero_factura || '').toLowerCase().includes(q)
   ) : _filasModal;
-  // Re-render sin cambiar contextoId (usamos un hack: buscamos el id del título)
   const titulo = document.getElementById('modalTitulo').textContent;
   const match = titulo.match(/#(\d+)/);
   const cId = match ? Number(match[1]) : null;
@@ -440,7 +455,7 @@ async function verConciliacionesPara(id, tipo) {
   lista.innerHTML = otros.map(oid => `
     <div style="padding:.5rem;border-bottom:1px solid #eee;display:flex;justify-content:space-between;align-items:center">
       <div>Vinculado con #${oid}</div>
-      <button class="btn-rojo" onclick="desconciliar(${tipo==='factura_recibo'?id:oid},${tipo==='factura_recibo'?oid:id})">✕ Quitar</button>
+      <button class="btn-rojo" onclick="desconciliar(${tipo==='factura_recibo'?id:oid},${tipo==='factura_recibo'?oid:id})">&#x2715; Quitar</button>
     </div>`).join('');
 }
 
@@ -475,11 +490,12 @@ function verPDF(id) {
 
 function exportarCSV() {
   if (!_filas.length) { alert('Sin datos'); return; }
-  const headers = ['fecha','tipo','proveedor','numero','concepto','importe','estado','conciliada_con','deporte','equipo'];
+  const headers = ['fecha','tipo','proveedor','numero','concepto','importe','estado','saldo_pendiente','conciliada_con','deporte','equipo'];
   const rows = _filas.map(f => [
     f.fecha_factura || '', f.tipo, f.proveedor || '', f.numero_factura || '',
     (f.concepto || '').replace(/"/g,'""'), f.importe || 0,
-    f.estado_conciliacion, (f.conciliada_con || []).join(';'),
+    f.estado_conciliacion, f.saldo_pendiente || 0,
+    (f.conciliada_con || []).join(';'),
     f.deporte || '', f.equipo_categoria || '',
   ].map(v => `"${String(v).replace(/"/g,'""')}"`).join(','));
   const csv = headers.join(',') + '\n' + rows.join('\n');
