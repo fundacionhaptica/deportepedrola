@@ -140,3 +140,18 @@ ssh jaime@MaJaNAS "cd /volume1/docker/club/new && git pull origin main && docker
 ## Idioma
 
 Todas las comunicaciones, commits y documentación en **español**. Solo nombres técnicos en inglés por convención.
+
+---
+
+## Auditoria NAS 2026-08-12 - cambios que afectan a este repo
+
+> Mapa completo del ecosistema: `/volume1/docker/CLAUDE.md`
+
+- **`vaultwarden` comparte la red `club-network`.** El gestor de contrasenas (`vaultwarden/server:latest`, healthy) esta conectado a `club-network` por conveniencia del tunel Cloudflare, **no** porque pertenezca al Club. Consecuencias practicas:
+  - **No hacer `docker network rm club-network` ni `docker compose down --remove-orphans`** desde este proyecto sin comprobar antes que `vaultwarden` no queda desconectado.
+  - Vaultwarden **no expone puerto al host**: solo se llega por `vault.ruizespana.com` via tunel.
+  - Backup diario automatico a las 03:30 -> `/volume1/docker/_backups_vaultwarden/` (verificado ininterrumpido hasta 12/08/2026).
+- Estado del stack Club a 12/08: `club-app-1`:3011 y `club-db-1` (PostgreSQL 16, healthy) - ambos `Up`.
+- Siguen **pendientes de desplegar** los servicios con puerto ya reservado: **8030** NocoDB (`socios.deportepedrola.com`) y **8040** Metabase (`stats.deportepedrola.com`).
+- Redes huerfanas relacionadas con este proyecto (0 contenedores, candidatas a limpiar **con confirmacion**): `deportepedrola_deporte-net`, `new_deporte-net`, `repo_deporte-net`.
+- **Cambios sin commitear** a 12/08: sin trackear `HANDOFF.md` y `tmp_facturas_nombres.txt`.
